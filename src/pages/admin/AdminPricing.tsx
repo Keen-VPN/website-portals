@@ -49,17 +49,22 @@ function skuPrice(sku: AdminPricingSku): number {
     : Number.parseFloat(String(sku.basePrice));
 }
 
-function formatSkuPrice(sku: AdminPricingSku): string {
-  const amount = skuPrice(sku);
-  if (!Number.isFinite(amount)) return String(sku.basePrice);
+function formatMoney(amount: number, currency = "USD"): string {
+  if (!Number.isFinite(amount)) return String(amount);
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: sku.currency || "USD",
+      currency: currency || "USD",
     }).format(amount);
   } catch {
-    return `${sku.currency} ${amount.toFixed(2)}`;
+    return `${currency} ${amount.toFixed(2)}`;
   }
+}
+
+function formatSkuPrice(sku: AdminPricingSku): string {
+  const amount = skuPrice(sku);
+  if (!Number.isFinite(amount)) return String(sku.basePrice);
+  return formatMoney(amount, sku.currency || "USD");
 }
 
 export default function AdminPricing() {
@@ -228,25 +233,37 @@ export default function AdminPricing() {
     setBusy(false);
   };
 
-  const submitDraft = async () => {
-    if (!canWrite || !draftId) return;
+  const submitDraftById = async (id: string) => {
+    if (!canWrite) return;
     setBusy(true);
     setError(null);
-    const res = await adminSubmitPricingChange(draftId);
+    const res = await adminSubmitPricingChange(id);
     if (!res.ok) {
       setError(res.error ?? "Failed to submit");
       setBusy(false);
       return;
     }
-    setNotice("Submitted for approval. Slack preview posted if webhook is configured.");
-    setDraftId(null);
-    setPreview(null);
-    setSelectedIds(new Set());
-    setToPrices({});
-    setTitle("");
-    setNotes("");
+    setNotice(
+      "Submitted for approval. Slack preview posted if webhook is configured.",
+    );
+    if (draftId === id) {
+      setDraftId(null);
+      setPreview(null);
+      setSelectedIds(new Set());
+      setToPrices({});
+      setTitle("");
+      setNotes("");
+    }
+    if (detail?.id === id) {
+      setDetail((prev) => res.data ?? prev);
+    }
     await loadRequests();
     setBusy(false);
+  };
+
+  const submitDraft = async () => {
+    if (!draftId) return;
+    await submitDraftById(draftId);
   };
 
   const openDetail = async (id: string) => {
@@ -327,10 +344,19 @@ export default function AdminPricing() {
 
   const isSelfCreated =
     !!detail?.createdByAdminId && detail.createdByAdminId === admin?.id;
+  const detailChanges = Array.isArray(detail?.proposedChanges)
+    ? detail.proposedChanges
+    : [];
+  const hasVisibleChanges = detailChanges.length > 0;
   const canApproveThis =
     canApprove &&
     detail?.status === "PENDING_APPROVAL" &&
-    !isSelfCreated;
+    !isSelfCreated &&
+    hasVisibleChanges;
+  const canSubmitOpenedDraft =
+    canWrite &&
+    (detail?.status === "DRAFT" || detail?.status === "REJECTED") &&
+    hasVisibleChanges;
 
   return (
     <div className="space-y-8">
@@ -638,6 +664,64 @@ export default function AdminPricing() {
           ) : null}
 
           <div>
+            <h4 className="mb-2 text-sm font-semibold">Proposed changes</h4>
+            {!hasVisibleChanges ? (
+              <p className="text-sm text-muted-foreground">
+                No proposed changes available for this request.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-md border border-border">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2">Platform</th>
+                      <th className="px-3 py-2">Plan</th>
+                      <th className="px-3 py-2">Period</th>
+                      <th className="px-3 py-2">From</th>
+                      <th className="px-3 py-2">To</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailChanges.map((change, index) => {
+                      const currency = change.currency || "USD";
+                      return (
+                      <tr
+                        key={`${change.platform}-${change.planKey}-${change.billingPeriod}-${index}`}
+                        className="border-t border-border"
+                      >
+                        <td className="px-3 py-2 font-medium">
+                          {change.platform}
+                        </td>
+                        <td className="px-3 py-2">{change.planKey}</td>
+                        <td className="px-3 py-2">{change.billingPeriod}</td>
+                        <td className="px-3 py-2">
+                          {formatMoney(change.fromPrice, currency)}
+                        </td>
+                        <td className="px-3 py-2">
+                          {formatMoney(change.toPrice, currency)}
+                        </td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {canSubmitOpenedDraft ? (
+            <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+              <Button
+                type="button"
+                disabled={busy}
+                onClick={() => void submitDraftById(detail.id)}
+              >
+                Submit for approval
+              </Button>
+            </div>
+          ) : null}
+
+          <div>
             <h4 className="mb-2 text-sm font-semibold">Platform results</h4>
             {detail.platformResults.length === 0 ? (
               <p className="text-sm text-muted-foreground">None yet</p>
@@ -673,6 +757,12 @@ export default function AdminPricing() {
                 </p>
               ) : (
                 <>
+                  {!hasVisibleChanges ? (
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                      Approval is disabled until proposed price changes are
+                      visible for review. You can still reject this request.
+                    </p>
+                  ) : null}
                   <div className="space-y-2">
                     <Label htmlFor="reject-reason">Reject reason (optional)</Label>
                     <Textarea
