@@ -49,17 +49,20 @@ function skuPrice(sku: AdminPricingSku): number {
     : Number.parseFloat(String(sku.basePrice));
 }
 
-function formatSkuPrice(sku: AdminPricingSku): string {
-  const amount = skuPrice(sku);
-  if (!Number.isFinite(amount)) return String(sku.basePrice);
+function formatMoney(amount: number, currency = "USD"): string {
+  if (!Number.isFinite(amount)) return String(amount);
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: sku.currency || "USD",
+      currency: currency || "USD",
     }).format(amount);
   } catch {
-    return `${sku.currency} ${amount.toFixed(2)}`;
+    return `${currency} ${amount.toFixed(2)}`;
   }
+}
+
+function formatSkuPrice(sku: AdminPricingSku): string {
+  return formatMoney(skuPrice(sku), sku.currency || "USD");
 }
 
 export default function AdminPricing() {
@@ -250,7 +253,7 @@ export default function AdminPricing() {
       setNotes("");
     }
     if (detail?.id === id) {
-      setDetail(res.data ?? null);
+      setDetail((prev) => res.data ?? prev);
     }
     await loadRequests();
     setBusy(false);
@@ -670,29 +673,34 @@ export default function AdminPricing() {
                   <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2">Platform</th>
+                      <th className="px-3 py-2">Plan</th>
                       <th className="px-3 py-2">Period</th>
                       <th className="px-3 py-2">From</th>
                       <th className="px-3 py-2">To</th>
-                      <th className="px-3 py-2">Currency</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {detailChanges.map((change, index) => (
+                    {detailChanges.map((change, index) => {
+                      const currency = change.currency || "USD";
+                      return (
                       <tr
-                        key={`${change.platform}-${change.billingPeriod}-${index}`}
+                        key={`${change.platform}-${change.planKey}-${change.billingPeriod}-${index}`}
                         className="border-t border-border"
                       >
                         <td className="px-3 py-2 font-medium">
                           {change.platform}
                         </td>
+                        <td className="px-3 py-2">{change.planKey}</td>
                         <td className="px-3 py-2">{change.billingPeriod}</td>
-                        <td className="px-3 py-2">{change.fromPrice}</td>
-                        <td className="px-3 py-2">{change.toPrice}</td>
                         <td className="px-3 py-2">
-                          {change.currency || "USD"}
+                          {formatMoney(change.fromPrice, currency)}
+                        </td>
+                        <td className="px-3 py-2">
+                          {formatMoney(change.toPrice, currency)}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -745,13 +753,14 @@ export default function AdminPricing() {
                 <p className="text-sm text-amber-700 dark:text-amber-300">
                   You created this request — another admin must approve it.
                 </p>
-              ) : !hasVisibleChanges ? (
-                <p className="text-sm text-amber-700 dark:text-amber-300">
-                  Approval is disabled until proposed price changes are visible
-                  for review.
-                </p>
               ) : (
                 <>
+                  {!hasVisibleChanges ? (
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                      Approval is disabled until proposed price changes are
+                      visible for review. You can still reject this request.
+                    </p>
+                  ) : null}
                   <div className="space-y-2">
                     <Label htmlFor="reject-reason">Reject reason (optional)</Label>
                     <Textarea
