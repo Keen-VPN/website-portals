@@ -62,7 +62,9 @@ function formatMoney(amount: number, currency = "USD"): string {
 }
 
 function formatSkuPrice(sku: AdminPricingSku): string {
-  return formatMoney(skuPrice(sku), sku.currency || "USD");
+  const amount = skuPrice(sku);
+  if (!Number.isFinite(amount)) return String(sku.basePrice);
+  return formatMoney(amount, sku.currency || "USD");
 }
 
 export default function AdminPricing() {
