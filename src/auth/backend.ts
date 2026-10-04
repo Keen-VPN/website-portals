@@ -10903,7 +10903,18 @@ export async function adminRunPricingDriftAudit(): Promise<{
       };
     }
     const record = raw as { data?: AdminPricingDriftAuditData };
-    if (!record.data || !Array.isArray(record.data.findings)) {
+    const findings = record.data?.findings;
+    if (
+      !record.data ||
+      !Array.isArray(findings) ||
+      !findings.every(
+        (finding) =>
+          !!finding &&
+          typeof finding.platform === "string" &&
+          typeof finding.billingPeriod === "string" &&
+          typeof finding.message === "string",
+      )
+    ) {
       return { ok: false, error: "Invalid response from server" };
     }
     return { ok: true, data: record.data };

@@ -142,6 +142,7 @@ export default function AdminPricing() {
 
   useEffect(() => {
     if (!canRead) return;
+    setError(null);
     void loadRequests();
   }, [canRead, loadRequests]);
 
