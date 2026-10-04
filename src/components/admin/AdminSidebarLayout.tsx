@@ -8,6 +8,7 @@ import {
   ArrowRightLeft,
   BarChart3,
   CreditCard,
+  DollarSign,
   Users,
   Activity,
   TrendingDown,
@@ -183,6 +184,15 @@ export default function AdminSidebarLayout() {
               <CreditCard className="h-4 w-4" />
               Subscriptions
             </NavLink>
+            {can("pricing.read") ? (
+              <NavLink
+                to="/admin/pricing"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                <DollarSign className="h-4 w-4" />
+                Pricing
+              </NavLink>
+            ) : null}
             <NavLink
               to="/admin/churn"
               className={({ isActive }) => linkClass(isActive)}

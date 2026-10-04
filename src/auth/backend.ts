@@ -10534,3 +10534,394 @@ export async function redeemPromoTrialQr(
     return { ok: false, error: "Network error redeeming promotional trial" };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Admin — Centralized pricing manager
+// ---------------------------------------------------------------------------
+
+export type PricingPlatform =
+  | "WEB"
+  | "IOS"
+  | "MACOS"
+  | "ANDROID"
+  | "WINDOWS";
+
+export type PricingBillingPeriod = "MONTHLY" | "ANNUAL" | "TWO_YEAR";
+
+export type PricingChangeStatus =
+  | "DRAFT"
+  | "PENDING_APPROVAL"
+  | "APPROVED"
+  | "REJECTED"
+  | "APPLYING"
+  | "APPLIED"
+  | "PARTIAL_FAILURE"
+  | "FAILED";
+
+export type PricingPlatformSyncStatus =
+  | "PENDING"
+  | "SUCCESS"
+  | "FAILED"
+  | "SKIPPED";
+
+export interface AdminPricingSku {
+  id: string;
+  planKey: string;
+  billingPeriod: PricingBillingPeriod;
+  platform: PricingPlatform;
+  currency: string;
+  basePrice: string | number;
+  trialDays: number;
+  storeProductId: string | null;
+  storePriceId: string | null;
+  isActive: boolean;
+  effectiveFrom: string;
+}
+
+export interface AdminProposedPricingChange {
+  planKey: string;
+  billingPeriod: PricingBillingPeriod;
+  platform: PricingPlatform;
+  currency?: string;
+  fromPrice: number;
+  toPrice: number;
+  trialDays?: number;
+  storeProductId?: string | null;
+  storePriceId?: string | null;
+}
+
+export interface AdminPricingChangeListItem {
+  id: string;
+  title: string;
+  status: PricingChangeStatus;
+  notes: string | null;
+  createdByAdminId: string | null;
+  approvedByAdminId: string | null;
+  rejectedByAdminId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  appliedAt: string | null;
+  previewSummary: string | null;
+  affectedPlatforms: PricingPlatform[];
+}
+
+export interface AdminPricingPreviewLine {
+  planKey: string;
+  billingPeriod: PricingBillingPeriod;
+  platform: PricingPlatform;
+  currency: string;
+  fromPrice: number;
+  toPrice: number;
+  delta: number;
+}
+
+export interface AdminPricingPreview {
+  title: string;
+  summary: string;
+  affectedPlatforms: PricingPlatform[];
+  lines: AdminPricingPreviewLine[];
+}
+
+export interface AdminPricingPlatformResult {
+  id: string;
+  platform: PricingPlatform;
+  status: PricingPlatformSyncStatus;
+  message: string | null;
+  verifiedAt: string | null;
+}
+
+export interface AdminPricingAuditEvent {
+  id: string;
+  action: string;
+  actorAdminId: string | null;
+  actorLabel: string | null;
+  createdAt: string;
+}
+
+export interface AdminPricingChangeDetail {
+  id: string;
+  title: string;
+  status: PricingChangeStatus;
+  notes: string | null;
+  proposedChanges: AdminProposedPricingChange[];
+  preview: AdminPricingPreview | null;
+  createdByAdminId: string | null;
+  approvedByAdminId: string | null;
+  rejectedByAdminId: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  appliedAt: string | null;
+  platformResults: AdminPricingPlatformResult[];
+  auditEvents: AdminPricingAuditEvent[];
+}
+
+export interface AdminPricingDriftFinding {
+  platform: PricingPlatform;
+  planKey: string;
+  billingPeriod: PricingBillingPeriod;
+  expectedPrice: number;
+  observedPrice: number | null;
+  storeProductId: string | null;
+  message: string;
+}
+
+export interface AdminPricingDriftAuditData {
+  findings: AdminPricingDriftFinding[];
+}
+
+export async function adminFetchPricingCatalog(): Promise<{
+  ok: boolean;
+  data?: AdminPricingSku[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/pricing/catalog`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load pricing catalog"),
+      };
+    }
+    const record = raw as { data?: AdminPricingSku[] };
+    return { ok: true, data: record.data ?? [] };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminListPricingChanges(params?: {
+  status?: PricingChangeStatus | "";
+  limit?: number;
+}): Promise<{
+  ok: boolean;
+  data?: AdminPricingChangeListItem[];
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.limit != null) query.set("limit", String(params.limit));
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/pricing/changes${suffix}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load pricing changes"),
+      };
+    }
+    const record = raw as { data?: AdminPricingChangeListItem[] };
+    return { ok: true, data: record.data ?? [] };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminGetPricingChange(id: string): Promise<{
+  ok: boolean;
+  data?: AdminPricingChangeDetail;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/pricing/changes/${encodeURIComponent(id)}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load pricing change"),
+      };
+    }
+    const record = raw as { data?: AdminPricingChangeDetail };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminCreatePricingChange(input: {
+  title: string;
+  notes?: string;
+  changes: AdminProposedPricingChange[];
+}): Promise<{
+  ok: boolean;
+  data?: { request: AdminPricingChangeDetail; preview: AdminPricingPreview };
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/pricing/changes`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to create pricing change"),
+      };
+    }
+    const record = raw as {
+      data?: { request: AdminPricingChangeDetail; preview: AdminPricingPreview };
+    };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminSubmitPricingChange(id: string): Promise<{
+  ok: boolean;
+  data?: AdminPricingChangeDetail;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/pricing/changes/${encodeURIComponent(id)}/submit`,
+      { method: "POST", credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to submit pricing change"),
+      };
+    }
+    const record = raw as { data?: AdminPricingChangeDetail };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminApprovePricingChange(id: string): Promise<{
+  ok: boolean;
+  data?: AdminPricingChangeDetail;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/pricing/changes/${encodeURIComponent(id)}/approve`,
+      { method: "POST", credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to approve pricing change"),
+      };
+    }
+    const record = raw as { data?: AdminPricingChangeDetail };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminRejectPricingChange(
+  id: string,
+  reason?: string,
+): Promise<{
+  ok: boolean;
+  data?: AdminPricingChangeDetail;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/pricing/changes/${encodeURIComponent(id)}/reject`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to reject pricing change"),
+      };
+    }
+    const record = raw as { data?: AdminPricingChangeDetail };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminRunPricingDriftAudit(): Promise<{
+  ok: boolean;
+  data?: AdminPricingDriftAuditData;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/pricing/drift-audit`, {
+      method: "POST",
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to run drift audit"),
+      };
+    }
+    const record = raw as { data?: AdminPricingDriftAuditData };
+    const findings = record.data?.findings;
+    if (
+      !record.data ||
+      !Array.isArray(findings) ||
+      !findings.every(
+        (finding) =>
+          !!finding &&
+          typeof finding.platform === "string" &&
+          typeof finding.billingPeriod === "string" &&
+          typeof finding.message === "string",
+      )
+    ) {
+      return { ok: false, error: "Invalid response from server" };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}

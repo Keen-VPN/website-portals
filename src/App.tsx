@@ -84,6 +84,7 @@ const AdminConnectionEngagement = lazy(
 const AdminSubscriptions = lazy(
   () => import("./pages/admin/AdminSubscriptions"),
 );
+const AdminPricing = lazy(() => import("./pages/admin/AdminPricing"));
 const AdminChurn = lazy(() => import("./pages/admin/AdminChurn"));
 const AdminJiraDelivery = lazy(
   () => import("./pages/admin/AdminJiraDelivery"),
@@ -399,6 +400,7 @@ const App = () => (
                   element={<AdminMembershipSharing />}
                 />
                 <Route path="subscriptions" element={<AdminSubscriptions />} />
+                <Route path="pricing" element={<AdminPricing />} />
                 <Route path="churn" element={<AdminChurn />} />
                 <Route path="jira-delivery" element={<AdminJiraDelivery />} />
                 <Route path="users" element={<AdminUsers />} />
