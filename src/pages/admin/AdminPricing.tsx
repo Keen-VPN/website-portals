@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +22,7 @@ import {
 } from "@/auth/backend";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
-const PLATFORMS: Array<PricingPlatform | "ALL"> = [
+const PLATFORMS: (PricingPlatform | "ALL")[] = [
   "ALL",
   "WEB",
   "IOS",
@@ -31,10 +31,12 @@ const PLATFORMS: Array<PricingPlatform | "ALL"> = [
   "WINDOWS",
 ];
 
-const STATUS_FILTERS: Array<PricingChangeStatus | ""> = [
+const STATUS_FILTERS: (PricingChangeStatus | "")[] = [
   "",
   "DRAFT",
   "PENDING_APPROVAL",
+  "APPROVED",
+  "APPLYING",
   "APPLIED",
   "PARTIAL_FAILURE",
   "FAILED",
@@ -89,6 +91,7 @@ export default function AdminPricing() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const loadRequestsSeq = useRef(0);
 
   const loadCatalog = useCallback(async () => {
     const res = await adminFetchPricingCatalog();
@@ -101,10 +104,12 @@ export default function AdminPricing() {
   }, []);
 
   const loadRequests = useCallback(async () => {
+    const seq = ++loadRequestsSeq.current;
     const res = await adminListPricingChanges({
       status: statusFilter || undefined,
       limit: 50,
     });
+    if (seq !== loadRequestsSeq.current) return;
     if (!res.ok || !res.data) {
       setError(res.error ?? "Failed to load change requests");
       setRequests([]);
@@ -121,9 +126,24 @@ export default function AdminPricing() {
     setLoading(false);
   }, [canRead, loadCatalog, loadRequests]);
 
+  // Catalog is independent of status filter — load once on mount / via Refresh.
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (!canRead) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    void loadCatalog().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [canRead, loadCatalog]);
+
+  useEffect(() => {
+    if (!canRead) return;
+    void loadRequests();
+  }, [canRead, loadRequests]);
 
   const filteredCatalog = useMemo(() => {
     if (platformFilter === "ALL") return catalog;
@@ -197,7 +217,12 @@ export default function AdminPricing() {
 
     setDraftId(res.data.request.id);
     setPreview(res.data.preview);
-    setNotice(`Draft created (${res.data.request.id}). Submit for approval when ready.`);
+    setNotice(
+      `Draft created (${res.data.request.id}). Submit for approval when ready.`,
+    );
+    // Prevent accidental duplicate drafts from the same selection.
+    setSelectedIds(new Set());
+    setToPrices({});
     await loadRequests();
     setBusy(false);
   };
@@ -406,7 +431,9 @@ export default function AdminPricing() {
                   </td>
                 </tr>
               ) : (
-                filteredCatalog.map((sku) => (
+                filteredCatalog.map((sku) => {
+                  const skuLabel = `${sku.platform} ${sku.billingPeriod} ${sku.planKey}`;
+                  return (
                   <tr key={sku.id} className="border-t border-border">
                     {canWrite ? (
                       <td className="px-3 py-2">
@@ -414,6 +441,7 @@ export default function AdminPricing() {
                           type="checkbox"
                           checked={selectedIds.has(sku.id)}
                           onChange={() => toggleSelected(sku.id)}
+                          aria-label={`Select ${skuLabel}`}
                         />
                       </td>
                     ) : null}
@@ -432,7 +460,7 @@ export default function AdminPricing() {
                           type="number"
                           step="0.01"
                           min="0.01"
-                          disabled={!selectedIds.has(sku.id)}
+                          disabled={!selectedIds.has(sku.id) || !!draftId}
                           value={toPrices[sku.id] ?? ""}
                           onChange={(e) =>
                             setToPrices((prev) => ({
@@ -442,11 +470,13 @@ export default function AdminPricing() {
                           }
                           className="h-8 w-28"
                           placeholder="e.g. 7.99"
+                          aria-label={`New price for ${skuLabel}`}
                         />
                       </td>
                     ) : null}
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -483,7 +513,7 @@ export default function AdminPricing() {
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              disabled={busy || selectedIds.size === 0}
+              disabled={busy || selectedIds.size === 0 || !!draftId}
               onClick={() => void createDraft()}
             >
               Create draft preview

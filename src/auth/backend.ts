@@ -10558,9 +10558,13 @@ export type PricingChangeStatus =
   | "PARTIAL_FAILURE"
   | "FAILED";
 
-export type PricingPlatformSyncStatus = "PENDING" | "SUCCESS" | "FAILED" | "SKIPPED";
+export type PricingPlatformSyncStatus =
+  | "PENDING"
+  | "SUCCESS"
+  | "FAILED"
+  | "SKIPPED";
 
-export type AdminPricingSku = {
+export interface AdminPricingSku {
   id: string;
   planKey: string;
   billingPeriod: PricingBillingPeriod;
@@ -10572,9 +10576,9 @@ export type AdminPricingSku = {
   storePriceId: string | null;
   isActive: boolean;
   effectiveFrom: string;
-};
+}
 
-export type AdminProposedPricingChange = {
+export interface AdminProposedPricingChange {
   planKey: string;
   billingPeriod: PricingBillingPeriod;
   platform: PricingPlatform;
@@ -10584,9 +10588,9 @@ export type AdminProposedPricingChange = {
   trialDays?: number;
   storeProductId?: string | null;
   storePriceId?: string | null;
-};
+}
 
-export type AdminPricingChangeListItem = {
+export interface AdminPricingChangeListItem {
   id: string;
   title: string;
   status: PricingChangeStatus;
@@ -10601,24 +10605,42 @@ export type AdminPricingChangeListItem = {
   appliedAt: string | null;
   previewSummary: string | null;
   affectedPlatforms: PricingPlatform[];
-};
+}
 
-export type AdminPricingPreview = {
+export interface AdminPricingPreviewLine {
+  planKey: string;
+  billingPeriod: PricingBillingPeriod;
+  platform: PricingPlatform;
+  currency: string;
+  fromPrice: number;
+  toPrice: number;
+  delta: number;
+}
+
+export interface AdminPricingPreview {
   title: string;
   summary: string;
   affectedPlatforms: PricingPlatform[];
-  lines: Array<{
-    planKey: string;
-    billingPeriod: PricingBillingPeriod;
-    platform: PricingPlatform;
-    currency: string;
-    fromPrice: number;
-    toPrice: number;
-    delta: number;
-  }>;
-};
+  lines: AdminPricingPreviewLine[];
+}
 
-export type AdminPricingChangeDetail = {
+export interface AdminPricingPlatformResult {
+  id: string;
+  platform: PricingPlatform;
+  status: PricingPlatformSyncStatus;
+  message: string | null;
+  verifiedAt: string | null;
+}
+
+export interface AdminPricingAuditEvent {
+  id: string;
+  action: string;
+  actorAdminId: string | null;
+  actorLabel: string | null;
+  createdAt: string;
+}
+
+export interface AdminPricingChangeDetail {
   id: string;
   title: string;
   status: PricingChangeStatus;
@@ -10634,23 +10656,11 @@ export type AdminPricingChangeDetail = {
   approvedAt: string | null;
   rejectedAt: string | null;
   appliedAt: string | null;
-  platformResults: Array<{
-    id: string;
-    platform: PricingPlatform;
-    status: PricingPlatformSyncStatus;
-    message: string | null;
-    verifiedAt: string | null;
-  }>;
-  auditEvents: Array<{
-    id: string;
-    action: string;
-    actorAdminId: string | null;
-    actorLabel: string | null;
-    createdAt: string;
-  }>;
-};
+  platformResults: AdminPricingPlatformResult[];
+  auditEvents: AdminPricingAuditEvent[];
+}
 
-export type AdminPricingDriftFinding = {
+export interface AdminPricingDriftFinding {
   platform: PricingPlatform;
   planKey: string;
   billingPeriod: PricingBillingPeriod;
@@ -10658,7 +10668,11 @@ export type AdminPricingDriftFinding = {
   observedPrice: number | null;
   storeProductId: string | null;
   message: string;
-};
+}
+
+export interface AdminPricingDriftAuditData {
+  findings: AdminPricingDriftFinding[];
+}
 
 export async function adminFetchPricingCatalog(): Promise<{
   ok: boolean;
@@ -10873,7 +10887,7 @@ export async function adminRejectPricingChange(
 
 export async function adminRunPricingDriftAudit(): Promise<{
   ok: boolean;
-  data?: { findings: AdminPricingDriftFinding[] };
+  data?: AdminPricingDriftAuditData;
   error?: string;
 }> {
   try {
@@ -10888,8 +10902,11 @@ export async function adminRunPricingDriftAudit(): Promise<{
         error: extractBackendErrorMessage(raw, "Failed to run drift audit"),
       };
     }
-    const record = raw as { data?: { findings: AdminPricingDriftFinding[] } };
-    return { ok: true, data: record.data ?? { findings: [] } };
+    const record = raw as { data?: AdminPricingDriftAuditData };
+    if (!record.data || !Array.isArray(record.data.findings)) {
+      return { ok: false, error: "Invalid response from server" };
+    }
+    return { ok: true, data: record.data };
   } catch (e) {
     return {
       ok: false,
