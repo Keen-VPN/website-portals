@@ -68,6 +68,13 @@ function formatSkuPrice(sku: AdminPricingSku): string {
   return formatMoney(amount, sku.currency || "USD");
 }
 
+function storeIdEquals(
+  editValue: string,
+  serverValue: string | null | undefined,
+): boolean {
+  return editValue.trim() === (serverValue ?? "").trim();
+}
+
 function mergeStoreEditsPreservingDirty(
   prevCatalog: AdminPricingSku[],
   prevEdits: Record<string, { storeProductId: string; storePriceId: string }>,
@@ -88,15 +95,16 @@ function mergeStoreEditsPreservingDirty(
     const differsFromPrev =
       !!edit &&
       !!prevSku &&
-      (edit.storeProductId !== (prevSku.storeProductId ?? "") ||
-        edit.storePriceId !== (prevSku.storePriceId ?? ""));
+      (!storeIdEquals(edit.storeProductId, prevSku.storeProductId) ||
+        !storeIdEquals(edit.storePriceId, prevSku.storePriceId));
     // After a save that trims whitespace, treat matching-normalized edits as clean
     // so the refetch path does not leave the row permanently dirty.
     const matchesServer =
       !!edit &&
-      edit.storeProductId.trim() === server.storeProductId.trim() &&
-      edit.storePriceId.trim() === server.storePriceId.trim();
-    next[sku.id] = differsFromPrev && !matchesServer ? edit! : server;
+      storeIdEquals(edit.storeProductId, server.storeProductId) &&
+      storeIdEquals(edit.storePriceId, server.storePriceId);
+    next[sku.id] =
+      differsFromPrev && !matchesServer && edit ? edit : server;
   }
   return next;
 }
@@ -229,9 +237,11 @@ export default function AdminPricing() {
       storeProductId: sku.storeProductId ?? "",
       storePriceId: sku.storePriceId ?? "",
     };
-    const productChanged =
-      edit.storeProductId !== (sku.storeProductId ?? "");
-    const priceChanged = edit.storePriceId !== (sku.storePriceId ?? "");
+    const productChanged = !storeIdEquals(
+      edit.storeProductId,
+      sku.storeProductId,
+    );
+    const priceChanged = !storeIdEquals(edit.storePriceId, sku.storePriceId);
     if (!productChanged && !priceChanged) return;
 
     // Invalidate in-flight catalog fetches so they cannot overwrite this save.
@@ -254,33 +264,54 @@ export default function AdminPricing() {
       return;
     }
 
-    const saved = res.data;
-    if (saved) {
-      setCatalog((prev) =>
-        prev.map((row) => (row.id === sku.id ? { ...row, ...saved } : row)),
-      );
-      setStoreEdits((prev) => ({
-        ...prev,
-        [sku.id]: {
-          storeProductId: saved.storeProductId ?? "",
-          storePriceId: saved.storePriceId ?? "",
-        },
-      }));
+    if (res.needsCatalogRefresh || !res.data) {
+      const reloaded = await loadCatalog({ allowDuringSave: true });
       catalogFetchSeq.current += 1;
       savingStoreIdRef.current = null;
       setSavingStoreId(null);
+      if (!reloaded) {
+        // loadCatalog already set error when the fetch failed.
+        return;
+      }
       setNotice(`Saved store IDs for ${sku.platform} ${sku.billingPeriod}.`);
       return;
     }
 
-    const reloaded = await loadCatalog({ allowDuringSave: true });
+    const saved = res.data;
+    setCatalog((prev) =>
+      prev.map((row) => {
+        if (row.id !== sku.id) return row;
+        return {
+          ...row,
+          ...saved,
+          // Partial PATCH responses may omit untouched fields — keep local values.
+          storeProductId:
+            saved.storeProductId !== undefined
+              ? saved.storeProductId
+              : row.storeProductId,
+          storePriceId:
+            saved.storePriceId !== undefined
+              ? saved.storePriceId
+              : row.storePriceId,
+        };
+      }),
+    );
+    setStoreEdits((prev) => ({
+      ...prev,
+      [sku.id]: {
+        storeProductId:
+          saved.storeProductId !== undefined
+            ? (saved.storeProductId ?? "")
+            : edit.storeProductId,
+        storePriceId:
+          saved.storePriceId !== undefined
+            ? (saved.storePriceId ?? "")
+            : edit.storePriceId,
+      },
+    }));
     catalogFetchSeq.current += 1;
     savingStoreIdRef.current = null;
     setSavingStoreId(null);
-    if (!reloaded) {
-      // loadCatalog already set error when the fetch failed.
-      return;
-    }
     setNotice(`Saved store IDs for ${sku.platform} ${sku.billingPeriod}.`);
   };
 
@@ -585,8 +616,8 @@ export default function AdminPricing() {
                     storePriceId: sku.storePriceId ?? "",
                   };
                   const dirty =
-                    edit.storeProductId !== (sku.storeProductId ?? "") ||
-                    edit.storePriceId !== (sku.storePriceId ?? "");
+                    !storeIdEquals(edit.storeProductId, sku.storeProductId) ||
+                    !storeIdEquals(edit.storePriceId, sku.storePriceId);
                   return (
                   <tr key={sku.id} className="border-t border-border">
                     {canWrite ? (
