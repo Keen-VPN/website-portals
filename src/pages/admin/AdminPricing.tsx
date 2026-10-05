@@ -12,6 +12,7 @@ import {
   adminRejectPricingChange,
   adminRunPricingDriftAudit,
   adminSubmitPricingChange,
+  adminUpdatePricingSkuStoreIds,
   type AdminPricingChangeDetail,
   type AdminPricingChangeListItem,
   type AdminPricingDriftFinding,
@@ -67,6 +68,47 @@ function formatSkuPrice(sku: AdminPricingSku): string {
   return formatMoney(amount, sku.currency || "USD");
 }
 
+function storeIdEquals(
+  editValue: string,
+  serverValue: string | null | undefined,
+): boolean {
+  return editValue.trim() === (serverValue ?? "").trim();
+}
+
+function mergeStoreEditsPreservingDirty(
+  prevCatalog: AdminPricingSku[],
+  prevEdits: Record<string, { storeProductId: string; storePriceId: string }>,
+  nextCatalog: AdminPricingSku[],
+): Record<string, { storeProductId: string; storePriceId: string }> {
+  const prevById = new Map(prevCatalog.map((sku) => [sku.id, sku]));
+  const next: Record<
+    string,
+    { storeProductId: string; storePriceId: string }
+  > = {};
+  for (const sku of nextCatalog) {
+    const server = {
+      storeProductId: sku.storeProductId ?? "",
+      storePriceId: sku.storePriceId ?? "",
+    };
+    const prevSku = prevById.get(sku.id);
+    const edit = prevEdits[sku.id];
+    const differsFromPrev =
+      !!edit &&
+      !!prevSku &&
+      (!storeIdEquals(edit.storeProductId, prevSku.storeProductId) ||
+        !storeIdEquals(edit.storePriceId, prevSku.storePriceId));
+    // After a save that trims whitespace, treat matching-normalized edits as clean
+    // so the refetch path does not leave the row permanently dirty.
+    const matchesServer =
+      !!edit &&
+      storeIdEquals(edit.storeProductId, server.storeProductId) &&
+      storeIdEquals(edit.storePriceId, server.storePriceId);
+    next[sku.id] =
+      differsFromPrev && !matchesServer && edit ? edit : server;
+  }
+  return next;
+}
+
 export default function AdminPricing() {
   const { admin, can } = useAdminAuth();
   const canRead = can("pricing.read");
@@ -83,6 +125,10 @@ export default function AdminPricing() {
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [toPrices, setToPrices] = useState<Record<string, string>>({});
+  const [storeEdits, setStoreEdits] = useState<
+    Record<string, { storeProductId: string; storePriceId: string }>
+  >({});
+  const [savingStoreId, setSavingStoreId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [preview, setPreview] = useState<AdminPricingPreview | null>(null);
@@ -97,16 +143,32 @@ export default function AdminPricing() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const loadRequestsSeq = useRef(0);
+  const catalogRef = useRef<AdminPricingSku[]>([]);
+  const savingStoreIdRef = useRef<string | null>(null);
+  const catalogFetchSeq = useRef(0);
 
-  const loadCatalog = useCallback(async () => {
-    const res = await adminFetchPricingCatalog();
-    if (!res.ok || !res.data) {
-      setError(res.error ?? "Failed to load catalog");
-      setCatalog([]);
-      return;
-    }
-    setCatalog(res.data);
-  }, []);
+  const loadCatalog = useCallback(
+    async (opts?: { allowDuringSave?: boolean }): Promise<boolean> => {
+      const seq = ++catalogFetchSeq.current;
+      const res = await adminFetchPricingCatalog();
+      // A newer fetch or an in-flight save started after we began — drop this result.
+      if (seq !== catalogFetchSeq.current) return false;
+      if (savingStoreIdRef.current && !opts?.allowDuringSave) return false;
+      if (!res.ok || !res.data) {
+        setError(res.error ?? "Failed to load catalog");
+        return false;
+      }
+      const prevCatalog = catalogRef.current;
+      const nextCatalog = res.data;
+      catalogRef.current = nextCatalog;
+      setCatalog(nextCatalog);
+      setStoreEdits((prevEdits) =>
+        mergeStoreEditsPreservingDirty(prevCatalog, prevEdits, nextCatalog),
+      );
+      return true;
+    },
+    [],
+  );
 
   const loadRequests = useCallback(async () => {
     const seq = ++loadRequestsSeq.current;
@@ -124,7 +186,7 @@ export default function AdminPricing() {
   }, [statusFilter]);
 
   const refresh = useCallback(async () => {
-    if (!canRead) return;
+    if (!canRead || savingStoreIdRef.current) return;
     setLoading(true);
     setError(null);
     await Promise.all([loadCatalog(), loadRequests()]);
@@ -151,6 +213,10 @@ export default function AdminPricing() {
     void loadRequests();
   }, [canRead, loadRequests]);
 
+  useEffect(() => {
+    catalogRef.current = catalog;
+  }, [catalog]);
+
   const filteredCatalog = useMemo(() => {
     if (platformFilter === "ALL") return catalog;
     return catalog.filter((sku) => sku.platform === platformFilter);
@@ -165,13 +231,102 @@ export default function AdminPricing() {
     });
   };
 
+  const saveStoreIds = async (sku: AdminPricingSku) => {
+    if (!canWrite || savingStoreIdRef.current) return;
+    const edit = storeEdits[sku.id] ?? {
+      storeProductId: sku.storeProductId ?? "",
+      storePriceId: sku.storePriceId ?? "",
+    };
+    const productChanged = !storeIdEquals(
+      edit.storeProductId,
+      sku.storeProductId,
+    );
+    const priceChanged = !storeIdEquals(edit.storePriceId, sku.storePriceId);
+    if (!productChanged && !priceChanged) return;
+
+    // Invalidate in-flight catalog fetches so they cannot overwrite this save.
+    catalogFetchSeq.current += 1;
+    savingStoreIdRef.current = sku.id;
+    setSavingStoreId(sku.id);
+    setError(null);
+    setNotice(null);
+    const res = await adminUpdatePricingSkuStoreIds(sku.id, {
+      // Partial PATCH: only send fields the admin actually edited.
+      storeProductId: productChanged ? edit.storeProductId : undefined,
+      storePriceId: priceChanged ? edit.storePriceId : undefined,
+    });
+    if (!res.ok) {
+      // Drop fetches that started during the PATCH before releasing the guard.
+      catalogFetchSeq.current += 1;
+      savingStoreIdRef.current = null;
+      setSavingStoreId(null);
+      setError(res.error ?? "Failed to save store IDs");
+      return;
+    }
+
+    if (res.needsCatalogRefresh || !res.data) {
+      const reloaded = await loadCatalog({ allowDuringSave: true });
+      catalogFetchSeq.current += 1;
+      savingStoreIdRef.current = null;
+      setSavingStoreId(null);
+      if (!reloaded) {
+        // loadCatalog already set error when the fetch failed.
+        return;
+      }
+      setNotice(`Saved store IDs for ${sku.platform} ${sku.billingPeriod}.`);
+      return;
+    }
+
+    const saved = res.data;
+    setCatalog((prev) =>
+      prev.map((row) => {
+        if (row.id !== sku.id) return row;
+        return {
+          ...row,
+          ...saved,
+          // Omitted fields: untouched keep the local row value; changed keep
+          // the value this save just persisted (matches storeEdits fallback).
+          storeProductId:
+            saved.storeProductId !== undefined
+              ? saved.storeProductId
+              : productChanged
+                ? edit.storeProductId
+                : row.storeProductId,
+          storePriceId:
+            saved.storePriceId !== undefined
+              ? saved.storePriceId
+              : priceChanged
+                ? edit.storePriceId
+                : row.storePriceId,
+        };
+      }),
+    );
+    setStoreEdits((prev) => ({
+      ...prev,
+      [sku.id]: {
+        storeProductId:
+          saved.storeProductId !== undefined
+            ? (saved.storeProductId ?? "")
+            : edit.storeProductId,
+        storePriceId:
+          saved.storePriceId !== undefined
+            ? (saved.storePriceId ?? "")
+            : edit.storePriceId,
+      },
+    }));
+    catalogFetchSeq.current += 1;
+    savingStoreIdRef.current = null;
+    setSavingStoreId(null);
+    setNotice(`Saved store IDs for ${sku.platform} ${sku.billingPeriod}.`);
+  };
+
   const selectedSkus = useMemo(
     () => catalog.filter((sku) => selectedIds.has(sku.id)),
     [catalog, selectedIds],
   );
 
   const createDraft = async () => {
-    if (!canWrite) return;
+    if (!canWrite || savingStoreIdRef.current) return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -375,7 +530,7 @@ export default function AdminPricing() {
           <Button
             type="button"
             variant="outline"
-            disabled={loading || busy}
+            disabled={loading || busy || savingStoreId !== null}
             onClick={() => void refresh()}
           >
             Refresh
@@ -435,6 +590,7 @@ export default function AdminPricing() {
                 <th className="px-3 py-2">Price</th>
                 <th className="px-3 py-2">Store product</th>
                 <th className="px-3 py-2">Store price / plan</th>
+                {canWrite ? <th className="px-3 py-2">Save IDs</th> : null}
                 {canWrite ? <th className="px-3 py-2">New price</th> : null}
               </tr>
             </thead>
@@ -442,7 +598,7 @@ export default function AdminPricing() {
               {loading && catalog.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={canWrite ? 7 : 5}
+                    colSpan={canWrite ? 8 : 5}
                     className="px-3 py-6 text-muted-foreground"
                   >
                     Loading catalog…
@@ -451,7 +607,7 @@ export default function AdminPricing() {
               ) : filteredCatalog.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={canWrite ? 7 : 5}
+                    colSpan={canWrite ? 8 : 5}
                     className="px-3 py-6 text-muted-foreground"
                   >
                     No SKUs for this filter.
@@ -460,6 +616,13 @@ export default function AdminPricing() {
               ) : (
                 filteredCatalog.map((sku) => {
                   const skuLabel = `${sku.platform} ${sku.billingPeriod} ${sku.planKey}`;
+                  const edit = storeEdits[sku.id] ?? {
+                    storeProductId: sku.storeProductId ?? "",
+                    storePriceId: sku.storePriceId ?? "",
+                  };
+                  const dirty =
+                    !storeIdEquals(edit.storeProductId, sku.storeProductId) ||
+                    !storeIdEquals(edit.storePriceId, sku.storePriceId);
                   return (
                   <tr key={sku.id} className="border-t border-border">
                     {canWrite ? (
@@ -475,12 +638,89 @@ export default function AdminPricing() {
                     <td className="px-3 py-2 font-medium">{sku.platform}</td>
                     <td className="px-3 py-2">{sku.billingPeriod}</td>
                     <td className="px-3 py-2">{formatSkuPrice(sku)}</td>
-                    <td className="max-w-[12rem] truncate px-3 py-2 font-mono text-xs">
-                      {sku.storeProductId || "—"}
+                    <td className="px-3 py-2">
+                      {canWrite ? (
+                        <Input
+                          value={edit.storeProductId}
+                          disabled={savingStoreId === sku.id || busy}
+                          onChange={(e) =>
+                            setStoreEdits((prev) => ({
+                              ...prev,
+                              [sku.id]: {
+                                ...prev[sku.id],
+                                storeProductId: e.target.value,
+                                storePriceId:
+                                  prev[sku.id]?.storePriceId ??
+                                  edit.storePriceId,
+                              },
+                            }))
+                          }
+                          className="h-8 min-w-[10rem] font-mono text-xs"
+                          placeholder={
+                            sku.platform === "ANDROID"
+                              ? "keenvpn_monthly"
+                              : sku.platform === "WEB"
+                                ? "prod_…"
+                                : "ASC subscription id"
+                          }
+                          aria-label={`Store product for ${skuLabel}`}
+                        />
+                      ) : (
+                        <span className="max-w-[12rem] truncate font-mono text-xs">
+                          {sku.storeProductId || "—"}
+                        </span>
+                      )}
                     </td>
-                    <td className="max-w-[12rem] truncate px-3 py-2 font-mono text-xs">
-                      {sku.storePriceId || "—"}
+                    <td className="px-3 py-2">
+                      {canWrite ? (
+                        <Input
+                          value={edit.storePriceId}
+                          disabled={savingStoreId === sku.id || busy}
+                          onChange={(e) =>
+                            setStoreEdits((prev) => ({
+                              ...prev,
+                              [sku.id]: {
+                                ...prev[sku.id],
+                                storeProductId:
+                                  prev[sku.id]?.storeProductId ??
+                                  edit.storeProductId,
+                                storePriceId: e.target.value,
+                              },
+                            }))
+                          }
+                          className="h-8 min-w-[10rem] font-mono text-xs"
+                          placeholder={
+                            sku.platform === "ANDROID"
+                              ? "base-plan-id"
+                              : sku.platform === "WEB"
+                                ? "price_…"
+                                : "ASC price-point id"
+                          }
+                          aria-label={`Store price for ${skuLabel}`}
+                        />
+                      ) : (
+                        <span className="max-w-[12rem] truncate font-mono text-xs">
+                          {sku.storePriceId || "—"}
+                        </span>
+                      )}
                     </td>
+                    {canWrite ? (
+                      <td className="px-3 py-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={
+                            !dirty ||
+                            savingStoreId !== null ||
+                            busy
+                          }
+                          onClick={() => void saveStoreIds(sku)}
+                        >
+                          {savingStoreId === sku.id ? "Saving…" : "Save"}
+                        </Button>
+                      </td>
+                    ) : null}
                     {canWrite ? (
                       <td className="px-3 py-2">
                         <Input
@@ -515,7 +755,11 @@ export default function AdminPricing() {
           <h3 className="text-lg font-semibold">Propose change</h3>
           <p className="text-sm text-muted-foreground">
             Select catalog rows above, enter new prices, then create a draft and
-            submit. Creator cannot approve their own request.
+            submit. Creator cannot approve their own request — a second admin
+            with pricing.approve (e.g. BILLING_ADMIN / SUPER_ADMIN) must approve
+            in this portal. Slack only notifies; it cannot approve.
+            Edit Store product / Store price columns and click Save to map ASC /
+            Play IDs before enabling store sync.
           </p>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
@@ -540,7 +784,12 @@ export default function AdminPricing() {
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              disabled={busy || selectedIds.size === 0 || !!draftId}
+              disabled={
+                busy ||
+                selectedIds.size === 0 ||
+                !!draftId ||
+                savingStoreId !== null
+              }
               onClick={() => void createDraft()}
             >
               Create draft preview
