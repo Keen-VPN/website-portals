@@ -340,10 +340,17 @@ export default function AdminPricing() {
       filled += 1;
     }
     setToPrices((prev) => {
-      const next = { ...prev };
+      const next: Record<string, string> = {};
+      for (const [id, value] of Object.entries(prev)) {
+        if (Object.prototype.hasOwnProperty.call(updates, id)) {
+          if (updates[id] != null) next[id] = updates[id] as string;
+          // null → omit (clears stale NEW PRICE for skipped rows)
+          continue;
+        }
+        next[id] = value;
+      }
       for (const [id, value] of Object.entries(updates)) {
-        if (value == null) delete next[id];
-        else next[id] = value;
+        if (value != null) next[id] = value;
       }
       return next;
     });
