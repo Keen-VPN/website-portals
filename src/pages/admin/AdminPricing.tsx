@@ -68,6 +68,33 @@ function formatSkuPrice(sku: AdminPricingSku): string {
   return formatMoney(amount, sku.currency || "USD");
 }
 
+function mergeStoreEditsPreservingDirty(
+  prevCatalog: AdminPricingSku[],
+  prevEdits: Record<string, { storeProductId: string; storePriceId: string }>,
+  nextCatalog: AdminPricingSku[],
+): Record<string, { storeProductId: string; storePriceId: string }> {
+  const prevById = new Map(prevCatalog.map((sku) => [sku.id, sku]));
+  const next: Record<
+    string,
+    { storeProductId: string; storePriceId: string }
+  > = {};
+  for (const sku of nextCatalog) {
+    const server = {
+      storeProductId: sku.storeProductId ?? "",
+      storePriceId: sku.storePriceId ?? "",
+    };
+    const prevSku = prevById.get(sku.id);
+    const edit = prevEdits[sku.id];
+    const dirty =
+      !!edit &&
+      !!prevSku &&
+      (edit.storeProductId !== (prevSku.storeProductId ?? "") ||
+        edit.storePriceId !== (prevSku.storePriceId ?? ""));
+    next[sku.id] = dirty ? edit : server;
+  }
+  return next;
+}
+
 export default function AdminPricing() {
   const { admin, can } = useAdminAuth();
   const canRead = can("pricing.read");
@@ -102,25 +129,22 @@ export default function AdminPricing() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const loadRequestsSeq = useRef(0);
+  const catalogRef = useRef<AdminPricingSku[]>([]);
 
   const loadCatalog = useCallback(async () => {
     const res = await adminFetchPricingCatalog();
     if (!res.ok || !res.data) {
       setError(res.error ?? "Failed to load catalog");
       setCatalog([]);
+      catalogRef.current = [];
       return;
     }
-    setCatalog(res.data);
-    setStoreEdits(
-      Object.fromEntries(
-        res.data.map((sku) => [
-          sku.id,
-          {
-            storeProductId: sku.storeProductId ?? "",
-            storePriceId: sku.storePriceId ?? "",
-          },
-        ]),
-      ),
+    const prevCatalog = catalogRef.current;
+    const nextCatalog = res.data;
+    catalogRef.current = nextCatalog;
+    setCatalog(nextCatalog);
+    setStoreEdits((prevEdits) =>
+      mergeStoreEditsPreservingDirty(prevCatalog, prevEdits, nextCatalog),
     );
   }, []);
 
@@ -167,6 +191,10 @@ export default function AdminPricing() {
     void loadRequests();
   }, [canRead, loadRequests]);
 
+  useEffect(() => {
+    catalogRef.current = catalog;
+  }, [catalog]);
+
   const filteredCatalog = useMemo(() => {
     if (platformFilter === "ALL") return catalog;
     return catalog.filter((sku) => sku.platform === platformFilter);
@@ -182,7 +210,7 @@ export default function AdminPricing() {
   };
 
   const saveStoreIds = async (sku: AdminPricingSku) => {
-    if (!canWrite) return;
+    if (!canWrite || savingStoreId) return;
     const edit = storeEdits[sku.id] ?? {
       storeProductId: sku.storeProductId ?? "",
       storePriceId: sku.storePriceId ?? "",
@@ -194,24 +222,34 @@ export default function AdminPricing() {
       storeProductId: edit.storeProductId,
       storePriceId: edit.storePriceId,
     });
-    setSavingStoreId(null);
-    if (!res.ok || !res.data) {
+    if (!res.ok) {
+      setSavingStoreId(null);
       setError(res.error ?? "Failed to save store IDs");
       return;
     }
-    setCatalog((prev) =>
-      prev.map((row) => (row.id === sku.id ? { ...row, ...res.data! } : row)),
-    );
-    setStoreEdits((prev) => ({
-      ...prev,
-      [sku.id]: {
-        storeProductId: res.data!.storeProductId ?? "",
-        storePriceId: res.data!.storePriceId ?? "",
-      },
-    }));
-    setNotice(
-      `Saved store IDs for ${sku.platform} ${sku.billingPeriod}.`,
-    );
+
+    const saved = res.data;
+    if (saved) {
+      setCatalog((prev) => {
+        const next = prev.map((row) =>
+          row.id === sku.id ? { ...row, ...saved } : row,
+        );
+        catalogRef.current = next;
+        return next;
+      });
+      setStoreEdits((prev) => ({
+        ...prev,
+        [sku.id]: {
+          storeProductId: saved.storeProductId ?? "",
+          storePriceId: saved.storePriceId ?? "",
+        },
+      }));
+    } else {
+      await loadCatalog();
+    }
+
+    setSavingStoreId(null);
+    setNotice(`Saved store IDs for ${sku.platform} ${sku.billingPeriod}.`);
   };
 
   const selectedSkus = useMemo(
@@ -536,6 +574,7 @@ export default function AdminPricing() {
                       {canWrite ? (
                         <Input
                           value={edit.storeProductId}
+                          disabled={savingStoreId === sku.id || busy}
                           onChange={(e) =>
                             setStoreEdits((prev) => ({
                               ...prev,
@@ -565,6 +604,7 @@ export default function AdminPricing() {
                       {canWrite ? (
                         <Input
                           value={edit.storePriceId}
+                          disabled={savingStoreId === sku.id || busy}
                           onChange={(e) =>
                             setStoreEdits((prev) => ({
                               ...prev,
@@ -596,7 +636,11 @@ export default function AdminPricing() {
                           type="button"
                           size="sm"
                           variant="outline"
-                          disabled={!dirty || savingStoreId === sku.id || busy}
+                          disabled={
+                            !dirty ||
+                            savingStoreId !== null ||
+                            busy
+                          }
                           onClick={() => void saveStoreIds(sku)}
                         >
                           {savingStoreId === sku.id ? "Saving…" : "Save"}
