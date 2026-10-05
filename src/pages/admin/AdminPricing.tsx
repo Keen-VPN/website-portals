@@ -130,23 +130,31 @@ export default function AdminPricing() {
   const [notice, setNotice] = useState<string | null>(null);
   const loadRequestsSeq = useRef(0);
   const catalogRef = useRef<AdminPricingSku[]>([]);
+  const savingStoreIdRef = useRef<string | null>(null);
+  const catalogFetchSeq = useRef(0);
 
-  const loadCatalog = useCallback(async () => {
-    const res = await adminFetchPricingCatalog();
-    if (!res.ok || !res.data) {
-      setError(res.error ?? "Failed to load catalog");
-      setCatalog([]);
-      catalogRef.current = [];
-      return;
-    }
-    const prevCatalog = catalogRef.current;
-    const nextCatalog = res.data;
-    catalogRef.current = nextCatalog;
-    setCatalog(nextCatalog);
-    setStoreEdits((prevEdits) =>
-      mergeStoreEditsPreservingDirty(prevCatalog, prevEdits, nextCatalog),
-    );
-  }, []);
+  const loadCatalog = useCallback(
+    async (opts?: { allowDuringSave?: boolean }): Promise<boolean> => {
+      const seq = ++catalogFetchSeq.current;
+      const res = await adminFetchPricingCatalog();
+      // A newer fetch or an in-flight save started after we began — drop this result.
+      if (seq !== catalogFetchSeq.current) return false;
+      if (savingStoreIdRef.current && !opts?.allowDuringSave) return false;
+      if (!res.ok || !res.data) {
+        setError(res.error ?? "Failed to load catalog");
+        return false;
+      }
+      const prevCatalog = catalogRef.current;
+      const nextCatalog = res.data;
+      catalogRef.current = nextCatalog;
+      setCatalog(nextCatalog);
+      setStoreEdits((prevEdits) =>
+        mergeStoreEditsPreservingDirty(prevCatalog, prevEdits, nextCatalog),
+      );
+      return true;
+    },
+    [],
+  );
 
   const loadRequests = useCallback(async () => {
     const seq = ++loadRequestsSeq.current;
@@ -164,7 +172,7 @@ export default function AdminPricing() {
   }, [statusFilter]);
 
   const refresh = useCallback(async () => {
-    if (!canRead) return;
+    if (!canRead || savingStoreIdRef.current) return;
     setLoading(true);
     setError(null);
     await Promise.all([loadCatalog(), loadRequests()]);
@@ -210,11 +218,14 @@ export default function AdminPricing() {
   };
 
   const saveStoreIds = async (sku: AdminPricingSku) => {
-    if (!canWrite || savingStoreId) return;
+    if (!canWrite || savingStoreIdRef.current) return;
     const edit = storeEdits[sku.id] ?? {
       storeProductId: sku.storeProductId ?? "",
       storePriceId: sku.storePriceId ?? "",
     };
+    // Invalidate in-flight catalog fetches so they cannot overwrite this save.
+    catalogFetchSeq.current += 1;
+    savingStoreIdRef.current = sku.id;
     setSavingStoreId(sku.id);
     setError(null);
     setNotice(null);
@@ -223,6 +234,7 @@ export default function AdminPricing() {
       storePriceId: edit.storePriceId,
     });
     if (!res.ok) {
+      savingStoreIdRef.current = null;
       setSavingStoreId(null);
       setError(res.error ?? "Failed to save store IDs");
       return;
@@ -244,11 +256,19 @@ export default function AdminPricing() {
           storePriceId: saved.storePriceId ?? "",
         },
       }));
-    } else {
-      await loadCatalog();
+      savingStoreIdRef.current = null;
+      setSavingStoreId(null);
+      setNotice(`Saved store IDs for ${sku.platform} ${sku.billingPeriod}.`);
+      return;
     }
 
+    const reloaded = await loadCatalog({ allowDuringSave: true });
+    savingStoreIdRef.current = null;
     setSavingStoreId(null);
+    if (!reloaded) {
+      // loadCatalog already set error when the fetch failed.
+      return;
+    }
     setNotice(`Saved store IDs for ${sku.platform} ${sku.billingPeriod}.`);
   };
 
@@ -462,7 +482,7 @@ export default function AdminPricing() {
           <Button
             type="button"
             variant="outline"
-            disabled={loading || busy}
+            disabled={loading || busy || savingStoreId !== null}
             onClick={() => void refresh()}
           >
             Refresh
