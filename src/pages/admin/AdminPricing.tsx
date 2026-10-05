@@ -329,12 +329,14 @@ export default function AdminPricing() {
     setToPrices((prev) => {
       const next = { ...prev };
       for (const sku of selectedSkus) {
-        next[sku.id] = String(skuPrice(sku));
+        const amount = skuPrice(sku);
+        if (!Number.isFinite(amount)) continue;
+        next[sku.id] = String(amount);
       }
       return next;
     });
     setNotice(
-      "Filled selected rows with current catalog prices. Submit to push those amounts to stores (when sync is enabled).",
+      "Filled selected rows with current catalog prices. Submit for approval; approved changes are pushed to stores (when sync is enabled).",
     );
   };
 
