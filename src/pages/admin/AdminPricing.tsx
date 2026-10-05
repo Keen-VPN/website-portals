@@ -325,6 +325,46 @@ export default function AdminPricing() {
     [catalog, selectedIds],
   );
 
+  const fillCatalogPricesForSelection = () => {
+    let filled = 0;
+    let skipped = 0;
+    const updates: Record<string, string | null> = {};
+    for (const sku of selectedSkus) {
+      const amount = skuPrice(sku);
+      if (!Number.isFinite(amount)) {
+        updates[sku.id] = null;
+        skipped += 1;
+        continue;
+      }
+      updates[sku.id] = String(amount);
+      filled += 1;
+    }
+    setToPrices((prev) => {
+      const next: Record<string, string> = {};
+      for (const [id, value] of Object.entries(prev)) {
+        if (Object.prototype.hasOwnProperty.call(updates, id)) {
+          if (updates[id] != null) next[id] = updates[id] as string;
+          // null → omit (clears stale NEW PRICE for skipped rows)
+          continue;
+        }
+        next[id] = value;
+      }
+      for (const [id, value] of Object.entries(updates)) {
+        if (value != null) next[id] = value;
+      }
+      return next;
+    });
+    const skipNote =
+      skipped > 0
+        ? ` Skipped ${skipped} row${skipped === 1 ? "" : "s"} with invalid catalog price (NEW PRICE cleared).`
+        : "";
+    setNotice(
+      filled > 0
+        ? `Filled ${filled} selected row${filled === 1 ? "" : "s"} with current catalog prices.${skipNote} Submit for approval; approved changes are pushed to stores (when sync is enabled).`
+        : `No selected rows had a valid catalog price to fill.${skipNote}`,
+    );
+  };
+
   const createDraft = async () => {
     if (!canWrite || savingStoreIdRef.current) return;
     setBusy(true);
@@ -378,8 +418,13 @@ export default function AdminPricing() {
 
     setDraftId(res.data.request.id);
     setPreview(res.data.preview);
+    const resyncOnly = changes.every(
+      (c) => Math.abs(c.toPrice - c.fromPrice) < 0.009,
+    );
     setNotice(
-      `Draft created (${res.data.request.id}). Submit for approval when ready.`,
+      resyncOnly
+        ? `Store push draft created (${res.data.request.id}). Approve to push catalog prices to stores (sync flags must be on for Apple/Play writes).`
+        : `Draft created (${res.data.request.id}). Submit for approval when ready.`,
     );
     // Prevent accidental duplicate drafts from the same selection.
     setSelectedIds(new Set());
@@ -755,9 +800,10 @@ export default function AdminPricing() {
           <h3 className="text-lg font-semibold">Propose change</h3>
           <p className="text-sm text-muted-foreground">
             Select catalog rows above, enter new prices, then create a draft and
-            submit. Creator cannot approve their own request — a second admin
-            with pricing.approve (e.g. BILLING_ADMIN / SUPER_ADMIN) must approve
-            in this portal. Slack only notifies; it cannot approve.
+            submit. Entering the <em>same</em> price as catalog is allowed — it
+            pushes that source-of-truth amount to the store (fixes drift) when
+            platform sync is enabled. Creator cannot approve their own request —
+            a second admin with pricing.approve (or Slack Approve) must approve.
             Edit Store product / Store price columns and click Save to map ASC /
             Play IDs before enabling store sync.
           </p>
@@ -782,6 +828,14 @@ export default function AdminPricing() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy || selectedIds.size === 0 || !!draftId}
+              onClick={fillCatalogPricesForSelection}
+            >
+              Use catalog prices
+            </Button>
             <Button
               type="button"
               disabled={
