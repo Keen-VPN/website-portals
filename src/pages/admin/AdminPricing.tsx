@@ -68,6 +68,13 @@ function formatSkuPrice(sku: AdminPricingSku): string {
   return formatMoney(amount, sku.currency || "USD");
 }
 
+function storeIdEquals(
+  editValue: string,
+  serverValue: string | null | undefined,
+): boolean {
+  return editValue.trim() === (serverValue ?? "").trim();
+}
+
 function mergeStoreEditsPreservingDirty(
   prevCatalog: AdminPricingSku[],
   prevEdits: Record<string, { storeProductId: string; storePriceId: string }>,
@@ -85,12 +92,19 @@ function mergeStoreEditsPreservingDirty(
     };
     const prevSku = prevById.get(sku.id);
     const edit = prevEdits[sku.id];
-    const dirty =
+    const differsFromPrev =
       !!edit &&
       !!prevSku &&
-      (edit.storeProductId !== (prevSku.storeProductId ?? "") ||
-        edit.storePriceId !== (prevSku.storePriceId ?? ""));
-    next[sku.id] = dirty ? edit : server;
+      (!storeIdEquals(edit.storeProductId, prevSku.storeProductId) ||
+        !storeIdEquals(edit.storePriceId, prevSku.storePriceId));
+    // After a save that trims whitespace, treat matching-normalized edits as clean
+    // so the refetch path does not leave the row permanently dirty.
+    const matchesServer =
+      !!edit &&
+      storeIdEquals(edit.storeProductId, server.storeProductId) &&
+      storeIdEquals(edit.storePriceId, server.storePriceId);
+    next[sku.id] =
+      differsFromPrev && !matchesServer && edit ? edit : server;
   }
   return next;
 }
@@ -223,6 +237,13 @@ export default function AdminPricing() {
       storeProductId: sku.storeProductId ?? "",
       storePriceId: sku.storePriceId ?? "",
     };
+    const productChanged = !storeIdEquals(
+      edit.storeProductId,
+      sku.storeProductId,
+    );
+    const priceChanged = !storeIdEquals(edit.storePriceId, sku.storePriceId);
+    if (!productChanged && !priceChanged) return;
+
     // Invalidate in-flight catalog fetches so they cannot overwrite this save.
     catalogFetchSeq.current += 1;
     savingStoreIdRef.current = sku.id;
@@ -230,45 +251,72 @@ export default function AdminPricing() {
     setError(null);
     setNotice(null);
     const res = await adminUpdatePricingSkuStoreIds(sku.id, {
-      storeProductId: edit.storeProductId,
-      storePriceId: edit.storePriceId,
+      // Partial PATCH: only send fields the admin actually edited.
+      storeProductId: productChanged ? edit.storeProductId : undefined,
+      storePriceId: priceChanged ? edit.storePriceId : undefined,
     });
     if (!res.ok) {
+      // Drop fetches that started during the PATCH before releasing the guard.
+      catalogFetchSeq.current += 1;
       savingStoreIdRef.current = null;
       setSavingStoreId(null);
       setError(res.error ?? "Failed to save store IDs");
       return;
     }
 
-    const saved = res.data;
-    if (saved) {
-      setCatalog((prev) => {
-        const next = prev.map((row) =>
-          row.id === sku.id ? { ...row, ...saved } : row,
-        );
-        catalogRef.current = next;
-        return next;
-      });
-      setStoreEdits((prev) => ({
-        ...prev,
-        [sku.id]: {
-          storeProductId: saved.storeProductId ?? "",
-          storePriceId: saved.storePriceId ?? "",
-        },
-      }));
+    if (res.needsCatalogRefresh || !res.data) {
+      const reloaded = await loadCatalog({ allowDuringSave: true });
+      catalogFetchSeq.current += 1;
       savingStoreIdRef.current = null;
       setSavingStoreId(null);
+      if (!reloaded) {
+        // loadCatalog already set error when the fetch failed.
+        return;
+      }
       setNotice(`Saved store IDs for ${sku.platform} ${sku.billingPeriod}.`);
       return;
     }
 
-    const reloaded = await loadCatalog({ allowDuringSave: true });
+    const saved = res.data;
+    setCatalog((prev) =>
+      prev.map((row) => {
+        if (row.id !== sku.id) return row;
+        return {
+          ...row,
+          ...saved,
+          // Omitted fields: untouched keep the local row value; changed keep
+          // the value this save just persisted (matches storeEdits fallback).
+          storeProductId:
+            saved.storeProductId !== undefined
+              ? saved.storeProductId
+              : productChanged
+                ? edit.storeProductId
+                : row.storeProductId,
+          storePriceId:
+            saved.storePriceId !== undefined
+              ? saved.storePriceId
+              : priceChanged
+                ? edit.storePriceId
+                : row.storePriceId,
+        };
+      }),
+    );
+    setStoreEdits((prev) => ({
+      ...prev,
+      [sku.id]: {
+        storeProductId:
+          saved.storeProductId !== undefined
+            ? (saved.storeProductId ?? "")
+            : edit.storeProductId,
+        storePriceId:
+          saved.storePriceId !== undefined
+            ? (saved.storePriceId ?? "")
+            : edit.storePriceId,
+      },
+    }));
+    catalogFetchSeq.current += 1;
     savingStoreIdRef.current = null;
     setSavingStoreId(null);
-    if (!reloaded) {
-      // loadCatalog already set error when the fetch failed.
-      return;
-    }
     setNotice(`Saved store IDs for ${sku.platform} ${sku.billingPeriod}.`);
   };
 
@@ -278,7 +326,7 @@ export default function AdminPricing() {
   );
 
   const createDraft = async () => {
-    if (!canWrite) return;
+    if (!canWrite || savingStoreIdRef.current) return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -573,8 +621,8 @@ export default function AdminPricing() {
                     storePriceId: sku.storePriceId ?? "",
                   };
                   const dirty =
-                    edit.storeProductId !== (sku.storeProductId ?? "") ||
-                    edit.storePriceId !== (sku.storePriceId ?? "");
+                    !storeIdEquals(edit.storeProductId, sku.storeProductId) ||
+                    !storeIdEquals(edit.storePriceId, sku.storePriceId);
                   return (
                   <tr key={sku.id} className="border-t border-border">
                     {canWrite ? (
@@ -599,8 +647,11 @@ export default function AdminPricing() {
                             setStoreEdits((prev) => ({
                               ...prev,
                               [sku.id]: {
-                                ...edit,
+                                ...prev[sku.id],
                                 storeProductId: e.target.value,
+                                storePriceId:
+                                  prev[sku.id]?.storePriceId ??
+                                  edit.storePriceId,
                               },
                             }))
                           }
@@ -629,7 +680,10 @@ export default function AdminPricing() {
                             setStoreEdits((prev) => ({
                               ...prev,
                               [sku.id]: {
-                                ...edit,
+                                ...prev[sku.id],
+                                storeProductId:
+                                  prev[sku.id]?.storeProductId ??
+                                  edit.storeProductId,
                                 storePriceId: e.target.value,
                               },
                             }))
@@ -730,7 +784,12 @@ export default function AdminPricing() {
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              disabled={busy || selectedIds.size === 0 || !!draftId}
+              disabled={
+                busy ||
+                selectedIds.size === 0 ||
+                !!draftId ||
+                savingStoreId !== null
+              }
               onClick={() => void createDraft()}
             >
               Create draft preview

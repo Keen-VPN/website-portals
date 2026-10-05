@@ -10728,6 +10728,7 @@ export async function adminUpdatePricingSkuStoreIds(
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
+        // JSON.stringify omits undefined so unchanged fields stay unset (partial PATCH).
         body: JSON.stringify({
           storeProductId: normalize(input.storeProductId),
           storePriceId: normalize(input.storePriceId),
@@ -10743,6 +10744,10 @@ export async function adminUpdatePricingSkuStoreIds(
           "Failed to update catalog store IDs",
         ),
       };
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      // Persist succeeded but body was null/non-object — caller should refetch.
+      return { ok: true, needsCatalogRefresh: true };
     }
     const record = raw as { data?: AdminPricingSku };
     if (!record.data) {
