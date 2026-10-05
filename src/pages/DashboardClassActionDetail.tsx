@@ -72,10 +72,22 @@ function BackLink({ closed }: { closed: boolean }) {
 function GlanceRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4 py-1.5">
-      <dt className="text-[14px] text-[#627086]">{label}</dt>
-      <dd className="text-right text-[14px] font-semibold text-[#0f2040]">{value}</dd>
+      <dt className="shrink-0 text-[14px] text-[#627086]">{label}</dt>
+      <dd className="text-right text-[14px] font-semibold leading-[1.45] text-[#0f2040] break-words">
+        {value}
+      </dd>
     </div>
   );
+}
+
+function shouldShowDocsChip(chip: string | undefined, body: string | undefined) {
+  const label = chip?.trim() || "";
+  const text = body?.trim() || "";
+  if (!label || !text) return false;
+  if (label === text) return false;
+  // Hide when chip is a truncated prefix of the body (legacy email summary).
+  const chipStem = label.replace(/…$/, "").trim();
+  return !chipStem || !text.startsWith(chipStem);
 }
 
 function SettlementDetailView({
@@ -96,6 +108,10 @@ function SettlementDetailView({
   const daysLeft = closed
     ? null
     : formatDaysLeft(settlementDaysRemaining(perk));
+  const needBody = closed
+    ? "Nothing to do here. If you filed before the deadline, check your status on the administrator’s site."
+    : perk.whatYouMayNeed;
+  const showDocsChip = shouldShowDocsChip(perk.docsNeededLabel, needBody);
   const slug = resolveClassActionPageSlug(perk);
   const trackedView = useRef(false);
 
@@ -311,18 +327,14 @@ function SettlementDetailView({
           ) : null}
 
           <Section title="What you may need">
-            {perk.docsNeededLabel ? (
+            {showDocsChip ? (
               <div>
-                <span className="inline-block rounded-[10px] border border-[#e7edf5] bg-[#f7f9fc] px-3.5 py-2 text-[14px] text-[#43516a]">
+                <span className="inline-block max-w-full rounded-[10px] border border-[#e7edf5] bg-[#f7f9fc] px-3.5 py-2 text-[14px] text-[#43516a]">
                   {perk.docsNeededLabel}
                 </span>
               </div>
             ) : null}
-            <p>
-              {closed
-                ? "Nothing to do here. If you filed before the deadline, check your status on the administrator’s site."
-                : perk.whatYouMayNeed}
-            </p>
+            <p>{needBody}</p>
           </Section>
 
           <Section title="How to claim">
