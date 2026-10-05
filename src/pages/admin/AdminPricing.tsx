@@ -326,15 +326,42 @@ export default function AdminPricing() {
   );
 
   const fillCatalogPricesForSelection = () => {
+    let filled = 0;
+    let skipped = 0;
+    const updates: Record<string, string | null> = {};
+    for (const sku of selectedSkus) {
+      const amount = skuPrice(sku);
+      if (!Number.isFinite(amount)) {
+        updates[sku.id] = null;
+        skipped += 1;
+        continue;
+      }
+      updates[sku.id] = String(amount);
+      filled += 1;
+    }
     setToPrices((prev) => {
-      const next = { ...prev };
-      for (const sku of selectedSkus) {
-        next[sku.id] = String(skuPrice(sku));
+      const next: Record<string, string> = {};
+      for (const [id, value] of Object.entries(prev)) {
+        if (Object.prototype.hasOwnProperty.call(updates, id)) {
+          if (updates[id] != null) next[id] = updates[id] as string;
+          // null → omit (clears stale NEW PRICE for skipped rows)
+          continue;
+        }
+        next[id] = value;
+      }
+      for (const [id, value] of Object.entries(updates)) {
+        if (value != null) next[id] = value;
       }
       return next;
     });
+    const skipNote =
+      skipped > 0
+        ? ` Skipped ${skipped} row${skipped === 1 ? "" : "s"} with invalid catalog price (NEW PRICE cleared).`
+        : "";
     setNotice(
-      "Filled selected rows with current catalog prices. Submit to push those amounts to stores (when sync is enabled).",
+      filled > 0
+        ? `Filled ${filled} selected row${filled === 1 ? "" : "s"} with current catalog prices.${skipNote} Submit for approval; approved changes are pushed to stores (when sync is enabled).`
+        : `No selected rows had a valid catalog price to fill.${skipNote}`,
     );
   };
 
