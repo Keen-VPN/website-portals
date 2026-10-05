@@ -284,15 +284,20 @@ export default function AdminPricing() {
         return {
           ...row,
           ...saved,
-          // Partial PATCH responses may omit untouched fields — keep local values.
+          // Omitted fields: untouched keep the local row value; changed keep
+          // the value this save just persisted (matches storeEdits fallback).
           storeProductId:
             saved.storeProductId !== undefined
               ? saved.storeProductId
-              : row.storeProductId,
+              : productChanged
+                ? edit.storeProductId
+                : row.storeProductId,
           storePriceId:
             saved.storePriceId !== undefined
               ? saved.storePriceId
-              : row.storePriceId,
+              : priceChanged
+                ? edit.storePriceId
+                : row.storePriceId,
         };
       }),
     );
