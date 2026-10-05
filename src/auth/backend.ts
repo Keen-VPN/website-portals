@@ -10700,6 +10700,64 @@ export async function adminFetchPricingCatalog(): Promise<{
   }
 }
 
+export async function adminUpdatePricingSkuStoreIds(
+  id: string,
+  input: {
+    storeProductId?: string | null;
+    storePriceId?: string | null;
+  },
+): Promise<{
+  ok: boolean;
+  data?: AdminPricingSku;
+  needsCatalogRefresh?: boolean;
+  error?: string;
+}> {
+  const normalize = (
+    value: string | null | undefined,
+  ): string | null | undefined => {
+    if (value === undefined) return undefined;
+    if (value == null) return null;
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? null : trimmed;
+  };
+
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/pricing/catalog/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storeProductId: normalize(input.storeProductId),
+          storePriceId: normalize(input.storePriceId),
+        }),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to update catalog store IDs",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminPricingSku };
+    if (!record.data) {
+      // Persist succeeded but payload missing — caller should refetch catalog.
+      return { ok: true, needsCatalogRefresh: true };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
 export async function adminListPricingChanges(params?: {
   status?: PricingChangeStatus | "";
   limit?: number;
