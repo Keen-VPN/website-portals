@@ -10700,6 +10700,47 @@ export async function adminFetchPricingCatalog(): Promise<{
   }
 }
 
+export async function adminUpdatePricingSkuStoreIds(
+  id: string,
+  input: {
+    storeProductId?: string | null;
+    storePriceId?: string | null;
+  },
+): Promise<{
+  ok: boolean;
+  data?: AdminPricingSku;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/pricing/catalog/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to update catalog store IDs",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminPricingSku };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
 export async function adminListPricingChanges(params?: {
   status?: PricingChangeStatus | "";
   limit?: number;

@@ -12,6 +12,7 @@ import {
   adminRejectPricingChange,
   adminRunPricingDriftAudit,
   adminSubmitPricingChange,
+  adminUpdatePricingSkuStoreIds,
   type AdminPricingChangeDetail,
   type AdminPricingChangeListItem,
   type AdminPricingDriftFinding,
@@ -83,6 +84,10 @@ export default function AdminPricing() {
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [toPrices, setToPrices] = useState<Record<string, string>>({});
+  const [storeEdits, setStoreEdits] = useState<
+    Record<string, { storeProductId: string; storePriceId: string }>
+  >({});
+  const [savingStoreId, setSavingStoreId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [preview, setPreview] = useState<AdminPricingPreview | null>(null);
@@ -106,6 +111,17 @@ export default function AdminPricing() {
       return;
     }
     setCatalog(res.data);
+    setStoreEdits(
+      Object.fromEntries(
+        res.data.map((sku) => [
+          sku.id,
+          {
+            storeProductId: sku.storeProductId ?? "",
+            storePriceId: sku.storePriceId ?? "",
+          },
+        ]),
+      ),
+    );
   }, []);
 
   const loadRequests = useCallback(async () => {
@@ -163,6 +179,39 @@ export default function AdminPricing() {
       else next.add(id);
       return next;
     });
+  };
+
+  const saveStoreIds = async (sku: AdminPricingSku) => {
+    if (!canWrite) return;
+    const edit = storeEdits[sku.id] ?? {
+      storeProductId: sku.storeProductId ?? "",
+      storePriceId: sku.storePriceId ?? "",
+    };
+    setSavingStoreId(sku.id);
+    setError(null);
+    setNotice(null);
+    const res = await adminUpdatePricingSkuStoreIds(sku.id, {
+      storeProductId: edit.storeProductId,
+      storePriceId: edit.storePriceId,
+    });
+    setSavingStoreId(null);
+    if (!res.ok || !res.data) {
+      setError(res.error ?? "Failed to save store IDs");
+      return;
+    }
+    setCatalog((prev) =>
+      prev.map((row) => (row.id === sku.id ? { ...row, ...res.data! } : row)),
+    );
+    setStoreEdits((prev) => ({
+      ...prev,
+      [sku.id]: {
+        storeProductId: res.data!.storeProductId ?? "",
+        storePriceId: res.data!.storePriceId ?? "",
+      },
+    }));
+    setNotice(
+      `Saved store IDs for ${sku.platform} ${sku.billingPeriod}.`,
+    );
   };
 
   const selectedSkus = useMemo(
@@ -435,6 +484,7 @@ export default function AdminPricing() {
                 <th className="px-3 py-2">Price</th>
                 <th className="px-3 py-2">Store product</th>
                 <th className="px-3 py-2">Store price / plan</th>
+                {canWrite ? <th className="px-3 py-2">Save IDs</th> : null}
                 {canWrite ? <th className="px-3 py-2">New price</th> : null}
               </tr>
             </thead>
@@ -442,7 +492,7 @@ export default function AdminPricing() {
               {loading && catalog.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={canWrite ? 7 : 5}
+                    colSpan={canWrite ? 8 : 5}
                     className="px-3 py-6 text-muted-foreground"
                   >
                     Loading catalog…
@@ -451,7 +501,7 @@ export default function AdminPricing() {
               ) : filteredCatalog.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={canWrite ? 7 : 5}
+                    colSpan={canWrite ? 8 : 5}
                     className="px-3 py-6 text-muted-foreground"
                   >
                     No SKUs for this filter.
@@ -460,6 +510,13 @@ export default function AdminPricing() {
               ) : (
                 filteredCatalog.map((sku) => {
                   const skuLabel = `${sku.platform} ${sku.billingPeriod} ${sku.planKey}`;
+                  const edit = storeEdits[sku.id] ?? {
+                    storeProductId: sku.storeProductId ?? "",
+                    storePriceId: sku.storePriceId ?? "",
+                  };
+                  const dirty =
+                    edit.storeProductId !== (sku.storeProductId ?? "") ||
+                    edit.storePriceId !== (sku.storePriceId ?? "");
                   return (
                   <tr key={sku.id} className="border-t border-border">
                     {canWrite ? (
@@ -475,12 +532,77 @@ export default function AdminPricing() {
                     <td className="px-3 py-2 font-medium">{sku.platform}</td>
                     <td className="px-3 py-2">{sku.billingPeriod}</td>
                     <td className="px-3 py-2">{formatSkuPrice(sku)}</td>
-                    <td className="max-w-[12rem] truncate px-3 py-2 font-mono text-xs">
-                      {sku.storeProductId || "—"}
+                    <td className="px-3 py-2">
+                      {canWrite ? (
+                        <Input
+                          value={edit.storeProductId}
+                          onChange={(e) =>
+                            setStoreEdits((prev) => ({
+                              ...prev,
+                              [sku.id]: {
+                                ...edit,
+                                storeProductId: e.target.value,
+                              },
+                            }))
+                          }
+                          className="h-8 min-w-[10rem] font-mono text-xs"
+                          placeholder={
+                            sku.platform === "ANDROID"
+                              ? "keenvpn_monthly"
+                              : sku.platform === "WEB"
+                                ? "prod_…"
+                                : "ASC subscription id"
+                          }
+                          aria-label={`Store product for ${skuLabel}`}
+                        />
+                      ) : (
+                        <span className="max-w-[12rem] truncate font-mono text-xs">
+                          {sku.storeProductId || "—"}
+                        </span>
+                      )}
                     </td>
-                    <td className="max-w-[12rem] truncate px-3 py-2 font-mono text-xs">
-                      {sku.storePriceId || "—"}
+                    <td className="px-3 py-2">
+                      {canWrite ? (
+                        <Input
+                          value={edit.storePriceId}
+                          onChange={(e) =>
+                            setStoreEdits((prev) => ({
+                              ...prev,
+                              [sku.id]: {
+                                ...edit,
+                                storePriceId: e.target.value,
+                              },
+                            }))
+                          }
+                          className="h-8 min-w-[10rem] font-mono text-xs"
+                          placeholder={
+                            sku.platform === "ANDROID"
+                              ? "base-plan-id"
+                              : sku.platform === "WEB"
+                                ? "price_…"
+                                : "ASC price-point id"
+                          }
+                          aria-label={`Store price for ${skuLabel}`}
+                        />
+                      ) : (
+                        <span className="max-w-[12rem] truncate font-mono text-xs">
+                          {sku.storePriceId || "—"}
+                        </span>
+                      )}
                     </td>
+                    {canWrite ? (
+                      <td className="px-3 py-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={!dirty || savingStoreId === sku.id || busy}
+                          onClick={() => void saveStoreIds(sku)}
+                        >
+                          {savingStoreId === sku.id ? "Saving…" : "Save"}
+                        </Button>
+                      </td>
+                    ) : null}
                     {canWrite ? (
                       <td className="px-3 py-2">
                         <Input
@@ -515,7 +637,11 @@ export default function AdminPricing() {
           <h3 className="text-lg font-semibold">Propose change</h3>
           <p className="text-sm text-muted-foreground">
             Select catalog rows above, enter new prices, then create a draft and
-            submit. Creator cannot approve their own request.
+            submit. Creator cannot approve their own request — a second admin
+            with pricing.approve (e.g. BILLING_ADMIN / SUPER_ADMIN) must approve
+            in this portal. Slack only notifies; it cannot approve.
+            Edit Store product / Store price columns and click Save to map ASC /
+            Play IDs before enabling store sync.
           </p>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
