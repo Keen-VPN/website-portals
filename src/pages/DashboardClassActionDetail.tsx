@@ -72,10 +72,34 @@ function BackLink({ closed }: { closed: boolean }) {
 function GlanceRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4 py-1.5">
-      <dt className="text-[14px] text-[#627086]">{label}</dt>
-      <dd className="text-right text-[14px] font-semibold text-[#0f2040]">{value}</dd>
+      <dt className="shrink-0 text-[14px] text-[#627086]">{label}</dt>
+      <dd className="min-w-0 text-right text-[14px] font-semibold leading-[1.45] text-[#0f2040] break-words">
+        {value}
+      </dd>
     </div>
   );
+}
+
+/** Strip trailing ellipsis variants (… / ... / ..) and surrounding whitespace. */
+function stripTrailingEllipsis(value: string): string {
+  return value.replace(/(?:\u2026|\.{2,})\s*$/u, "").trim();
+}
+
+function shouldShowDocsChip(chip: string | undefined, body: string | undefined) {
+  const label = chip?.trim() || "";
+  if (!label) return false;
+
+  const text = body?.trim() || "";
+  // Chip-only is valid: whatYouMayNeed is optional on PerkDetail.
+  if (!text) return true;
+
+  const labelKey = stripTrailingEllipsis(label).toLowerCase();
+  const textKey = stripTrailingEllipsis(text).toLowerCase();
+  if (labelKey === textKey) return false;
+
+  // Hide when chip is a truncated prefix of the body (legacy email summary).
+  if (labelKey && textKey.startsWith(labelKey)) return false;
+  return true;
 }
 
 function SettlementDetailView({
@@ -96,6 +120,10 @@ function SettlementDetailView({
   const daysLeft = closed
     ? null
     : formatDaysLeft(settlementDaysRemaining(perk));
+  const needBody = closed
+    ? "Nothing to do here. If you filed before the deadline, check your status on the administrator’s site."
+    : perk.whatYouMayNeed;
+  const showDocsChip = shouldShowDocsChip(perk.docsNeededLabel, needBody);
   const slug = resolveClassActionPageSlug(perk);
   const trackedView = useRef(false);
 
@@ -311,18 +339,14 @@ function SettlementDetailView({
           ) : null}
 
           <Section title="What you may need">
-            {perk.docsNeededLabel ? (
-              <div>
-                <span className="inline-block rounded-[10px] border border-[#e7edf5] bg-[#f7f9fc] px-3.5 py-2 text-[14px] text-[#43516a]">
+            {showDocsChip ? (
+              <div className="min-w-0">
+                <span className="inline-block max-w-full break-words rounded-[10px] border border-[#e7edf5] bg-[#f7f9fc] px-3.5 py-2 text-[14px] text-[#43516a]">
                   {perk.docsNeededLabel}
                 </span>
               </div>
             ) : null}
-            <p>
-              {closed
-                ? "Nothing to do here. If you filed before the deadline, check your status on the administrator’s site."
-                : perk.whatYouMayNeed}
-            </p>
+            <p>{needBody}</p>
           </Section>
 
           <Section title="How to claim">
