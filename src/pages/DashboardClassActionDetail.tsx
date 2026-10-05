@@ -73,21 +73,33 @@ function GlanceRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4 py-1.5">
       <dt className="shrink-0 text-[14px] text-[#627086]">{label}</dt>
-      <dd className="text-right text-[14px] font-semibold leading-[1.45] text-[#0f2040] break-words">
+      <dd className="min-w-0 text-right text-[14px] font-semibold leading-[1.45] text-[#0f2040] break-words">
         {value}
       </dd>
     </div>
   );
 }
 
+/** Strip trailing ellipsis variants (… / ... / ..) and surrounding whitespace. */
+function stripTrailingEllipsis(value: string): string {
+  return value.replace(/(?:\u2026|\.{2,})\s*$/u, "").trim();
+}
+
 function shouldShowDocsChip(chip: string | undefined, body: string | undefined) {
   const label = chip?.trim() || "";
+  if (!label) return false;
+
   const text = body?.trim() || "";
-  if (!label || !text) return false;
-  if (label === text) return false;
+  // Chip-only is valid: whatYouMayNeed is optional on PerkDetail.
+  if (!text) return true;
+
+  const labelKey = stripTrailingEllipsis(label).toLowerCase();
+  const textKey = stripTrailingEllipsis(text).toLowerCase();
+  if (labelKey === textKey) return false;
+
   // Hide when chip is a truncated prefix of the body (legacy email summary).
-  const chipStem = label.replace(/…$/, "").trim();
-  return !chipStem || !text.startsWith(chipStem);
+  if (labelKey && textKey.startsWith(labelKey)) return false;
+  return true;
 }
 
 function SettlementDetailView({
@@ -328,8 +340,8 @@ function SettlementDetailView({
 
           <Section title="What you may need">
             {showDocsChip ? (
-              <div>
-                <span className="inline-block max-w-full rounded-[10px] border border-[#e7edf5] bg-[#f7f9fc] px-3.5 py-2 text-[14px] text-[#43516a]">
+              <div className="min-w-0">
+                <span className="inline-block max-w-full break-words rounded-[10px] border border-[#e7edf5] bg-[#f7f9fc] px-3.5 py-2 text-[14px] text-[#43516a]">
                   {perk.docsNeededLabel}
                 </span>
               </div>
