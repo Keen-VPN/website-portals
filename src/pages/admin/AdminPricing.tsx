@@ -325,6 +325,19 @@ export default function AdminPricing() {
     [catalog, selectedIds],
   );
 
+  const fillCatalogPricesForSelection = () => {
+    setToPrices((prev) => {
+      const next = { ...prev };
+      for (const sku of selectedSkus) {
+        next[sku.id] = String(skuPrice(sku));
+      }
+      return next;
+    });
+    setNotice(
+      "Filled selected rows with current catalog prices. Submit to push those amounts to stores (when sync is enabled).",
+    );
+  };
+
   const createDraft = async () => {
     if (!canWrite || savingStoreIdRef.current) return;
     setBusy(true);
@@ -378,8 +391,13 @@ export default function AdminPricing() {
 
     setDraftId(res.data.request.id);
     setPreview(res.data.preview);
+    const resyncOnly = changes.every(
+      (c) => Math.abs(c.toPrice - c.fromPrice) < 0.009,
+    );
     setNotice(
-      `Draft created (${res.data.request.id}). Submit for approval when ready.`,
+      resyncOnly
+        ? `Store push draft created (${res.data.request.id}). Approve to push catalog prices to stores (sync flags must be on for Apple/Play writes).`
+        : `Draft created (${res.data.request.id}). Submit for approval when ready.`,
     );
     // Prevent accidental duplicate drafts from the same selection.
     setSelectedIds(new Set());
@@ -755,9 +773,10 @@ export default function AdminPricing() {
           <h3 className="text-lg font-semibold">Propose change</h3>
           <p className="text-sm text-muted-foreground">
             Select catalog rows above, enter new prices, then create a draft and
-            submit. Creator cannot approve their own request — a second admin
-            with pricing.approve (e.g. BILLING_ADMIN / SUPER_ADMIN) must approve
-            in this portal. Slack only notifies; it cannot approve.
+            submit. Entering the <em>same</em> price as catalog is allowed — it
+            pushes that source-of-truth amount to the store (fixes drift) when
+            platform sync is enabled. Creator cannot approve their own request —
+            a second admin with pricing.approve (or Slack Approve) must approve.
             Edit Store product / Store price columns and click Save to map ASC /
             Play IDs before enabling store sync.
           </p>
@@ -782,6 +801,14 @@ export default function AdminPricing() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy || selectedIds.size === 0 || !!draftId}
+              onClick={fillCatalogPricesForSelection}
+            >
+              Use catalog prices
+            </Button>
             <Button
               type="button"
               disabled={
