@@ -399,7 +399,7 @@ export default function AdminChurnWeekly() {
           subtitle={formatWeeklyActiveUsersSubtitle(engagement?.summary)}
           detail={
             source !== "all"
-              ? `All users (not filtered by ${sourceFilterLabel(source)}) · ${report?.weekRangeLabel ?? weekInputValue}`
+              ? `All users (not filtered by ${friendlyProvider(source)}) · ${report?.weekRangeLabel ?? weekInputValue}`
               : (engagement?.summary.week_range_label ??
                 report?.weekRangeLabel ??
                 weekInputValue)
