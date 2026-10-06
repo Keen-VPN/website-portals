@@ -132,20 +132,25 @@ function LogoThumb({ url }: { url: string }) {
     setFailedUrl(null);
   }
   if (!trimmed || !isEmailSafeLogoUrl(trimmed)) return null;
-  if (failedUrl === trimmed) {
-    return <span className="text-xs text-destructive">Couldn’t load logo</span>;
-  }
+  const loadFailed = failedUrl === trimmed;
   return (
-    <img
-      key={trimmed}
-      src={trimmed}
-      alt=""
-      className="h-11 w-11 rounded-md border border-border bg-white object-contain"
-      onLoad={() =>
-        setFailedUrl((current) => (current === trimmed ? null : current))
-      }
-      onError={() => setFailedUrl(trimmed)}
-    />
+    <div className="relative h-11 w-11 shrink-0">
+      <img
+        key={trimmed}
+        src={trimmed}
+        alt=""
+        className={`h-11 w-11 rounded-md border border-border bg-white object-contain${loadFailed ? " opacity-40" : ""}`}
+        onLoad={() =>
+          setFailedUrl((current) => (current === trimmed ? null : current))
+        }
+        onError={() => setFailedUrl(trimmed)}
+      />
+      {loadFailed ? (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center px-0.5 text-center text-[10px] leading-tight text-destructive">
+          Couldn&apos;t load
+        </span>
+      ) : null}
+    </div>
   );
 }
 

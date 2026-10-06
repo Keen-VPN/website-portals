@@ -86,11 +86,11 @@ function sourceBillingActiveTotal(
   report: AdminWeeklyChurnReport | null,
 ): number | null {
   if (!report?.bySubscriptionSource?.length) return null;
-  const withBillingActive = report.bySubscriptionSource.filter(
-    (row) => typeof row.billingActiveAtWeekStart === "number",
-  );
-  if (withBillingActive.length === 0) return null;
-  return withBillingActive.reduce(
+  const rows = report.bySubscriptionSource;
+  if (!rows.every((row) => typeof row.billingActiveAtWeekStart === "number")) {
+    return null;
+  }
+  return rows.reduce(
     (sum, row) => sum + (row.billingActiveAtWeekStart as number),
     0,
   );
@@ -100,21 +100,15 @@ function sourceBillingActiveDetail(
   report: AdminWeeklyChurnReport | null,
 ): string | undefined {
   if (!report?.bySubscriptionSource?.length) return undefined;
-  if (
-    !report.bySubscriptionSource.some(
-      (row) => typeof row.billingActiveAtWeekStart === "number",
-    )
-  ) {
-    return undefined;
+  const rows = report.bySubscriptionSource;
+  if (!rows.every((row) => typeof row.billingActiveAtWeekStart === "number")) {
+    return "—";
   }
-  return report.bySubscriptionSource
-    .map((row) => {
-      const count =
-        typeof row.billingActiveAtWeekStart === "number"
-          ? String(row.billingActiveAtWeekStart)
-          : "—";
-      return `${friendlyProvider(row.subscriptionType)} ${count}`;
-    })
+  return rows
+    .map(
+      (row) =>
+        `${friendlyProvider(row.subscriptionType)} ${row.billingActiveAtWeekStart}`,
+    )
     .join(" · ");
 }
 
@@ -375,7 +369,9 @@ export default function AdminChurnWeekly() {
           }
           subtitle={
             report
-              ? `status=active only · Stripe/Apple/Google · ${report.weekRangeLabel}`
+              ? source !== "all"
+                ? `status=active only · ${friendlyProvider(source)} · ${report.weekRangeLabel}`
+                : `status=active only · Stripe/Apple/Google · ${report.weekRangeLabel}`
               : "status=active only — compare to Stripe/ASC/Play"
           }
           detail={sourceBillingActiveDetail(report)}
