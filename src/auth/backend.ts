@@ -8075,6 +8075,8 @@ export interface AdminBroadcastComposePayload {
   preheader?: string;
   ctaLabel?: string;
   ctaUrl?: string;
+  /** Class-action perk announcements. An empty list means no logos. */
+  companies?: { name: string; logoUrl?: string }[];
 }
 
 export interface AdminBroadcastAudienceSummary {

@@ -14,6 +14,125 @@ function optionalTrim(value: string): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+export const MAX_BROADCAST_COMPANIES = 4;
+
+const RASTER_LOGO_EXTENSIONS = [".png", ".jpg", ".jpeg"];
+
+export interface BroadcastCompanyDraft {
+  id: string;
+  name: string;
+  logoUrl: string;
+}
+
+function createBroadcastCompanyId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `co-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+export function createBroadcastCompanyDraft(
+  name = "",
+  logoUrl = "",
+): BroadcastCompanyDraft {
+  return { id: createBroadcastCompanyId(), name, logoUrl };
+}
+
+function parsedHttpsUrl(url: string): URL | null {
+  try {
+    const parsed = new URL(url.trim());
+    return parsed.protocol === "https:" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function isSvgLogoUrl(url: string): boolean {
+  return parsedHttpsUrl(url)?.pathname.toLowerCase().endsWith(".svg") ?? false;
+}
+
+/**
+ * Cloudinary image/upload URLs often omit the file extension. Allow those
+ * unless the URL sets a format other than PNG or JPG.
+ */
+function isExtensionlessCloudinaryLogo(parsed: URL): boolean {
+  if (parsed.hostname !== "res.cloudinary.com") return false;
+  const path = parsed.pathname.toLowerCase();
+  if (!path.includes("/image/upload/")) return false;
+  const format = path.match(/(?:^|\/)f_([a-z0-9]+)(?:,|\/|$)/)?.[1];
+  if (format && format !== "png" && format !== "jpg" && format !== "jpeg") {
+    return false;
+  }
+  const last = path.split("/").filter(Boolean).pop() ?? "";
+  return !last.includes(".");
+}
+
+/** https PNG/JPG, including extensionless Cloudinary image URLs. SVG is rejected. */
+export function isEmailSafeLogoUrl(url: string): boolean {
+  const parsed = parsedHttpsUrl(url);
+  if (!parsed) return false;
+  const path = parsed.pathname.toLowerCase();
+  if (path.endsWith(".svg")) return false;
+  return (
+    RASTER_LOGO_EXTENSIONS.some((extension) => path.endsWith(extension)) ||
+    isExtensionlessCloudinaryLogo(parsed)
+  );
+}
+
+export function showBroadcastCompanySection(
+  template: string,
+  category: string | null | undefined,
+): boolean {
+  return (
+    template === PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE &&
+    category === "class_action"
+  );
+}
+
+export function broadcastCompanyErrors(
+  rows: BroadcastCompanyDraft[],
+): string[] {
+  const errors: string[] = [];
+  const visible = rows.slice(0, MAX_BROADCAST_COMPANIES);
+  visible.forEach((row, index) => {
+    const name = row.name.trim();
+    const logoUrl = row.logoUrl.trim();
+    if (!name && !logoUrl) return;
+    const label = `Company ${index + 1}`;
+    if (!name) errors.push(`${label} needs a name.`);
+    if (logoUrl && !isEmailSafeLogoUrl(logoUrl)) {
+      errors.push(
+        isSvgLogoUrl(logoUrl)
+          ? `${label} logo must be a PNG or JPG. SVG won't show in Gmail or Outlook.`
+          : parsedHttpsUrl(logoUrl)
+            ? `${label} logo must be a PNG or JPG.`
+            : `${label} logo must be an https link.`,
+      );
+    }
+  });
+  if (rows.length > MAX_BROADCAST_COMPANIES) {
+    errors.push("Add at most 4 companies.");
+  }
+  return errors;
+}
+
+export function normalizeBroadcastCompanies(
+  rows: BroadcastCompanyDraft[],
+): { name: string; logoUrl?: string }[] {
+  return rows
+    .slice(0, MAX_BROADCAST_COMPANIES)
+    .map((row) => ({
+      name: row.name.trim(),
+      logoUrl: row.logoUrl.trim(),
+    }))
+    .filter((row) => row.name.length > 0)
+    .map((row) =>
+      row.logoUrl
+        ? { name: row.name, logoUrl: row.logoUrl }
+        : { name: row.name },
+    );
+}
+
 export function buildBroadcastComposePayload(input: {
   audience: BroadcastEmailAudience;
   category: BroadcastEmailCategory | "none";
@@ -27,6 +146,8 @@ export function buildBroadcastComposePayload(input: {
   preheader: string;
   ctaLabel: string;
   ctaUrl: string;
+  isClassActionPerk?: boolean;
+  companies?: BroadcastCompanyDraft[];
 }): AdminBroadcastComposePayload {
   const payload: AdminBroadcastComposePayload = {
     audience: input.audience,
@@ -64,8 +185,12 @@ export function buildBroadcastComposePayload(input: {
     if (preheader) payload.preheader = preheader;
     const ctaLabel = optionalTrim(input.ctaLabel);
     if (ctaLabel) payload.ctaLabel = ctaLabel;
-    const ctaUrl = optionalTrim(input.ctaUrl);
-    if (ctaUrl) payload.ctaUrl = ctaUrl;
+    if (input.isClassActionPerk) {
+      payload.companies = normalizeBroadcastCompanies(input.companies ?? []);
+    } else {
+      const ctaUrl = optionalTrim(input.ctaUrl);
+      if (ctaUrl) payload.ctaUrl = ctaUrl;
+    }
     return payload;
   }
 

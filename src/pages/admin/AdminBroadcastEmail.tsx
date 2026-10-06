@@ -31,11 +31,17 @@ import {
   type BroadcastEmailCategory,
   type BroadcastEmailTemplate,
 } from "@/auth/backend";
-import { buildBroadcastComposePayload } from "@/pages/admin/broadcast-email-compose";
-import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
-  AudienceTargetingPanel,
-} from "@/components/admin/AudienceTargetingPanel";
+  buildBroadcastComposePayload,
+  broadcastCompanyErrors,
+  createBroadcastCompanyDraft,
+  isEmailSafeLogoUrl,
+  MAX_BROADCAST_COMPANIES,
+  showBroadcastCompanySection,
+  type BroadcastCompanyDraft,
+} from "@/pages/admin/broadcast-email-compose";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import { AudienceTargetingPanel } from "@/components/admin/AudienceTargetingPanel";
 import {
   createDefaultAudienceTargeting,
   getAudienceTargetingValidationError,
@@ -119,6 +125,27 @@ function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+function LogoThumb({ url }: { url: string }) {
+  const trimmed = url.trim();
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  if (!trimmed || !isEmailSafeLogoUrl(trimmed)) return null;
+  if (failedUrl === trimmed) {
+    return <span className="text-xs text-destructive">Couldn’t load logo</span>;
+  }
+  return (
+    <img
+      key={trimmed}
+      src={trimmed}
+      alt=""
+      className="h-11 w-11 rounded-md border border-border bg-white object-contain"
+      onLoad={() =>
+        setFailedUrl((current) => (current === trimmed ? null : current))
+      }
+      onError={() => setFailedUrl(trimmed)}
+    />
+  );
+}
+
 export default function AdminBroadcastEmail() {
   const { admin, can } = useAdminAuth();
   const { toast } = useToast();
@@ -158,6 +185,7 @@ export default function AdminBroadcastEmail() {
   const [preheader, setPreheader] = useState("");
   const [ctaLabel, setCtaLabel] = useState(DEFAULT_CTA_LABEL);
   const [ctaUrl, setCtaUrl] = useState(DEFAULT_CTA_URL);
+  const [companies, setCompanies] = useState<BroadcastCompanyDraft[]>([]);
   const [previewing, setPreviewing] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendProgress, setSendProgress] = useState<string | null>(null);
@@ -187,12 +215,22 @@ export default function AdminBroadcastEmail() {
     () => activePerks.find((perk) => perk.id === perkId) ?? null,
     [activePerks, perkId],
   );
+  const isClassActionPerk = showBroadcastCompanySection(
+    template,
+    selectedPerk?.category,
+  );
+  const companyErrors = useMemo(
+    () => (isClassActionPerk ? broadcastCompanyErrors(companies) : []),
+    [isClassActionPerk, companies],
+  );
 
   const composeReady = useMemo(
     () =>
       isMembershipTransferTemplate ||
       isChromeExtensionTemplate ||
-      (isPerkAnnouncementTemplate && !!selectedPerk) ||
+      (isPerkAnnouncementTemplate &&
+        !!selectedPerk &&
+        companyErrors.length === 0) ||
       (!isPerkAnnouncementTemplate &&
         subject.trim().length > 0 &&
         headline.trim().length > 0 &&
@@ -202,6 +240,7 @@ export default function AdminBroadcastEmail() {
       isChromeExtensionTemplate,
       isPerkAnnouncementTemplate,
       selectedPerk,
+      companyErrors,
       subject,
       headline,
       body,
@@ -218,6 +257,7 @@ export default function AdminBroadcastEmail() {
     setPreheader("");
     setCtaLabel(DEFAULT_CTA_LABEL);
     setCtaUrl(DEFAULT_CTA_URL);
+    setCompanies([]);
     setCategory("none");
     setEmailCategory("none");
   }, []);
@@ -230,12 +270,10 @@ export default function AdminBroadcastEmail() {
         ? `New class action settlement: ${title}`
         : `New perk: ${title}`,
     );
-    setHeadline(
-      isClassAction ? "New Class Action Opportunity" : title,
-    );
+    setHeadline(isClassAction ? "You may qualify for a new settlement" : title);
     setBody(
       isClassAction
-        ? "We found a new settlement opportunity you may be eligible to claim."
+        ? "Customers of these companies may be eligible to submit a claim."
         : `A new partner perk is available for KeenVPN members: ${perk.offerText}`,
     );
     setPreheader(
@@ -243,15 +281,25 @@ export default function AdminBroadcastEmail() {
         ? `New settlement alert — ${title}`
         : `New perk available — ${title}`,
     );
-    setCtaLabel(isClassAction ? "Claim Settlement →" : "View perk");
-    setCtaUrl(perk.redemptionUrl?.trim() || DEFAULT_CTA_URL);
+    setCtaLabel(isClassAction ? "See If You Qualify →" : "View perk");
+    setCtaUrl(
+      isClassAction ? "" : perk.redemptionUrl?.trim() || DEFAULT_CTA_URL,
+    );
+    setCompanies(
+      isClassAction
+        ? [
+            createBroadcastCompanyDraft(
+              perk.partnerName?.trim() ?? "",
+              perk.imageUrl?.trim() ?? "",
+            ),
+          ].filter((row) => row.name || row.logoUrl)
+        : [],
+    );
     setEmailCategory("perks_offers");
     setCategory("announcement");
   }, []);
 
-  const applyTemplate = (
-    next: BroadcastEmailTemplate | "custom",
-  ) => {
+  const applyTemplate = (next: BroadcastEmailTemplate | "custom") => {
     if (template === "custom" && next !== "custom") {
       customDraftRef.current = {
         subject,
@@ -290,6 +338,7 @@ export default function AdminBroadcastEmail() {
         setPreheader("");
         setCtaLabel(DEFAULT_CTA_LABEL);
         setCtaUrl(DEFAULT_CTA_URL);
+        setCompanies([]);
       }
       return;
     }
@@ -332,6 +381,8 @@ export default function AdminBroadcastEmail() {
         preheader,
         ctaLabel,
         ctaUrl,
+        isClassActionPerk,
+        companies,
       }),
     [
       audience,
@@ -346,6 +397,8 @@ export default function AdminBroadcastEmail() {
       preheader,
       ctaLabel,
       ctaUrl,
+      isClassActionPerk,
+      companies,
     ],
   );
 
@@ -398,13 +451,7 @@ export default function AdminBroadcastEmail() {
         "That perk is inactive or still pending review. Activate it first, then try Email members again.",
       variant: "destructive",
     });
-  }, [
-    isPerkAnnouncementTemplate,
-    loadingPerks,
-    activePerks,
-    perkId,
-    toast,
-  ]);
+  }, [isPerkAnnouncementTemplate, loadingPerks, activePerks, perkId, toast]);
 
   const lastAppliedPerkIdRef = useRef<string | null>(null);
 
@@ -429,10 +476,7 @@ export default function AdminBroadcastEmail() {
     ) => {
       // Perk mode ignores profile targeting (backend uses the perk's stored
       // audience), so invalid panel state must not block the count.
-      if (
-        !selectedPerkId &&
-        getAudienceTargetingValidationError(targeting)
-      ) {
+      if (!selectedPerkId && getAudienceTargetingValidationError(targeting)) {
         return;
       }
 
@@ -791,7 +835,9 @@ export default function AdminBroadcastEmail() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Broadcast Email</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">
+          Broadcast Email
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Compose a Resend broadcast for KeenVPN users, or send the designed
           membership-transfer email. Default audience is all deliverable
@@ -886,11 +932,13 @@ export default function AdminBroadcastEmail() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="rounded-lg border border-border px-4 py-3">
-              <p className="text-xs text-muted-foreground">Expected recipients</p>
+              <p className="text-xs text-muted-foreground">
+                Expected recipients
+              </p>
               <p className="text-2xl font-semibold tabular-nums">
                 {loadingAudience
                   ? "…"
-                  : recipientCount?.toLocaleString() ?? "—"}
+                  : (recipientCount?.toLocaleString() ?? "—")}
               </p>
             </div>
             <div className="rounded-lg border border-border px-4 py-3">
@@ -898,7 +946,7 @@ export default function AdminBroadcastEmail() {
               <p className="text-lg font-medium tabular-nums">
                 {loadingAudience
                   ? "…"
-                  : totalAudience?.toLocaleString() ?? "—"}
+                  : (totalAudience?.toLocaleString() ?? "—")}
               </p>
             </div>
             <div className="rounded-lg border border-border px-4 py-3">
@@ -1023,21 +1071,22 @@ export default function AdminBroadcastEmail() {
             </Select>
             {isMembershipTransferTemplate ? (
               <p className="text-xs text-muted-foreground">
-                Sends the designed membership-transfer layout. The button
-                always goes to {MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaUrl}.
-                Edit the subject to override the template default.
+                Sends the designed membership-transfer layout. The button always
+                goes to {MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaUrl}. Edit
+                the subject to override the template default.
               </p>
             ) : isPerkAnnouncementTemplate ? (
               <p className="text-xs text-muted-foreground">
-                Uses the designed perk layout for the selected perk type (class
-                action settlement card or generic perk card). Audience is
-                everyone that perk is available to, under Class Actions &amp;
-                Perks preferences.
+                Class action perks use the settlement layout: a badge, company
+                logos, payout, and a button to the KeenVPN class action page.
+                Other perks use the generic perk card. Audience is everyone that
+                perk is available to, under Class Actions &amp; Perks
+                preferences.
               </p>
             ) : isChromeExtensionTemplate ? (
               <p className="text-xs text-muted-foreground">
-                Sends the designed Chrome extension layout. Both CTAs always
-                go to the Chrome Web Store listing with campaign attribution,
+                Sends the designed Chrome extension layout. Both CTAs always go
+                to the Chrome Web Store listing with campaign attribution,
                 regardless of any CTA URL. Edit the subject to override the
                 template default.
               </p>
@@ -1077,6 +1126,94 @@ export default function AdminBroadcastEmail() {
                   {selectedPerk.category.replace(/_/g, " ")}
                 </p>
               ) : null}
+            </div>
+          ) : null}
+          {isClassActionPerk ? (
+            <div className="space-y-3">
+              <div>
+                <Label>Companies &amp; logos</Label>
+                <p className="text-xs text-muted-foreground">
+                  Use hosted PNG/JPG logos (e.g. Cloudinary). SVG won&apos;t
+                  show in Gmail/Outlook.
+                </p>
+              </div>
+              {companies.map((company) => (
+                <div
+                  key={company.id}
+                  className="grid gap-3 rounded-lg border border-border p-3 md:grid-cols-[1fr_1fr_auto]"
+                >
+                  <div className="space-y-1">
+                    <Label htmlFor={`company-name-${company.id}`}>
+                      Company name
+                    </Label>
+                    <Input
+                      id={`company-name-${company.id}`}
+                      value={company.name}
+                      onChange={(event) =>
+                        setCompanies((rows) =>
+                          rows.map((row) =>
+                            row.id === company.id
+                              ? { ...row, name: event.target.value }
+                              : row,
+                          ),
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`company-logo-${company.id}`}>
+                      Logo URL
+                    </Label>
+                    <Input
+                      id={`company-logo-${company.id}`}
+                      value={company.logoUrl}
+                      placeholder="https://"
+                      onChange={(event) =>
+                        setCompanies((rows) =>
+                          rows.map((row) =>
+                            row.id === company.id
+                              ? { ...row, logoUrl: event.target.value }
+                              : row,
+                          ),
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <LogoThumb url={company.logoUrl} />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        setCompanies((rows) =>
+                          rows.filter((row) => row.id !== company.id),
+                        )
+                      }
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {companyErrors.map((error) => (
+                <p key={error} className="text-xs text-destructive">
+                  {error}
+                </p>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                disabled={companies.length >= MAX_BROADCAST_COMPANIES}
+                onClick={() =>
+                  setCompanies((rows) =>
+                    rows.length >= MAX_BROADCAST_COMPANIES
+                      ? rows
+                      : [...rows, createBroadcastCompanyDraft()],
+                  )
+                }
+              >
+                Add company
+              </Button>
             </div>
           ) : null}
           {isMembershipTransferTemplate ? (
@@ -1159,6 +1296,14 @@ export default function AdminBroadcastEmail() {
                 <p className="text-xs text-muted-foreground">
                   Separate paragraphs with a blank line.
                 </p>
+                {isClassActionPerk ? (
+                  <p className="text-xs text-muted-foreground">
+                    When companies are listed, the email shows &quot;Customers
+                    of … may be eligible to submit a claim.&quot; instead of
+                    this body. The body is only used when no companies are
+                    listed.
+                  </p>
+                ) : null}
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -1169,14 +1314,23 @@ export default function AdminBroadcastEmail() {
                     onChange={(event) => setCtaLabel(event.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ctaUrl">CTA URL (optional)</Label>
-                  <Input
-                    id="ctaUrl"
-                    value={ctaUrl}
-                    onChange={(event) => setCtaUrl(event.target.value)}
-                  />
-                </div>
+                {isClassActionPerk ? (
+                  <div className="space-y-2">
+                    <Label>Button link</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Button links to the KeenVPN class action page.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="ctaUrl">CTA URL (optional)</Label>
+                    <Input
+                      id="ctaUrl"
+                      value={ctaUrl}
+                      onChange={(event) => setCtaUrl(event.target.value)}
+                    />
+                  </div>
+                )}
               </div>
             </>
           )}
