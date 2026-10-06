@@ -176,7 +176,21 @@ const SOURCE_OPTIONS: { value: AdminChurnSubscriptionSource; label: string }[] =
   { value: "all", label: "All sources" },
   { value: "stripe", label: "Stripe" },
   { value: "apple_iap", label: "Apple" },
+  { value: "google_play", label: "Google Play" },
 ];
+
+function sourceFilterLabel(source: AdminChurnSubscriptionSource): string {
+  switch (source) {
+    case "stripe":
+      return "Stripe";
+    case "apple_iap":
+      return "Apple";
+    case "google_play":
+      return "Google Play";
+    default:
+      return "source";
+  }
+}
 
 export default function AdminChurnWeekly() {
   const initial = currentIsoWeek();
@@ -398,7 +412,7 @@ export default function AdminChurnWeekly() {
           subtitle={formatWeeklyActiveUsersSubtitle(engagement?.summary)}
           detail={
             source !== "all"
-              ? `All users (not filtered by ${source === "stripe" ? "Stripe" : "Apple"}) · ${report?.weekRangeLabel ?? weekInputValue}`
+              ? `All users (not filtered by ${sourceFilterLabel(source)}) · ${report?.weekRangeLabel ?? weekInputValue}`
               : (engagement?.summary.week_range_label ??
                 report?.weekRangeLabel ??
                 weekInputValue)
