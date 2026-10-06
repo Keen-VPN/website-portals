@@ -52,27 +52,64 @@ function isSvgLogoUrl(url: string): boolean {
 }
 
 const ALLOWED_CLOUDINARY_FORMATS = new Set(["png", "jpg", "jpeg", "auto"]);
+const KNOWN_CLOUDINARY_FORMATS = new Set([
+  ...ALLOWED_CLOUDINARY_FORMATS,
+  "svg",
+  "gif",
+  "webp",
+  "avif",
+  "bmp",
+  "tiff",
+  "tif",
+  "ico",
+  "pdf",
+  "heic",
+  "jp2",
+]);
 
 /**
- * Cloudinary image/upload URLs often omit the file extension. Flags in one
- * transform group are comma-separated (`c_fill,q_auto,f_jpg`), so every `f_`
- * flag counts, including ones that are not at the start of the group.
- * `f_auto` is the usual extensionless delivery URL and stays allowed.
+ * Format flags live in the transform section, before the version or public id.
+ * A comma group can carry `f_` mid-chain (`c_fill,q_auto,f_svg`). A lone
+ * `f_png` segment is a format flag too. A later folder such as `f_icons` is
+ * part of the public id and is not a format.
  */
-function isExtensionlessCloudinaryLogo(parsed: URL): boolean {
-  if (parsed.hostname !== "res.cloudinary.com") return false;
-  const path = parsed.pathname.toLowerCase();
-  if (!path.includes("/image/upload/")) return false;
-  const formats = [...path.matchAll(/(?:^|[/,])f_([a-z0-9]+)/g)].map(
-    (match) => match[1],
-  );
-  if (
-    formats.some((format) => !ALLOWED_CLOUDINARY_FORMATS.has(format))
-  ) {
-    return false;
+function cloudinaryFormatFlags(path: string): string[] {
+  const marker = "/image/upload/";
+  const start = path.indexOf(marker);
+  if (start === -1) return [];
+  const formats: string[] = [];
+  for (const segment of path.slice(start + marker.length).split("/")) {
+    if (!segment || /^v\d+$/.test(segment)) break;
+    if (segment.includes(",")) {
+      let isTransform = true;
+      for (const token of segment.split(",")) {
+        const format = token.match(/^f_([a-z0-9]+)$/)?.[1];
+        if (format) {
+          formats.push(format);
+        } else if (!/^[a-z]{1,3}_/.test(token)) {
+          isTransform = false;
+          break;
+        }
+      }
+      if (!isTransform) break;
+      continue;
+    }
+    const format = segment.match(/^f_([a-z0-9]+)$/)?.[1];
+    if (format && KNOWN_CLOUDINARY_FORMATS.has(format)) {
+      formats.push(format);
+      continue;
+    }
+    if (/^[a-z]{1,3}_/.test(segment) && !segment.startsWith("f_")) continue;
+    break;
   }
-  const last = path.split("/").filter(Boolean).pop() ?? "";
-  return !last.includes(".");
+  return formats;
+}
+
+function isCloudinaryImageUpload(parsed: URL): boolean {
+  return (
+    parsed.hostname === "res.cloudinary.com" &&
+    parsed.pathname.toLowerCase().includes("/image/upload/")
+  );
 }
 
 /** https PNG/JPG, including extensionless Cloudinary image URLs. SVG is rejected. */
@@ -81,10 +118,18 @@ export function isEmailSafeLogoUrl(url: string): boolean {
   if (!parsed) return false;
   const path = parsed.pathname.toLowerCase();
   if (path.endsWith(".svg")) return false;
-  return (
-    RASTER_LOGO_EXTENSIONS.some((extension) => path.endsWith(extension)) ||
-    isExtensionlessCloudinaryLogo(parsed)
-  );
+  if (isCloudinaryImageUpload(parsed)) {
+    const formats = cloudinaryFormatFlags(path);
+    if (formats.some((format) => !ALLOWED_CLOUDINARY_FORMATS.has(format))) {
+      return false;
+    }
+  }
+  if (RASTER_LOGO_EXTENSIONS.some((extension) => path.endsWith(extension))) {
+    return true;
+  }
+  if (!isCloudinaryImageUpload(parsed)) return false;
+  const last = path.split("/").filter(Boolean).pop() ?? "";
+  return !last.includes(".");
 }
 
 export function showBroadcastCompanySection(
