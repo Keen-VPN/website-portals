@@ -309,7 +309,27 @@ describe("class action broadcast companies", () => {
           id: "1",
           name: "Disney",
           logoUrl:
-            "https://res.cloudinary.com/demo/image/upload/c_fill,f_auto/f_icons/logo",
+            "https://res.cloudinary.com/demo/image/upload/f_heif/logo.png",
+        },
+      ]),
+    ).toEqual(["Company 1 logo must be a PNG or JPG."]);
+    expect(
+      broadcastCompanyErrors([
+        {
+          id: "1",
+          name: "Disney",
+          logoUrl:
+            "https://res.cloudinary.com/demo/image/upload/f_jxl/photo.jpg",
+        },
+      ]),
+    ).toEqual(["Company 1 logo must be a PNG or JPG."]);
+    expect(
+      broadcastCompanyErrors([
+        {
+          id: "1",
+          name: "Disney",
+          logoUrl:
+            "https://res.cloudinary.com/demo/image/upload/c_fill,f_auto/v1/f_icons/logo",
         },
       ]),
     ).toEqual([]);
