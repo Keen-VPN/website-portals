@@ -3832,7 +3832,11 @@ export interface AdminChurnTrendReport {
   points: AdminChurnTrendPoint[];
 }
 
-export type AdminChurnSubscriptionSource = "all" | "stripe" | "apple_iap";
+export type AdminChurnSubscriptionSource =
+  | "all"
+  | "stripe"
+  | "apple_iap"
+  | "google_play";
 
 export interface AdminWeeklyChurnSubscriptionSourceBreakdown {
   subscriptionType: string;
