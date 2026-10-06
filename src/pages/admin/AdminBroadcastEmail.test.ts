@@ -154,9 +154,13 @@ describe("class action broadcast companies", () => {
         isClassActionPerk: true,
         ctaUrl: "https://claims.example.com",
         companies: [
-          { name: "  Disney  ", logoUrl: "  https://cdn.example.com/d.png  " },
-          { name: "   ", logoUrl: "" },
-          { name: "Hulu", logoUrl: "   " },
+          {
+            id: "disney",
+            name: "  Disney  ",
+            logoUrl: "  https://cdn.example.com/d.png  ",
+          },
+          { id: "blank", name: "   ", logoUrl: "" },
+          { id: "hulu", name: "Hulu", logoUrl: "   " },
         ],
       }),
     ).toEqual({
@@ -186,25 +190,86 @@ describe("class action broadcast companies", () => {
   it("blocks sending while a company row is invalid", () => {
     expect(
       broadcastCompanyErrors([
-        { name: "", logoUrl: "https://cdn.example.com/a.png" },
+        { id: "1", name: "", logoUrl: "https://cdn.example.com/a.png" },
       ]),
     ).toEqual(["Company 1 needs a name."]);
     expect(
       broadcastCompanyErrors([
-        { name: "Disney", logoUrl: "http://cdn.example.com/a.png" },
+        { id: "1", name: "Disney", logoUrl: "http://cdn.example.com/a.png" },
       ]),
     ).toEqual(["Company 1 logo must be an https link."]);
     expect(
       broadcastCompanyErrors([
-        { name: "Disney", logoUrl: "https://cdn.example.com/a.svg?x=1" },
+        { id: "1", name: "Disney", logoUrl: "https://cdn.example.com/a.svg?x=1" },
       ]),
     ).toEqual([
       "Company 1 logo must be a PNG or JPG. SVG won't show in Gmail or Outlook.",
     ]);
     expect(
       broadcastCompanyErrors([
-        { name: "Disney", logoUrl: "https://cdn.example.com/a.png" },
+        {
+          id: "1",
+          name: "Disney",
+          logoUrl: "https://cdn.example.com/a.svg#icon",
+        },
+      ]),
+    ).toEqual([
+      "Company 1 logo must be a PNG or JPG. SVG won't show in Gmail or Outlook.",
+    ]);
+    expect(
+      broadcastCompanyErrors([
+        { id: "1", name: "Disney", logoUrl: "https://cdn.example.com/logo.gif" },
+      ]),
+    ).toEqual(["Company 1 logo must be a PNG or JPG."]);
+    expect(
+      broadcastCompanyErrors([
+        {
+          id: "1",
+          name: "Disney",
+          logoUrl: "https://res.cloudinary.com/demo/image/upload/f_gif/sample",
+        },
+      ]),
+    ).toEqual(["Company 1 logo must be a PNG or JPG."]);
+    expect(
+      broadcastCompanyErrors([
+        { id: "1", name: "Disney", logoUrl: "https://cdn.example.com/a.png" },
       ]),
     ).toEqual([]);
+    expect(
+      broadcastCompanyErrors([
+        {
+          id: "1",
+          name: "Disney",
+          logoUrl: "https://res.cloudinary.com/demo/image/upload/f_jpg/sample",
+        },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("sends at most four companies and reports the cap once", () => {
+    const companies = [1, 2, 3, 4, 5].map((index) => ({
+      id: `co-${index}`,
+      name: `Company ${index}`,
+      logoUrl: `https://cdn.example.com/${index}.png`,
+    }));
+    expect(
+      buildBroadcastComposePayload({
+        ...baseInput,
+        template: "perk_announcement",
+        perkId: "perk_ca_disney",
+        isClassActionPerk: true,
+        companies,
+      }).companies,
+    ).toEqual([
+      { name: "Company 1", logoUrl: "https://cdn.example.com/1.png" },
+      { name: "Company 2", logoUrl: "https://cdn.example.com/2.png" },
+      { name: "Company 3", logoUrl: "https://cdn.example.com/3.png" },
+      { name: "Company 4", logoUrl: "https://cdn.example.com/4.png" },
+    ]);
+    expect(
+      broadcastCompanyErrors(companies).filter(
+        (error) => error === "Add at most 4 companies.",
+      ),
+    ).toEqual(["Add at most 4 companies."]);
   });
 });

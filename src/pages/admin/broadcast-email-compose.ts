@@ -16,22 +16,60 @@ function optionalTrim(value: string): string | undefined {
 
 export const MAX_BROADCAST_COMPANIES = 4;
 
+const RASTER_LOGO_EXTENSIONS = [".png", ".jpg", ".jpeg"];
+
 export interface BroadcastCompanyDraft {
+  id: string;
   name: string;
   logoUrl: string;
 }
 
-/** Same rule as the backend `isEmailSafeLogoUrl`: https, and not an SVG path. */
-export function isEmailSafeLogoUrl(url: string): boolean {
-  const trimmed = url.trim();
-  if (!trimmed) return false;
+export function createBroadcastCompanyDraft(
+  name = "",
+  logoUrl = "",
+): BroadcastCompanyDraft {
+  return { id: crypto.randomUUID(), name, logoUrl };
+}
+
+function parsedHttpsUrl(url: string): URL | null {
   try {
-    const parsed = new URL(trimmed);
-    if (parsed.protocol !== "https:") return false;
-    return !parsed.pathname.toLowerCase().endsWith(".svg");
+    const parsed = new URL(url.trim());
+    return parsed.protocol === "https:" ? parsed : null;
   } catch {
+    return null;
+  }
+}
+
+function isSvgLogoUrl(url: string): boolean {
+  return parsedHttpsUrl(url)?.pathname.toLowerCase().endsWith(".svg") ?? false;
+}
+
+/**
+ * Cloudinary image/upload URLs often omit the file extension. Allow those
+ * unless the URL sets a format other than PNG or JPG.
+ */
+function isExtensionlessCloudinaryLogo(parsed: URL): boolean {
+  if (parsed.hostname !== "res.cloudinary.com") return false;
+  const path = parsed.pathname.toLowerCase();
+  if (!path.includes("/image/upload/")) return false;
+  const format = path.match(/(?:^|\/)f_([a-z0-9]+)(?:,|\/|$)/)?.[1];
+  if (format && format !== "png" && format !== "jpg" && format !== "jpeg") {
     return false;
   }
+  const last = path.split("/").filter(Boolean).pop() ?? "";
+  return !last.includes(".");
+}
+
+/** https PNG/JPG, including extensionless Cloudinary image URLs. SVG is rejected. */
+export function isEmailSafeLogoUrl(url: string): boolean {
+  const parsed = parsedHttpsUrl(url);
+  if (!parsed) return false;
+  const path = parsed.pathname.toLowerCase();
+  if (path.endsWith(".svg")) return false;
+  return (
+    RASTER_LOGO_EXTENSIONS.some((extension) => path.endsWith(extension)) ||
+    isExtensionlessCloudinaryLogo(parsed)
+  );
 }
 
 export function showBroadcastCompanySection(
@@ -57,9 +95,11 @@ export function broadcastCompanyErrors(
     if (!name) errors.push(`${label} needs a name.`);
     if (logoUrl && !isEmailSafeLogoUrl(logoUrl)) {
       errors.push(
-        logoUrl.split("?")[0]?.toLowerCase().endsWith(".svg")
+        isSvgLogoUrl(logoUrl)
           ? `${label} logo must be a PNG or JPG. SVG won't show in Gmail or Outlook.`
-          : `${label} logo must be an https link.`,
+          : parsedHttpsUrl(logoUrl)
+            ? `${label} logo must be a PNG or JPG.`
+            : `${label} logo must be an https link.`,
       );
     }
   });
