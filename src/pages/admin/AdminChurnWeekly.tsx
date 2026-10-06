@@ -102,7 +102,7 @@ function sourceBillingActiveDetail(
   if (!report?.bySubscriptionSource?.length) return undefined;
   const rows = report.bySubscriptionSource;
   if (!rows.every((row) => typeof row.billingActiveAtWeekStart === "number")) {
-    return undefined;
+    return "—";
   }
   return rows
     .map(

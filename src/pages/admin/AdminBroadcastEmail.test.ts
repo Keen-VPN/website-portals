@@ -372,13 +372,37 @@ describe("class action broadcast companies", () => {
       expected: ["Company 1 logo must be a PNG or JPG."],
     },
     {
-      label: "cloudinary e_vectorize rejected",
+      label: "cloudinary e_vectorize transform rejected",
       companies: [
         {
           id: "1",
           name: "Disney",
           logoUrl:
             "https://res.cloudinary.com/demo/image/upload/e_vectorize/logo.png",
+        },
+      ],
+      expected: ["Company 1 logo must be a PNG or JPG."],
+    },
+    {
+      label: "cloudinary e_vectorize in public id allowed",
+      companies: [
+        {
+          id: "1",
+          name: "Disney",
+          logoUrl:
+            "https://res.cloudinary.com/demo/image/upload/v123/e_vectorize-brand.png",
+        },
+      ],
+      expected: [],
+    },
+    {
+      label: "encoded cloudinary upload path still rejected for e_vectorize",
+      companies: [
+        {
+          id: "1",
+          name: "Disney",
+          logoUrl:
+            "https://res.cloudinary.com/demo/image%2Fupload%2Fe_vectorize%2Flogo.png",
         },
       ],
       expected: ["Company 1 logo must be a PNG or JPG."],
