@@ -24,11 +24,18 @@ export interface BroadcastCompanyDraft {
   logoUrl: string;
 }
 
+function createBroadcastCompanyId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `co-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 export function createBroadcastCompanyDraft(
   name = "",
   logoUrl = "",
 ): BroadcastCompanyDraft {
-  return { id: crypto.randomUUID(), name, logoUrl };
+  return { id: createBroadcastCompanyId(), name, logoUrl };
 }
 
 function parsedHttpsUrl(url: string): URL | null {
