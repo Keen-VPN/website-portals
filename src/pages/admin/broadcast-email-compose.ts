@@ -14,6 +14,78 @@ function optionalTrim(value: string): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+export const MAX_BROADCAST_COMPANIES = 4;
+
+export interface BroadcastCompanyDraft {
+  name: string;
+  logoUrl: string;
+}
+
+/** Same rule as the backend `isEmailSafeLogoUrl`: https, and not an SVG path. */
+export function isEmailSafeLogoUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "https:") return false;
+    return !parsed.pathname.toLowerCase().endsWith(".svg");
+  } catch {
+    return false;
+  }
+}
+
+export function showBroadcastCompanySection(
+  template: string,
+  category: string | null | undefined,
+): boolean {
+  return (
+    template === PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE &&
+    category === "class_action"
+  );
+}
+
+export function broadcastCompanyErrors(
+  rows: BroadcastCompanyDraft[],
+): string[] {
+  const errors: string[] = [];
+  const visible = rows.slice(0, MAX_BROADCAST_COMPANIES);
+  visible.forEach((row, index) => {
+    const name = row.name.trim();
+    const logoUrl = row.logoUrl.trim();
+    if (!name && !logoUrl) return;
+    const label = `Company ${index + 1}`;
+    if (!name) errors.push(`${label} needs a name.`);
+    if (logoUrl && !isEmailSafeLogoUrl(logoUrl)) {
+      errors.push(
+        logoUrl.split("?")[0]?.toLowerCase().endsWith(".svg")
+          ? `${label} logo must be a PNG or JPG. SVG won't show in Gmail or Outlook.`
+          : `${label} logo must be an https link.`,
+      );
+    }
+  });
+  if (rows.length > MAX_BROADCAST_COMPANIES) {
+    errors.push("Add at most 4 companies.");
+  }
+  return errors;
+}
+
+export function normalizeBroadcastCompanies(
+  rows: BroadcastCompanyDraft[],
+): { name: string; logoUrl?: string }[] {
+  return rows
+    .slice(0, MAX_BROADCAST_COMPANIES)
+    .map((row) => ({
+      name: row.name.trim(),
+      logoUrl: row.logoUrl.trim(),
+    }))
+    .filter((row) => row.name.length > 0)
+    .map((row) =>
+      row.logoUrl
+        ? { name: row.name, logoUrl: row.logoUrl }
+        : { name: row.name },
+    );
+}
+
 export function buildBroadcastComposePayload(input: {
   audience: BroadcastEmailAudience;
   category: BroadcastEmailCategory | "none";
@@ -27,6 +99,8 @@ export function buildBroadcastComposePayload(input: {
   preheader: string;
   ctaLabel: string;
   ctaUrl: string;
+  isClassActionPerk?: boolean;
+  companies?: BroadcastCompanyDraft[];
 }): AdminBroadcastComposePayload {
   const payload: AdminBroadcastComposePayload = {
     audience: input.audience,
@@ -64,8 +138,12 @@ export function buildBroadcastComposePayload(input: {
     if (preheader) payload.preheader = preheader;
     const ctaLabel = optionalTrim(input.ctaLabel);
     if (ctaLabel) payload.ctaLabel = ctaLabel;
-    const ctaUrl = optionalTrim(input.ctaUrl);
-    if (ctaUrl) payload.ctaUrl = ctaUrl;
+    if (input.isClassActionPerk) {
+      payload.companies = normalizeBroadcastCompanies(input.companies ?? []);
+    } else {
+      const ctaUrl = optionalTrim(input.ctaUrl);
+      if (ctaUrl) payload.ctaUrl = ctaUrl;
+    }
     return payload;
   }
 
