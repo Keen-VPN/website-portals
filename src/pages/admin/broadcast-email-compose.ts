@@ -52,26 +52,14 @@ function isSvgLogoUrl(url: string): boolean {
 }
 
 const ALLOWED_CLOUDINARY_FORMATS = new Set(["png", "jpg", "jpeg", "auto"]);
-const KNOWN_CLOUDINARY_FORMATS = new Set([
-  ...ALLOWED_CLOUDINARY_FORMATS,
-  "svg",
-  "gif",
-  "webp",
-  "avif",
-  "bmp",
-  "tiff",
-  "tif",
-  "ico",
-  "pdf",
-  "heic",
-  "jp2",
-]);
 
 /**
  * Format flags live in the transform section, before the version or public id.
  * A comma group can carry `f_` mid-chain (`c_fill,q_auto,f_svg`). A lone
- * `f_png` segment is a format flag too. A later folder such as `f_icons` is
- * part of the public id and is not a format.
+ * `f_<value>` segment is a format flag too, including values this list does
+ * not name: an omitted format must not pass just because the path ends in
+ * `.png` or `.jpg`. A folder such as `f_icons` is part of the public id only
+ * once a version segment (`v123`) has ended the transform section.
  */
 function cloudinaryFormatFlags(path: string): string[] {
   const marker = "/image/upload/";
@@ -95,11 +83,11 @@ function cloudinaryFormatFlags(path: string): string[] {
       continue;
     }
     const format = segment.match(/^f_([a-z0-9]+)$/)?.[1];
-    if (format && KNOWN_CLOUDINARY_FORMATS.has(format)) {
+    if (format) {
       formats.push(format);
       continue;
     }
-    if (/^[a-z]{1,3}_/.test(segment) && !segment.startsWith("f_")) continue;
+    if (/^[a-z]{1,3}_/.test(segment)) continue;
     break;
   }
   return formats;
