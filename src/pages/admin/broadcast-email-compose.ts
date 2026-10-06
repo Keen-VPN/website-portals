@@ -47,11 +47,41 @@ function parsedHttpsUrl(url: string): URL | null {
   }
 }
 
-function isSvgLogoUrl(url: string): boolean {
-  return parsedHttpsUrl(url)?.pathname.toLowerCase().endsWith(".svg") ?? false;
+function decodedPathname(parsed: URL): string | null {
+  try {
+    return decodeURIComponent(parsed.pathname).toLowerCase();
+  } catch {
+    return null;
+  }
 }
 
-const ALLOWED_CLOUDINARY_FORMATS = new Set(["png", "jpg", "jpeg", "auto"]);
+function isSvgLogoUrl(url: string): boolean {
+  const parsed = parsedHttpsUrl(url);
+  if (!parsed) return false;
+  const path = decodedPathname(parsed);
+  // Malformed encodings are not SVG-specific — use the generic PNG/JPG message.
+  if (path === null) return false;
+  return path.endsWith(".svg");
+}
+
+const ALLOWED_CLOUDINARY_FORMATS = new Set(["png", "jpg", "jpeg"]);
+
+/**
+ * Only inspect Cloudinary transform segments (before `v123` / public id).
+ * A public id like `e_vectorize-brand.png` must not be treated as a transform.
+ */
+function cloudinaryHasDisallowedTransform(path: string): boolean {
+  const marker = "/image/upload/";
+  const start = path.indexOf(marker);
+  if (start === -1) return false;
+  for (const segment of path.slice(start + marker.length).split("/")) {
+    if (!segment || /^v\d+$/.test(segment)) break;
+    const tokens = segment.split(",");
+    if (!tokens.every((token) => /^[a-z]{1,3}_/.test(token))) break;
+    if (tokens.some((token) => token.startsWith("e_vectorize"))) return true;
+  }
+  return false;
+}
 
 /**
  * Format flags live in the transform section, before the version or public id.
@@ -93,10 +123,9 @@ function cloudinaryFormatFlags(path: string): string[] {
   return formats;
 }
 
-function isCloudinaryImageUpload(parsed: URL): boolean {
+function isCloudinaryImageUpload(hostname: string, path: string): boolean {
   return (
-    parsed.hostname === "res.cloudinary.com" &&
-    parsed.pathname.toLowerCase().includes("/image/upload/")
+    hostname === "res.cloudinary.com" && path.includes("/image/upload/")
   );
 }
 
@@ -104,9 +133,15 @@ function isCloudinaryImageUpload(parsed: URL): boolean {
 export function isEmailSafeLogoUrl(url: string): boolean {
   const parsed = parsedHttpsUrl(url);
   if (!parsed) return false;
-  const path = parsed.pathname.toLowerCase();
+  const path = decodedPathname(parsed);
+  if (path === null) return false;
   if (path.endsWith(".svg")) return false;
-  if (isCloudinaryImageUpload(parsed)) {
+  const isCloudinary = isCloudinaryImageUpload(
+    parsed.hostname.toLowerCase(),
+    path,
+  );
+  if (isCloudinary) {
+    if (cloudinaryHasDisallowedTransform(path)) return false;
     const formats = cloudinaryFormatFlags(path);
     if (formats.some((format) => !ALLOWED_CLOUDINARY_FORMATS.has(format))) {
       return false;
@@ -115,7 +150,7 @@ export function isEmailSafeLogoUrl(url: string): boolean {
   if (RASTER_LOGO_EXTENSIONS.some((extension) => path.endsWith(extension))) {
     return true;
   }
-  if (!isCloudinaryImageUpload(parsed)) return false;
+  if (!isCloudinary) return false;
   const last = path.split("/").filter(Boolean).pop() ?? "";
   return !last.includes(".");
 }
