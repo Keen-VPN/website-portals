@@ -86,10 +86,36 @@ function sourceBillingActiveTotal(
   report: AdminWeeklyChurnReport | null,
 ): number | null {
   if (!report?.bySubscriptionSource?.length) return null;
-  return report.bySubscriptionSource.reduce(
-    (sum, row) => sum + (row.billingActiveAtWeekStart ?? 0),
+  const withBillingActive = report.bySubscriptionSource.filter(
+    (row) => typeof row.billingActiveAtWeekStart === "number",
+  );
+  if (withBillingActive.length === 0) return null;
+  return withBillingActive.reduce(
+    (sum, row) => sum + (row.billingActiveAtWeekStart as number),
     0,
   );
+}
+
+function sourceBillingActiveDetail(
+  report: AdminWeeklyChurnReport | null,
+): string | undefined {
+  if (!report?.bySubscriptionSource?.length) return undefined;
+  if (
+    !report.bySubscriptionSource.some(
+      (row) => typeof row.billingActiveAtWeekStart === "number",
+    )
+  ) {
+    return undefined;
+  }
+  return report.bySubscriptionSource
+    .map((row) => {
+      const count =
+        typeof row.billingActiveAtWeekStart === "number"
+          ? String(row.billingActiveAtWeekStart)
+          : "—";
+      return `${friendlyProvider(row.subscriptionType)} ${count}`;
+    })
+    .join(" · ");
 }
 
 function friendlyClientPlatform(raw: string): { label: string; hint?: string } {
@@ -351,16 +377,7 @@ export default function AdminChurnWeekly() {
               ? `status=active only · Stripe/Apple/Google · ${report.weekRangeLabel}`
               : "status=active only — compare to Stripe/ASC/Play"
           }
-          detail={
-            report && report.bySubscriptionSource.length > 0
-              ? report.bySubscriptionSource
-                  .map(
-                    (row) =>
-                      `${friendlyProvider(row.subscriptionType)} ${row.billingActiveAtWeekStart ?? 0}`,
-                  )
-                  .join(" · ")
-              : undefined
-          }
+          detail={sourceBillingActiveDetail(report)}
           loading={loading}
         />
         <SummaryCard
