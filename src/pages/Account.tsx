@@ -313,8 +313,8 @@ const AccountInner = () => {
     return () => clearInterval(id);
   }, [hasSessionToken, sessionToken]);
 
-  // asweb_session lives for the whole tab, so let the user leave the return
-  // screen for this sign-in and reach the account page on later visits.
+  // "Continue on web" leaves the app handoff for the dashboard. Clear the
+  // tab flag too, or AccountRoute keeps /account on the legacy page.
   const [dismissedAuthReturnToken, setDismissedAuthReturnToken] = useState<
     string | null
   >(null);
@@ -326,6 +326,12 @@ const AccountInner = () => {
     if (!sessionToken) return;
     dismissAsWebAuthReturn(sessionToken);
     setDismissedAuthReturnToken(sessionToken);
+    try {
+      sessionStorage.removeItem("asweb_session");
+    } catch {
+      /* private mode / blocked storage */
+    }
+    navigate("/dashboard", { replace: true });
   };
 
   // Auto-return to the macOS app after ASWeb Google login (fallback if AuthContext handoff missed).
