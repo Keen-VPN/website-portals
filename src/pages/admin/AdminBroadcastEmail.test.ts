@@ -263,6 +263,62 @@ describe("class action broadcast companies", () => {
         },
       ]),
     ).toEqual([]);
+    expect(
+      broadcastCompanyErrors([
+        {
+          id: "1",
+          name: "Disney",
+          logoUrl:
+            "https://res.cloudinary.com/demo/image/upload/f_auto,q_auto/sample",
+        },
+      ]),
+    ).toEqual([]);
+    expect(
+      broadcastCompanyErrors([
+        {
+          id: "1",
+          name: "Disney",
+          logoUrl:
+            "https://res.cloudinary.com/demo/image/upload/c_fill,q_auto,f_png/v1/logo",
+        },
+      ]),
+    ).toEqual([]);
+    expect(
+      broadcastCompanyErrors([
+        {
+          id: "1",
+          name: "Disney",
+          logoUrl:
+            "https://res.cloudinary.com/demo/image/upload/c_fill,q_auto,f_svg/v1/logo",
+        },
+      ]),
+    ).toEqual(["Company 1 logo must be a PNG or JPG."]);
+  });
+
+  it("drops an unsafe logo URL from the payload and keeps the company name", () => {
+    expect(
+      buildBroadcastComposePayload({
+        ...baseInput,
+        template: "perk_announcement",
+        perkId: "perk_ca_disney",
+        isClassActionPerk: true,
+        companies: [
+          {
+            id: "1",
+            name: "Disney",
+            logoUrl: "https://cdn.example.com/a.svg",
+          },
+          {
+            id: "2",
+            name: "Hulu",
+            logoUrl: "https://cdn.example.com/h.png",
+          },
+        ],
+      }).companies,
+    ).toEqual([
+      { name: "Disney" },
+      { name: "Hulu", logoUrl: "https://cdn.example.com/h.png" },
+    ]);
   });
 
   it("sends at most four companies and reports the cap once", () => {
