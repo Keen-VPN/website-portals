@@ -34,6 +34,7 @@ import {
 import {
   buildBroadcastComposePayload,
   broadcastCompanyErrors,
+  createBroadcastCompanyDraft,
   isEmailSafeLogoUrl,
   MAX_BROADCAST_COMPANIES,
   showBroadcastCompanySection,
@@ -125,21 +126,22 @@ function sleep(ms: number) {
 }
 
 function LogoThumb({ url }: { url: string }) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    setFailed(false);
-  }, [url]);
   const trimmed = url.trim();
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   if (!trimmed || !isEmailSafeLogoUrl(trimmed)) return null;
-  if (failed) {
+  if (failedUrl === trimmed) {
     return <span className="text-xs text-destructive">Couldn’t load logo</span>;
   }
   return (
     <img
+      key={trimmed}
       src={trimmed}
       alt=""
       className="h-11 w-11 rounded-md border border-border bg-white object-contain"
-      onError={() => setFailed(true)}
+      onLoad={() =>
+        setFailedUrl((current) => (current === trimmed ? null : current))
+      }
+      onError={() => setFailedUrl(trimmed)}
     />
   );
 }
@@ -286,10 +288,10 @@ export default function AdminBroadcastEmail() {
     setCompanies(
       isClassAction
         ? [
-            {
-              name: perk.partnerName?.trim() ?? "",
-              logoUrl: perk.imageUrl?.trim() ?? "",
-            },
+            createBroadcastCompanyDraft(
+              perk.partnerName?.trim() ?? "",
+              perk.imageUrl?.trim() ?? "",
+            ),
           ].filter((row) => row.name || row.logoUrl)
         : [],
     );
@@ -1135,22 +1137,22 @@ export default function AdminBroadcastEmail() {
                   show in Gmail/Outlook.
                 </p>
               </div>
-              {companies.map((company, index) => (
+              {companies.map((company) => (
                 <div
-                  key={index}
+                  key={company.id}
                   className="grid gap-3 rounded-lg border border-border p-3 md:grid-cols-[1fr_1fr_auto]"
                 >
                   <div className="space-y-1">
-                    <Label htmlFor={`company-name-${index}`}>
+                    <Label htmlFor={`company-name-${company.id}`}>
                       Company name
                     </Label>
                     <Input
-                      id={`company-name-${index}`}
+                      id={`company-name-${company.id}`}
                       value={company.name}
                       onChange={(event) =>
                         setCompanies((rows) =>
-                          rows.map((row, rowIndex) =>
-                            rowIndex === index
+                          rows.map((row) =>
+                            row.id === company.id
                               ? { ...row, name: event.target.value }
                               : row,
                           ),
@@ -1159,15 +1161,17 @@ export default function AdminBroadcastEmail() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor={`company-logo-${index}`}>Logo URL</Label>
+                    <Label htmlFor={`company-logo-${company.id}`}>
+                      Logo URL
+                    </Label>
                     <Input
-                      id={`company-logo-${index}`}
+                      id={`company-logo-${company.id}`}
                       value={company.logoUrl}
                       placeholder="https://"
                       onChange={(event) =>
                         setCompanies((rows) =>
-                          rows.map((row, rowIndex) =>
-                            rowIndex === index
+                          rows.map((row) =>
+                            row.id === company.id
                               ? { ...row, logoUrl: event.target.value }
                               : row,
                           ),
@@ -1182,7 +1186,7 @@ export default function AdminBroadcastEmail() {
                       variant="outline"
                       onClick={() =>
                         setCompanies((rows) =>
-                          rows.filter((_, rowIndex) => rowIndex !== index),
+                          rows.filter((row) => row.id !== company.id),
                         )
                       }
                     >
@@ -1204,7 +1208,7 @@ export default function AdminBroadcastEmail() {
                   setCompanies((rows) =>
                     rows.length >= MAX_BROADCAST_COMPANIES
                       ? rows
-                      : [...rows, { name: "", logoUrl: "" }],
+                      : [...rows, createBroadcastCompanyDraft()],
                   )
                 }
               >
