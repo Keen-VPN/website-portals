@@ -75,9 +75,21 @@ function friendlyProvider(raw: string): string {
       return "Stripe";
     case "apple_iap":
       return "Apple";
+    case "google_play":
+      return "Google Play";
     default:
       return raw;
   }
+}
+
+function sourceBillingActiveTotal(
+  report: AdminWeeklyChurnReport | null,
+): number | null {
+  if (!report?.bySubscriptionSource?.length) return null;
+  return report.bySubscriptionSource.reduce(
+    (sum, row) => sum + (row.billingActiveAtWeekStart ?? 0),
+    0,
+  );
 }
 
 function friendlyClientPlatform(raw: string): { label: string; hint?: string } {
@@ -326,15 +338,39 @@ export default function AdminChurnWeekly() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <SummaryCard
-          title="Active at week start"
+          title="Billing-active (store cross-check)"
+          value={
+            report
+              ? String(sourceBillingActiveTotal(report) ?? "—")
+              : "—"
+          }
+          subtitle={
+            report
+              ? `status=active only · Stripe/Apple/Google · ${report.weekRangeLabel}`
+              : "status=active only — compare to Stripe/ASC/Play"
+          }
+          detail={
+            report && report.bySubscriptionSource.length > 0
+              ? report.bySubscriptionSource
+                  .map(
+                    (row) =>
+                      `${friendlyProvider(row.subscriptionType)} ${row.billingActiveAtWeekStart ?? 0}`,
+                  )
+                  .join(" · ")
+              : undefined
+          }
+          loading={loading}
+        />
+        <SummaryCard
+          title="All DB entitlements at start"
           value={report ? String(report.startOfWeekActiveUsers) : "—"}
           subtitle={
             report &&
             report.startOfWeekPaidUsers != null &&
             report.startOfWeekTrialUsers != null
-              ? `${report.startOfWeekPaidUsers} paid · ${report.startOfWeekTrialUsers} trial · ${report.weekRangeLabel}`
+              ? `${report.startOfWeekPaidUsers} paid · ${report.startOfWeekTrialUsers} trial (includes past_due) · ${report.weekRangeLabel}`
               : (report?.weekRangeLabel ?? weekInputValue)
           }
           loading={loading}
@@ -441,14 +477,25 @@ export default function AdminChurnWeekly() {
         <Card>
           <CardHeader>
             <CardTitle>Churn by subscription source</CardTitle>
-            <CardDescription>Stripe vs Apple billing.</CardDescription>
+            <CardDescription>
+              Use <span className="font-medium">Billing-active</span> to
+              cross-check Stripe Active / App Store Active Paid / Play
+              subscribers. Entitlements include trial and past_due.
+            </CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">Source</th>
-                  <th className="pb-2 pr-4 font-medium text-right">Active (start)</th>
+                  <th className="pb-2 pr-4 font-medium text-right">
+                    Billing-active
+                  </th>
+                  <th className="pb-2 pr-4 font-medium text-right">Paid</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Trial</th>
+                  <th className="pb-2 pr-4 font-medium text-right">
+                    Entitlements
+                  </th>
                   <th className="pb-2 pr-4 font-medium text-right">Churned</th>
                   <th className="pb-2 pr-4 font-medium text-right">Churn %</th>
                   <th className="pb-2 pr-4 font-medium text-right">Auto-renew off</th>
@@ -463,6 +510,15 @@ export default function AdminChurnWeekly() {
                   >
                     <td className="py-2 pr-4">
                       {friendlyProvider(row.subscriptionType)}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums font-medium">
+                      {row.billingActiveAtWeekStart ?? "—"}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {row.paidAtWeekStart ?? "—"}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {row.trialAtWeekStart ?? "—"}
                     </td>
                     <td className="py-2 pr-4 text-right tabular-nums">
                       {row.activeAtWeekStart}

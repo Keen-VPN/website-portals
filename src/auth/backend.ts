@@ -3837,6 +3837,10 @@ export type AdminChurnSubscriptionSource = "all" | "stripe" | "apple_iap";
 export interface AdminWeeklyChurnSubscriptionSourceBreakdown {
   subscriptionType: string;
   activeAtWeekStart: number;
+  paidAtWeekStart?: number;
+  trialAtWeekStart?: number;
+  /** status=active only — closest store Dashboard cross-check. */
+  billingActiveAtWeekStart?: number;
   churned: number;
   churnRate: number;
   autoRenewDisabled: number;
