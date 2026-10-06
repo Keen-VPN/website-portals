@@ -313,8 +313,8 @@ const AccountInner = () => {
     return () => clearInterval(id);
   }, [hasSessionToken, sessionToken]);
 
-  // "Continue on web" leaves the app handoff for the dashboard. Clear the
-  // tab flag too, or AccountRoute keeps /account on the legacy page.
+  // "Continue on web" leaves this screen for the dashboard. Keep
+  // asweb_session: later checkout still appends &asweb=1 from that flag.
   const [dismissedAuthReturnToken, setDismissedAuthReturnToken] = useState<
     string | null
   >(null);
@@ -326,11 +326,6 @@ const AccountInner = () => {
     if (!sessionToken) return;
     dismissAsWebAuthReturn(sessionToken);
     setDismissedAuthReturnToken(sessionToken);
-    try {
-      sessionStorage.removeItem("asweb_session");
-    } catch {
-      /* private mode / blocked storage */
-    }
     navigate("/dashboard", { replace: true });
   };
 
