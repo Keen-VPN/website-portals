@@ -47,11 +47,27 @@ function parsedHttpsUrl(url: string): URL | null {
   }
 }
 
-function isSvgLogoUrl(url: string): boolean {
-  return parsedHttpsUrl(url)?.pathname.toLowerCase().endsWith(".svg") ?? false;
+function decodedPathname(parsed: URL): string | null {
+  try {
+    return decodeURIComponent(parsed.pathname).toLowerCase();
+  } catch {
+    return null;
+  }
 }
 
-const ALLOWED_CLOUDINARY_FORMATS = new Set(["png", "jpg", "jpeg", "auto"]);
+function isSvgLogoUrl(url: string): boolean {
+  const parsed = parsedHttpsUrl(url);
+  if (!parsed) return false;
+  const path = decodedPathname(parsed);
+  if (path === null) return true;
+  return path.endsWith(".svg");
+}
+
+const ALLOWED_CLOUDINARY_FORMATS = new Set(["png", "jpg", "jpeg"]);
+
+function cloudinaryHasDisallowedTransform(path: string): boolean {
+  return path.toLowerCase().includes("e_vectorize");
+}
 
 /**
  * Format flags live in the transform section, before the version or public id.
@@ -104,9 +120,11 @@ function isCloudinaryImageUpload(parsed: URL): boolean {
 export function isEmailSafeLogoUrl(url: string): boolean {
   const parsed = parsedHttpsUrl(url);
   if (!parsed) return false;
-  const path = parsed.pathname.toLowerCase();
+  const path = decodedPathname(parsed);
+  if (path === null) return false;
   if (path.endsWith(".svg")) return false;
   if (isCloudinaryImageUpload(parsed)) {
+    if (cloudinaryHasDisallowedTransform(path)) return false;
     const formats = cloudinaryFormatFlags(path);
     if (formats.some((format) => !ALLOWED_CLOUDINARY_FORMATS.has(format))) {
       return false;

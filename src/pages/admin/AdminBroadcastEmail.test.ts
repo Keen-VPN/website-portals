@@ -206,133 +206,185 @@ describe("class action broadcast companies", () => {
     ).toEqual([]);
   });
 
-  it("blocks sending while a company row is invalid", () => {
-    expect(
-      broadcastCompanyErrors([
+  it.each([
+    {
+      label: "missing company name",
+      companies: [
         { id: "1", name: "", logoUrl: "https://cdn.example.com/a.png" },
-      ]),
-    ).toEqual(["Company 1 needs a name."]);
-    expect(
-      broadcastCompanyErrors([
+      ],
+      expected: ["Company 1 needs a name."],
+    },
+    {
+      label: "non-https logo",
+      companies: [
         { id: "1", name: "Disney", logoUrl: "http://cdn.example.com/a.png" },
-      ]),
-    ).toEqual(["Company 1 logo must be an https link."]);
-    expect(
-      broadcastCompanyErrors([
-        { id: "1", name: "Disney", logoUrl: "https://cdn.example.com/a.svg?x=1" },
-      ]),
-    ).toEqual([
-      "Company 1 logo must be a PNG or JPG. SVG won't show in Gmail or Outlook.",
-    ]);
-    expect(
-      broadcastCompanyErrors([
+      ],
+      expected: ["Company 1 logo must be an https link."],
+    },
+    {
+      label: "svg query suffix",
+      companies: [
+        {
+          id: "1",
+          name: "Disney",
+          logoUrl: "https://cdn.example.com/a.svg?x=1",
+        },
+      ],
+      expected: [
+        "Company 1 logo must be a PNG or JPG. SVG won't show in Gmail or Outlook.",
+      ],
+    },
+    {
+      label: "svg hash suffix",
+      companies: [
         {
           id: "1",
           name: "Disney",
           logoUrl: "https://cdn.example.com/a.svg#icon",
         },
-      ]),
-    ).toEqual([
-      "Company 1 logo must be a PNG or JPG. SVG won't show in Gmail or Outlook.",
-    ]);
-    expect(
-      broadcastCompanyErrors([
-        { id: "1", name: "Disney", logoUrl: "https://cdn.example.com/logo.gif" },
-      ]),
-    ).toEqual(["Company 1 logo must be a PNG or JPG."]);
-    expect(
-      broadcastCompanyErrors([
+      ],
+      expected: [
+        "Company 1 logo must be a PNG or JPG. SVG won't show in Gmail or Outlook.",
+      ],
+    },
+    {
+      label: "gif extension",
+      companies: [
+        {
+          id: "1",
+          name: "Disney",
+          logoUrl: "https://cdn.example.com/logo.gif",
+        },
+      ],
+      expected: ["Company 1 logo must be a PNG or JPG."],
+    },
+    {
+      label: "cloudinary f_gif",
+      companies: [
         {
           id: "1",
           name: "Disney",
           logoUrl: "https://res.cloudinary.com/demo/image/upload/f_gif/sample",
         },
-      ]),
-    ).toEqual(["Company 1 logo must be a PNG or JPG."]);
-    expect(
-      broadcastCompanyErrors([
+      ],
+      expected: ["Company 1 logo must be a PNG or JPG."],
+    },
+    {
+      label: "valid png",
+      companies: [
         { id: "1", name: "Disney", logoUrl: "https://cdn.example.com/a.png" },
-      ]),
-    ).toEqual([]);
-    expect(
-      broadcastCompanyErrors([
+      ],
+      expected: [],
+    },
+    {
+      label: "cloudinary f_jpg",
+      companies: [
         {
           id: "1",
           name: "Disney",
           logoUrl: "https://res.cloudinary.com/demo/image/upload/f_jpg/sample",
         },
-      ]),
-    ).toEqual([]);
-    expect(
-      broadcastCompanyErrors([
+      ],
+      expected: [],
+    },
+    {
+      label: "cloudinary f_auto rejected",
+      companies: [
         {
           id: "1",
           name: "Disney",
           logoUrl:
             "https://res.cloudinary.com/demo/image/upload/f_auto,q_auto/sample",
         },
-      ]),
-    ).toEqual([]);
-    expect(
-      broadcastCompanyErrors([
+      ],
+      expected: ["Company 1 logo must be a PNG or JPG."],
+    },
+    {
+      label: "cloudinary explicit f_png in chain",
+      companies: [
         {
           id: "1",
           name: "Disney",
           logoUrl:
             "https://res.cloudinary.com/demo/image/upload/c_fill,q_auto,f_png/v1/logo",
         },
-      ]),
-    ).toEqual([]);
-    expect(
-      broadcastCompanyErrors([
+      ],
+      expected: [],
+    },
+    {
+      label: "cloudinary f_svg in chain",
+      companies: [
         {
           id: "1",
           name: "Disney",
           logoUrl:
             "https://res.cloudinary.com/demo/image/upload/c_fill,q_auto,f_svg/v1/logo",
         },
-      ]),
-    ).toEqual(["Company 1 logo must be a PNG or JPG."]);
-    expect(
-      broadcastCompanyErrors([
+      ],
+      expected: ["Company 1 logo must be a PNG or JPG."],
+    },
+    {
+      label: "cloudinary f_svg segment with png extension",
+      companies: [
         {
           id: "1",
           name: "Disney",
           logoUrl:
             "https://res.cloudinary.com/demo/image/upload/f_svg/logo.png",
         },
-      ]),
-    ).toEqual(["Company 1 logo must be a PNG or JPG."]);
-    expect(
-      broadcastCompanyErrors([
+      ],
+      expected: ["Company 1 logo must be a PNG or JPG."],
+    },
+    {
+      label: "cloudinary f_heif",
+      companies: [
         {
           id: "1",
           name: "Disney",
           logoUrl:
             "https://res.cloudinary.com/demo/image/upload/f_heif/logo.png",
         },
-      ]),
-    ).toEqual(["Company 1 logo must be a PNG or JPG."]);
-    expect(
-      broadcastCompanyErrors([
+      ],
+      expected: ["Company 1 logo must be a PNG or JPG."],
+    },
+    {
+      label: "cloudinary f_jxl",
+      companies: [
         {
           id: "1",
           name: "Disney",
           logoUrl:
             "https://res.cloudinary.com/demo/image/upload/f_jxl/photo.jpg",
         },
-      ]),
-    ).toEqual(["Company 1 logo must be a PNG or JPG."]);
-    expect(
-      broadcastCompanyErrors([
+      ],
+      expected: ["Company 1 logo must be a PNG or JPG."],
+    },
+    {
+      label: "cloudinary f_auto in folder path rejected",
+      companies: [
         {
           id: "1",
           name: "Disney",
           logoUrl:
             "https://res.cloudinary.com/demo/image/upload/c_fill,f_auto/v1/f_icons/logo",
         },
-      ]),
-    ).toEqual([]);
+      ],
+      expected: ["Company 1 logo must be a PNG or JPG."],
+    },
+    {
+      label: "cloudinary e_vectorize rejected",
+      companies: [
+        {
+          id: "1",
+          name: "Disney",
+          logoUrl:
+            "https://res.cloudinary.com/demo/image/upload/e_vectorize/logo.png",
+        },
+      ],
+      expected: ["Company 1 logo must be a PNG or JPG."],
+    },
+  ])("$label", ({ companies, expected }) => {
+    expect(broadcastCompanyErrors(companies)).toEqual(expected);
   });
 
   it("drops an unsafe logo URL from the payload and keeps the company name", () => {
