@@ -128,6 +128,9 @@ function sleep(ms: number) {
 function LogoThumb({ url }: { url: string }) {
   const trimmed = url.trim();
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  if (failedUrl !== null && failedUrl !== trimmed) {
+    setFailedUrl(null);
+  }
   if (!trimmed || !isEmailSafeLogoUrl(trimmed)) return null;
   if (failedUrl === trimmed) {
     return <span className="text-xs text-destructive">Couldn’t load logo</span>;
@@ -273,7 +276,7 @@ export default function AdminBroadcastEmail() {
     setHeadline(isClassAction ? "You may qualify for a new settlement" : title);
     setBody(
       isClassAction
-        ? "Customers of these companies may be eligible to submit a claim."
+        ? "You may be eligible to submit a claim for this settlement."
         : `A new partner perk is available for KeenVPN members: ${perk.offerText}`,
     );
     setPreheader(
