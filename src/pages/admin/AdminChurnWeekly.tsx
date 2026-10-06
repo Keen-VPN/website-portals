@@ -179,19 +179,6 @@ const SOURCE_OPTIONS: { value: AdminChurnSubscriptionSource; label: string }[] =
   { value: "google_play", label: "Google Play" },
 ];
 
-function sourceFilterLabel(source: AdminChurnSubscriptionSource): string {
-  switch (source) {
-    case "stripe":
-      return "Stripe";
-    case "apple_iap":
-      return "Apple";
-    case "google_play":
-      return "Google Play";
-    default:
-      return "source";
-  }
-}
-
 export default function AdminChurnWeekly() {
   const initial = currentIsoWeek();
   const [isoYear, setIsoYear] = useState(initial.isoYear);
