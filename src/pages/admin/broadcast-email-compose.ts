@@ -51,16 +51,24 @@ function isSvgLogoUrl(url: string): boolean {
   return parsedHttpsUrl(url)?.pathname.toLowerCase().endsWith(".svg") ?? false;
 }
 
+const ALLOWED_CLOUDINARY_FORMATS = new Set(["png", "jpg", "jpeg", "auto"]);
+
 /**
- * Cloudinary image/upload URLs often omit the file extension. Allow those
- * unless the URL sets a format other than PNG or JPG.
+ * Cloudinary image/upload URLs often omit the file extension. Flags in one
+ * transform group are comma-separated (`c_fill,q_auto,f_jpg`), so every `f_`
+ * flag counts, including ones that are not at the start of the group.
+ * `f_auto` is the usual extensionless delivery URL and stays allowed.
  */
 function isExtensionlessCloudinaryLogo(parsed: URL): boolean {
   if (parsed.hostname !== "res.cloudinary.com") return false;
   const path = parsed.pathname.toLowerCase();
   if (!path.includes("/image/upload/")) return false;
-  const format = path.match(/(?:^|\/)f_([a-z0-9]+)(?:,|\/|$)/)?.[1];
-  if (format && format !== "png" && format !== "jpg" && format !== "jpeg") {
+  const formats = [...path.matchAll(/(?:^|[/,])f_([a-z0-9]+)/g)].map(
+    (match) => match[1],
+  );
+  if (
+    formats.some((format) => !ALLOWED_CLOUDINARY_FORMATS.has(format))
+  ) {
     return false;
   }
   const last = path.split("/").filter(Boolean).pop() ?? "";
@@ -127,7 +135,7 @@ export function normalizeBroadcastCompanies(
     }))
     .filter((row) => row.name.length > 0)
     .map((row) =>
-      row.logoUrl
+      row.logoUrl && isEmailSafeLogoUrl(row.logoUrl)
         ? { name: row.name, logoUrl: row.logoUrl }
         : { name: row.name },
     );
