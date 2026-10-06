@@ -3,6 +3,7 @@ import { createDefaultAudienceTargeting } from "@/components/admin/audience-targ
 import {
   buildBroadcastComposePayload,
   broadcastCompanyErrors,
+  createBroadcastCompanyDraft,
   showBroadcastCompanySection,
 } from "@/pages/admin/broadcast-email-compose";
 
@@ -135,6 +136,24 @@ describe("buildBroadcastComposePayload", () => {
 });
 
 describe("class action broadcast companies", () => {
+  it("still creates a company row when randomUUID is unavailable", () => {
+    const randomUUID = crypto.randomUUID;
+    Object.defineProperty(crypto, "randomUUID", {
+      configurable: true,
+      value: undefined,
+    });
+    try {
+      const draft = createBroadcastCompanyDraft("Disney", "");
+      expect(draft.name).toBe("Disney");
+      expect(draft.id).toMatch(/^co-/);
+    } finally {
+      Object.defineProperty(crypto, "randomUUID", {
+        configurable: true,
+        value: randomUUID,
+      });
+    }
+  });
+
   it("shows the company section only for class action perks", () => {
     expect(
       showBroadcastCompanySection("perk_announcement", "class_action"),
