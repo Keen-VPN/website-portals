@@ -370,21 +370,21 @@ export default function AdminChurnWeekly() {
           subtitle={
             report
               ? source !== "all"
-                ? `status=active only · ${friendlyProvider(source)} · ${report.weekRangeLabel}`
-                : `status=active only · Stripe/Apple/Google · ${report.weekRangeLabel}`
-              : "status=active only — compare to Stripe/ASC/Play"
+                ? `Closest to ${friendlyProvider(source)} store paid (status=active + purchase expiry) · ${report.weekRangeLabel}`
+                : `Closest to Stripe / ASC Active Paid / Play — not exact store dashboards · ${report.weekRangeLabel}`
+              : "Closest store-paid cross-check — not exact ASC/Stripe/Play counts"
           }
           detail={sourceBillingActiveDetail(report)}
           loading={loading}
         />
         <SummaryCard
-          title="All DB entitlements at start"
+          title="DB access at start"
           value={report ? String(report.startOfWeekActiveUsers) : "—"}
           subtitle={
             report &&
             report.startOfWeekPaidUsers != null &&
             report.startOfWeekTrialUsers != null
-              ? `${report.startOfWeekPaidUsers} paid · ${report.startOfWeekTrialUsers} trial (includes past_due) · ${report.weekRangeLabel}`
+              ? `${report.startOfWeekPaidUsers} non-trial access · ${report.startOfWeekTrialUsers} trial access (not ASC/Stripe paid count) · ${report.weekRangeLabel}`
               : (report?.weekRangeLabel ?? weekInputValue)
           }
           loading={loading}
@@ -445,7 +445,9 @@ export default function AdminChurnWeekly() {
         <Card>
           <CardHeader>
             <CardTitle>Churn by subscription status</CardTitle>
-            <CardDescription>Paid vs free trial at week start.</CardDescription>
+            <CardDescription>
+              DB access cohorts at week start (not store Active Paid).
+            </CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -465,7 +467,13 @@ export default function AdminChurnWeekly() {
                     key={row.subscriptionStatus}
                     className="border-t border-border/60"
                   >
-                    <td className="py-2 pr-4 capitalize">{row.subscriptionStatus}</td>
+                    <td className="py-2 pr-4">
+                      {row.subscriptionStatus === "paid"
+                        ? "Non-trial access (DB)"
+                        : row.subscriptionStatus === "trial"
+                          ? "Trial access (DB)"
+                          : row.subscriptionStatus}
+                    </td>
                     <td className="py-2 pr-4 text-right tabular-nums">
                       {row.activeAtWeekStart}
                     </td>
@@ -492,9 +500,11 @@ export default function AdminChurnWeekly() {
           <CardHeader>
             <CardTitle>Churn by subscription source</CardTitle>
             <CardDescription>
-              Use <span className="font-medium">Billing-active</span> to
-              cross-check Stripe Active / App Store Active Paid / Play
-              subscribers. Entitlements include trial and past_due.
+              Use <span className="font-medium">Billing-active</span> as the
+              closest cross-check vs Stripe Active / ASC Active Paid / Play
+              (status=active + purchase expiry — not exact store dashboards).
+              DB access columns are who can use VPN (includes trial /
+              past_due) — not the store paid count.
             </CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
@@ -503,12 +513,16 @@ export default function AdminChurnWeekly() {
                 <tr className="text-left text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">Source</th>
                   <th className="pb-2 pr-4 font-medium text-right">
-                    Billing-active
+                    Billing-active (cross-check)
                   </th>
-                  <th className="pb-2 pr-4 font-medium text-right">Paid</th>
-                  <th className="pb-2 pr-4 font-medium text-right">Trial</th>
                   <th className="pb-2 pr-4 font-medium text-right">
-                    Entitlements
+                    Non-trial access
+                  </th>
+                  <th className="pb-2 pr-4 font-medium text-right">
+                    Trial access
+                  </th>
+                  <th className="pb-2 pr-4 font-medium text-right">
+                    DB access total
                   </th>
                   <th className="pb-2 pr-4 font-medium text-right">Churned</th>
                   <th className="pb-2 pr-4 font-medium text-right">Churn %</th>
