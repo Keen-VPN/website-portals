@@ -500,8 +500,9 @@ export default function AdminChurnWeekly() {
           <CardHeader>
             <CardTitle>Churn by subscription source</CardTitle>
             <CardDescription>
-              Use <span className="font-medium">Actually paying</span> to
-              cross-check Stripe Active / ASC Active Paid / Play.
+              Use <span className="font-medium">Billing-active</span> as the
+              closest cross-check vs Stripe Active / ASC Active Paid / Play
+              (status=active + purchase expiry — not exact store dashboards).
               DB access columns are who can use VPN (includes trial /
               past_due) — not the store paid count.
             </CardDescription>
@@ -512,7 +513,7 @@ export default function AdminChurnWeekly() {
                 <tr className="text-left text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">Source</th>
                   <th className="pb-2 pr-4 font-medium text-right">
-                    Actually paying
+                    Billing-active (cross-check)
                   </th>
                   <th className="pb-2 pr-4 font-medium text-right">
                     Non-trial access
