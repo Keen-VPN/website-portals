@@ -361,7 +361,7 @@ export default function AdminChurnWeekly() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <SummaryCard
-          title="Actually paying (billing-active)"
+          title="Billing-active (store cross-check)"
           value={
             report
               ? String(sourceBillingActiveTotal(report) ?? "—")
@@ -370,9 +370,9 @@ export default function AdminChurnWeekly() {
           subtitle={
             report
               ? source !== "all"
-                ? `Compare to ${friendlyProvider(source)} store paid · ${report.weekRangeLabel}`
-                : `Compare to Stripe / ASC Active Paid / Play · ${report.weekRangeLabel}`
-              : "Store-truth paid — compare to Stripe / ASC / Play"
+                ? `Closest to ${friendlyProvider(source)} store paid (status=active + purchase expiry) · ${report.weekRangeLabel}`
+                : `Closest to Stripe / ASC Active Paid / Play — not exact store dashboards · ${report.weekRangeLabel}`
+              : "Closest store-paid cross-check — not exact ASC/Stripe/Play counts"
           }
           detail={sourceBillingActiveDetail(report)}
           loading={loading}
