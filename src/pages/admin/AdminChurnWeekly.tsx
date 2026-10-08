@@ -370,9 +370,9 @@ export default function AdminChurnWeekly() {
           subtitle={
             report
               ? source !== "all"
-                ? `Closest to ${friendlyProvider(source)} store paid (status=active + purchase expiry) · ${report.weekRangeLabel}`
-                : `Closest to Stripe / ASC Active Paid / Play — not exact store dashboards · ${report.weekRangeLabel}`
-              : "Closest store-paid cross-check — not exact ASC/Stripe/Play counts"
+                ? `Closest to ${friendlyProvider(source)} store paid: status=active and store period still open · ${report.weekRangeLabel}`
+                : `Closest to Stripe / ASC Active Paid / Play (status=active and store period still open) — not exact store dashboards · ${report.weekRangeLabel}`
+              : "Closest store-paid cross-check (status=active and store period still open) — not exact ASC/Stripe/Play counts"
           }
           detail={sourceBillingActiveDetail(report)}
           loading={loading}
@@ -502,9 +502,9 @@ export default function AdminChurnWeekly() {
             <CardDescription>
               Use <span className="font-medium">Billing-active</span> as the
               closest cross-check vs Stripe Active / ASC Active Paid / Play
-              (status=active + purchase expiry — not exact store dashboards).
-              DB access columns are who can use VPN (includes trial /
-              past_due) — not the store paid count.
+              (status=active and store period still open — not exact store
+              dashboards). DB access columns are who can use VPN (includes
+              trial / past_due) — not the store paid count.
             </CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
