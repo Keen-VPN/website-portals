@@ -371,8 +371,8 @@ export default function AdminChurnWeekly() {
             report
               ? source !== "all"
                 ? `Closest to ${friendlyProvider(source)} store paid: status=active and store period still open · ${report.weekRangeLabel}`
-                : `Closest to Stripe / ASC Active Paid / Play (status=active + in-period) — not exact store dashboards · ${report.weekRangeLabel}`
-              : "Closest store-paid cross-check (status=active + in-period) — not exact ASC/Stripe/Play counts"
+                : `Closest to Stripe / ASC Active Paid / Play (status=active and store period still open) — not exact store dashboards · ${report.weekRangeLabel}`
+              : "Closest store-paid cross-check (status=active and store period still open) — not exact ASC/Stripe/Play counts"
           }
           detail={sourceBillingActiveDetail(report)}
           loading={loading}
