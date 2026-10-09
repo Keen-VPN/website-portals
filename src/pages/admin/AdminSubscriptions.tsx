@@ -46,6 +46,7 @@ export default function AdminSubscriptions() {
     typeFilter,
   });
   listQueryRef.current = { page, searchTerm, statusFilter, typeFilter };
+  const loadSequence = useRef(0);
 
   const load = useCallback(
     async (
@@ -54,6 +55,7 @@ export default function AdminSubscriptions() {
       targetStatus: string,
       targetType: string,
     ) => {
+      const requestId = ++loadSequence.current;
       setLoading(true);
       setError(null);
       const res = await adminListSubscriptions({
@@ -63,6 +65,7 @@ export default function AdminSubscriptions() {
         status: targetStatus,
         type: targetType,
       });
+      if (requestId !== loadSequence.current) return;
       if (!res.ok || !res.data) {
         setRows([]);
         setTotal(0);
@@ -82,7 +85,10 @@ export default function AdminSubscriptions() {
 
   useEffect(() => {
     void load(1, searchTerm, statusFilter, typeFilter);
-  }, [load]);
+    return () => {
+      loadSequence.current += 1;
+    };
+  }, [load, searchTerm, statusFilter, typeFilter]);
 
   return (
     <div className="space-y-4">
@@ -157,11 +163,9 @@ export default function AdminSubscriptions() {
         <button
           type="button"
           onClick={() => {
-            const trimmed = searchInput.trim();
-            setSearchTerm(trimmed);
+            setSearchTerm(searchInput.trim());
             setStatusFilter(statusInput);
             setTypeFilter(typeInput);
-            void load(1, trimmed, statusInput, typeInput);
           }}
           className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
         >
@@ -176,7 +180,6 @@ export default function AdminSubscriptions() {
             setStatusFilter("");
             setTypeInput("");
             setTypeFilter("");
-            void load(1, "", "", "");
           }}
           className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
         >

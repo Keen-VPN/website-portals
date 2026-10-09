@@ -4055,6 +4055,19 @@ export interface AdminUserTimelineEvent {
   metadata: Record<string, unknown> | null;
 }
 
+export interface AdminUserSubscriptionMeasures {
+  signedUpAt: string;
+  trialStartedAt: string | null;
+  firstPaidAt: string | null;
+  renewalCount: number;
+  lastRenewalAt: string | null;
+  cancelRequestedAt: string | null;
+  churnedAt: string | null;
+  reactivatedAt: string | null;
+  paymentFailureCount: number;
+  refundCount: number;
+}
+
 export interface AdminUserEngagementProfile {
   user: {
     id: string;
@@ -4072,6 +4085,7 @@ export interface AdminUserEngagementProfile {
     currentPeriodEnd: string | null;
     subscriptionType: string;
   } | null;
+  subscriptionMeasures?: AdminUserSubscriptionMeasures | null;
   emails: AdminUserEmailRecord[];
   reviewActivity: AdminUserReviewActivityRecord[];
   timeline: AdminUserTimelineEvent[];
@@ -7615,6 +7629,208 @@ export async function adminFetchChurnTrend(params: {
     }
     const record = raw as { data?: AdminChurnTrendReport };
     return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export type AdminSubscriptionAnalyticsSource =
+  | "all"
+  | "stripe"
+  | "apple_iap"
+  | "google_play";
+
+export type AdminSubscriptionPlanType = "all" | "individual" | "business";
+
+export interface AdminMonthlyRetentionReport {
+  monthLabel: string;
+  monthRangeLabel: string;
+  isPartialMonth: boolean;
+  billingSource: AdminSubscriptionAnalyticsSource;
+  planSegment: AdminSubscriptionPlanType;
+  activePaidUsers: number;
+  renewals: number;
+  renewalRate: number;
+  churnedSubscriptions: number;
+  churnRate: number;
+  reactivations: number;
+  cancellationsRequested: number;
+  paymentFailures: number;
+  refunds: number;
+  chargebacks: number;
+  initialPurchases: number;
+}
+
+export interface AdminFirstPaidCohortReport {
+  asOfMonthLabel: string;
+  billingSource: AdminSubscriptionAnalyticsSource;
+  planSegment: AdminSubscriptionPlanType;
+  cohorts: {
+    firstPaidMonth: string;
+    cohortSize: number;
+    retainedInMonth: number;
+    retentionRate: number;
+  }[];
+}
+
+export interface AdminMonthlyRevenueGrowthReport {
+  monthLabel: string;
+  monthRangeLabel: string;
+  isPartialMonth: boolean;
+  billingSource: AdminSubscriptionAnalyticsSource;
+  planSegment: AdminSubscriptionPlanType;
+  currentMonthRevenue: number;
+  previousMonthRevenue: number;
+  absoluteChange: number;
+  momGrowthPercent: number | null;
+  growthTargetPercent: number;
+  differenceFromTargetPercent: number | null;
+  aboveTarget: boolean | null;
+  grossPositiveRevenue: number;
+  refundsAndChargebacks: number;
+}
+
+async function adminFetchSubscriptionAnalyticsMonth<T>(
+  path: string,
+  params: {
+    month: number;
+    year: number;
+    source?: AdminSubscriptionAnalyticsSource;
+    planType?: AdminSubscriptionPlanType;
+    signal?: AbortSignal;
+  },
+): Promise<{ ok: boolean; data?: T; error?: string; aborted?: boolean }> {
+  try {
+    const query = new URLSearchParams();
+    query.set("month", String(params.month));
+    query.set("year", String(params.year));
+    if (params.source && params.source !== "all") {
+      query.set("source", params.source);
+    }
+    if (params.planType && params.planType !== "all") {
+      query.set("planType", params.planType);
+    }
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription-analytics/${path}?${query.toString()}`,
+      { credentials: "include", signal: params.signal },
+    );
+    const raw: unknown = await response.json().catch((err: unknown) => {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        throw err;
+      }
+      return {};
+    });
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load analytics"),
+      };
+    }
+    const record = raw as { data?: T };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, aborted: true, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export function adminFetchMonthlyRetentionReport(params: {
+  month: number;
+  year: number;
+  source?: AdminSubscriptionAnalyticsSource;
+  planType?: AdminSubscriptionPlanType;
+  signal?: AbortSignal;
+}) {
+  return adminFetchSubscriptionAnalyticsMonth<AdminMonthlyRetentionReport>(
+    "retention/monthly",
+    params,
+  );
+}
+
+export function adminFetchFirstPaidCohortReport(params: {
+  month: number;
+  year: number;
+  source?: AdminSubscriptionAnalyticsSource;
+  planType?: AdminSubscriptionPlanType;
+  signal?: AbortSignal;
+}) {
+  return adminFetchSubscriptionAnalyticsMonth<AdminFirstPaidCohortReport>(
+    "cohorts/first-paid",
+    params,
+  );
+}
+
+export function adminFetchMonthlyRevenueGrowthReport(params: {
+  month: number;
+  year: number;
+  source?: AdminSubscriptionAnalyticsSource;
+  planType?: AdminSubscriptionPlanType;
+  signal?: AbortSignal;
+}) {
+  return adminFetchSubscriptionAnalyticsMonth<AdminMonthlyRevenueGrowthReport>(
+    "revenue/monthly",
+    params,
+  );
+}
+
+export async function adminBackfillSubscriptionLifecycle(params?: {
+  limit?: number;
+}): Promise<{
+  ok: boolean;
+  scanned?: number;
+  created?: number;
+  skipped?: number;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription-analytics/lifecycle/backfill`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: params?.limit ?? 2000 }),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Backfill failed"),
+      };
+    }
+    const record = raw as {
+      data?: {
+        scanned?: number;
+        created?: number;
+        skipped?: number;
+      };
+      scanned?: number;
+      created?: number;
+      skipped?: number;
+    };
+    const payload = record.data ?? record;
+    if (
+      payload.scanned == null &&
+      payload.created == null &&
+      payload.skipped == null
+    ) {
+      return { ok: false, error: "Invalid response from server" };
+    }
+    return {
+      ok: true,
+      scanned: payload.scanned,
+      created: payload.created,
+      skipped: payload.skipped,
+    };
   } catch (e) {
     return {
       ok: false,

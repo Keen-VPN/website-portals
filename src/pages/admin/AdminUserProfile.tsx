@@ -51,6 +51,26 @@ function StatusBadge({ value }: { value: string }) {
   );
 }
 
+function MeasureTile({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded-md border border-border/60 p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-medium">{value}</p>
+      {hint ? (
+        <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function EmailTable({ emails }: { emails: AdminUserEmailRecord[] }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
@@ -420,6 +440,81 @@ export default function AdminUserProfile() {
           )}
         </div>
       </div>
+
+      <section className="space-y-3 rounded-lg border border-border p-4">
+        <div>
+          <h3 className="text-lg font-semibold">Subscription measures</h3>
+          <p className="text-sm text-muted-foreground">
+            Sign up, trial, first paid, renewals (repeat purchase), and churn
+            for this user. Cancel-with-time-left is not churn — expiration is.
+          </p>
+        </div>
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <MeasureTile
+              label="Signed up"
+              value={formatDateTime(
+                profile?.subscriptionMeasures?.signedUpAt ??
+                  profile?.user.createdAt ??
+                  null,
+              )}
+            />
+            <MeasureTile
+              label="Trial started"
+              value={formatDateTime(
+                profile?.subscriptionMeasures?.trialStartedAt ?? null,
+              )}
+            />
+            <MeasureTile
+              label="First paid"
+              value={formatDateTime(
+                profile?.subscriptionMeasures?.firstPaidAt ?? null,
+              )}
+            />
+            <MeasureTile
+              label="Renewals"
+              value={
+                profile?.subscriptionMeasures
+                  ? String(profile.subscriptionMeasures.renewalCount)
+                  : "—"
+              }
+              hint={
+                profile?.subscriptionMeasures?.lastRenewalAt
+                  ? `Last ${formatDateTime(profile.subscriptionMeasures.lastRenewalAt)}`
+                  : undefined
+              }
+            />
+            <MeasureTile
+              label="Cancel requested"
+              value={formatDateTime(
+                profile?.subscriptionMeasures?.cancelRequestedAt ?? null,
+              )}
+            />
+            <MeasureTile
+              label="Churned (expired)"
+              value={formatDateTime(
+                profile?.subscriptionMeasures?.churnedAt ?? null,
+              )}
+            />
+            <MeasureTile
+              label="Reactivated"
+              value={formatDateTime(
+                profile?.subscriptionMeasures?.reactivatedAt ?? null,
+              )}
+            />
+            <MeasureTile
+              label="Payment failures / refunds"
+              value={
+                profile?.subscriptionMeasures
+                  ? `${profile.subscriptionMeasures.paymentFailureCount} / ${profile.subscriptionMeasures.refundCount}`
+                  : "—"
+              }
+            />
+          </div>
+        )}
+      </section>
 
       <section className="space-y-3 rounded-lg border border-border p-4">
         <div>
