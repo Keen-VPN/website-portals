@@ -445,8 +445,9 @@ export default function AdminUserProfile() {
         <div>
           <h3 className="text-lg font-semibold">Subscription measures</h3>
           <p className="text-sm text-muted-foreground">
-            Sign up, trial, first paid, renewals (repeat purchase), and churn
-            for this user. Cancel-with-time-left is not churn — expiration is.
+            Sign up, trial, subscription started, renewals (repeat purchase),
+            and churn for this user. Cancel-with-time-left is not churn —
+            expiration is.
           </p>
         </div>
         {loading ? (
@@ -468,7 +469,7 @@ export default function AdminUserProfile() {
               )}
             />
             <MeasureTile
-              label="First paid"
+              label="Subscription started"
               value={formatDateTime(
                 profile?.subscriptionMeasures?.firstPaidAt ?? null,
               )}
