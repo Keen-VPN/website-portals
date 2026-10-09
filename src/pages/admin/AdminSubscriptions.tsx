@@ -157,11 +157,9 @@ export default function AdminSubscriptions() {
         <button
           type="button"
           onClick={() => {
-            const trimmed = searchInput.trim();
-            setSearchTerm(trimmed);
+            setSearchTerm(searchInput.trim());
             setStatusFilter(statusInput);
             setTypeFilter(typeInput);
-            void load(1, trimmed, statusInput, typeInput);
           }}
           className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
         >
@@ -176,7 +174,6 @@ export default function AdminSubscriptions() {
             setStatusFilter("");
             setTypeInput("");
             setTypeFilter("");
-            void load(1, "", "", "");
           }}
           className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
         >

@@ -4085,7 +4085,7 @@ export interface AdminUserEngagementProfile {
     currentPeriodEnd: string | null;
     subscriptionType: string;
   } | null;
-  subscriptionMeasures: AdminUserSubscriptionMeasures;
+  subscriptionMeasures?: AdminUserSubscriptionMeasures | null;
   emails: AdminUserEmailRecord[];
   reviewActivity: AdminUserReviewActivityRecord[];
   timeline: AdminUserTimelineEvent[];
@@ -7796,15 +7796,28 @@ export async function adminBackfillSubscriptionLifecycle(params?: {
       };
     }
     const record = raw as {
+      data?: {
+        scanned?: number;
+        created?: number;
+        skipped?: number;
+      };
       scanned?: number;
       created?: number;
       skipped?: number;
     };
+    const payload = record.data ?? record;
+    if (
+      payload.scanned == null &&
+      payload.created == null &&
+      payload.skipped == null
+    ) {
+      return { ok: false, error: "Invalid response from server" };
+    }
     return {
       ok: true,
-      scanned: record.scanned,
-      created: record.created,
-      skipped: record.skipped,
+      scanned: payload.scanned,
+      created: payload.created,
+      skipped: payload.skipped,
     };
   } catch (e) {
     return {

@@ -456,19 +456,19 @@ export default function AdminUserProfile() {
             <MeasureTile
               label="Signed up"
               value={formatDateTime(
-                profile?.subscriptionMeasures.signedUpAt ?? null,
+                profile?.subscriptionMeasures?.signedUpAt ?? null,
               )}
             />
             <MeasureTile
               label="Trial started"
               value={formatDateTime(
-                profile?.subscriptionMeasures.trialStartedAt ?? null,
+                profile?.subscriptionMeasures?.trialStartedAt ?? null,
               )}
             />
             <MeasureTile
               label="First paid"
               value={formatDateTime(
-                profile?.subscriptionMeasures.firstPaidAt ?? null,
+                profile?.subscriptionMeasures?.firstPaidAt ?? null,
               )}
             />
             <MeasureTile
@@ -479,7 +479,7 @@ export default function AdminUserProfile() {
                   : "—"
               }
               hint={
-                profile?.subscriptionMeasures.lastRenewalAt
+                profile?.subscriptionMeasures?.lastRenewalAt
                   ? `Last ${formatDateTime(profile.subscriptionMeasures.lastRenewalAt)}`
                   : undefined
               }
@@ -487,19 +487,19 @@ export default function AdminUserProfile() {
             <MeasureTile
               label="Cancel requested"
               value={formatDateTime(
-                profile?.subscriptionMeasures.cancelRequestedAt ?? null,
+                profile?.subscriptionMeasures?.cancelRequestedAt ?? null,
               )}
             />
             <MeasureTile
               label="Churned (expired)"
               value={formatDateTime(
-                profile?.subscriptionMeasures.churnedAt ?? null,
+                profile?.subscriptionMeasures?.churnedAt ?? null,
               )}
             />
             <MeasureTile
               label="Reactivated"
               value={formatDateTime(
-                profile?.subscriptionMeasures.reactivatedAt ?? null,
+                profile?.subscriptionMeasures?.reactivatedAt ?? null,
               )}
             />
             <MeasureTile
