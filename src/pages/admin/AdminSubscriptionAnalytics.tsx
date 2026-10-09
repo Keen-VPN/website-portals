@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  adminBackfillSubscriptionLifecycle,
   adminFetchFirstPaidCohortReport,
   adminFetchMonthlyRetentionReport,
   adminFetchMonthlyRevenueGrowthReport,
@@ -36,8 +38,13 @@ function currentUtcMonth() {
   return { year: now.getUTCFullYear(), month: now.getUTCMonth() + 1 };
 }
 
+function monthLabel(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
 export default function AdminSubscriptionAnalytics() {
   const initial = useMemo(() => currentUtcMonth(), []);
+  const maxMonth = useMemo(() => monthLabel(initial.year, initial.month), [initial]);
   const [year, setYear] = useState(initial.year);
   const [month, setMonth] = useState(initial.month);
   const [source, setSource] =
@@ -53,8 +60,12 @@ export default function AdminSubscriptionAnalytics() {
   );
   const [revenue, setRevenue] =
     useState<AdminMonthlyRevenueGrowthReport | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillNote, setBackfillNote] = useState<string | null>(null);
+  const loadGeneration = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = ++loadGeneration.current;
     setLoading(true);
     setError(null);
     const params = { month, year, source, planType };
@@ -63,25 +74,35 @@ export default function AdminSubscriptionAnalytics() {
       adminFetchFirstPaidCohortReport(params),
       adminFetchMonthlyRevenueGrowthReport(params),
     ]);
-    if (!r.ok || !c.ok || !rev.ok) {
-      setError(r.error ?? c.error ?? rev.error ?? "Failed to load analytics");
+    if (generation !== loadGeneration.current) return;
+
+    if (!r.ok || !r.data || !c.ok || !c.data || !rev.ok || !rev.data) {
+      setError(
+        r.error ??
+          c.error ??
+          rev.error ??
+          "Failed to load analytics (incomplete response)",
+      );
       setRetention(null);
       setCohorts(null);
       setRevenue(null);
       setLoading(false);
       return;
     }
-    setRetention(r.data ?? null);
-    setCohorts(c.data ?? null);
-    setRevenue(rev.data ?? null);
+    setRetention(r.data);
+    setCohorts(c.data);
+    setRevenue(rev.data);
     setLoading(false);
   }, [month, year, source, planType]);
 
   useEffect(() => {
     void load();
+    return () => {
+      loadGeneration.current += 1;
+    };
   }, [load]);
 
-  const monthInputValue = `${year}-${String(month).padStart(2, "0")}`;
+  const monthInputValue = monthLabel(year, month);
 
   return (
     <div className="space-y-6">
@@ -101,13 +122,23 @@ export default function AdminSubscriptionAnalytics() {
             <span className="text-muted-foreground">Month</span>
             <input
               type="month"
+              max={maxMonth}
               className="rounded-md border border-border bg-background px-3 py-2"
               value={monthInputValue}
               onChange={(e) => {
                 const match = /^(\d{4})-(\d{2})$/.exec(e.target.value);
                 if (!match) return;
-                setYear(Number(match[1]));
-                setMonth(Number(match[2]));
+                const nextYear = Number(match[1]);
+                const nextMonth = Number(match[2]);
+                const now = currentUtcMonth();
+                if (
+                  nextYear > now.year ||
+                  (nextYear === now.year && nextMonth > now.month)
+                ) {
+                  return;
+                }
+                setYear(nextYear);
+                setMonth(nextMonth);
               }}
             />
           </label>
@@ -148,8 +179,51 @@ export default function AdminSubscriptionAnalytics() {
           >
             Refresh
           </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={backfilling}
+            onClick={() => {
+              void (async () => {
+                setBackfilling(true);
+                setBackfillNote(null);
+                const res = await adminBackfillSubscriptionLifecycle({
+                  limit: 2000,
+                });
+                setBackfilling(false);
+                if (!res.ok) {
+                  setBackfillNote(res.error ?? "Backfill failed");
+                  return;
+                }
+                setBackfillNote(
+                  `Backfill: scanned ${res.scanned ?? 0}, created ${res.created ?? 0}, skipped ${res.skipped ?? 0}`,
+                );
+                await load();
+              })();
+            }}
+          >
+            {backfilling ? "Backfilling…" : "Backfill history"}
+          </Button>
         </div>
       </div>
+
+      <p className="text-sm text-muted-foreground">
+        <span className="font-medium text-foreground">Where to look: </span>
+        Signups → weekly report /{" "}
+        <Link className="underline" to="/admin/churn">
+          Churn (weekly)
+        </Link>
+        . Trials → Churn monthly trial drop-offs. Repeat purchase (renewals) +
+        paid churn (expirations) → this page. Per-user signup / trial / renewals
+        / churn → Admin user profile. Cancel-with-time-left is &quot;Cancel
+        requested&quot;, not churn.
+      </p>
+
+      {backfillNote ? (
+        <div className="rounded-lg border border-border/60 bg-muted/30 px-4 py-3 text-sm">
+          {backfillNote}
+        </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -291,8 +365,8 @@ export default function AdminSubscriptionAnalytics() {
               ) : !cohorts?.cohorts.length ? (
                 <tr>
                   <td colSpan={4} className="py-4 text-muted-foreground">
-                    No first-paid cohort events yet (events start after deploy /
-                    new webhooks).
+                    No first-paid cohort events yet. Run Backfill history or wait
+                    for new webhooks.
                   </td>
                 </tr>
               ) : (

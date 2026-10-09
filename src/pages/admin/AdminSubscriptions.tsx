@@ -82,7 +82,7 @@ export default function AdminSubscriptions() {
 
   useEffect(() => {
     void load(1, searchTerm, statusFilter, typeFilter);
-  }, [load]);
+  }, [load, searchTerm, statusFilter, typeFilter]);
 
   return (
     <div className="space-y-4">

@@ -4055,6 +4055,19 @@ export interface AdminUserTimelineEvent {
   metadata: Record<string, unknown> | null;
 }
 
+export interface AdminUserSubscriptionMeasures {
+  signedUpAt: string;
+  trialStartedAt: string | null;
+  firstPaidAt: string | null;
+  renewalCount: number;
+  lastRenewalAt: string | null;
+  cancelRequestedAt: string | null;
+  churnedAt: string | null;
+  reactivatedAt: string | null;
+  paymentFailureCount: number;
+  refundCount: number;
+}
+
 export interface AdminUserEngagementProfile {
   user: {
     id: string;
@@ -4072,6 +4085,7 @@ export interface AdminUserEngagementProfile {
     currentPeriodEnd: string | null;
     subscriptionType: string;
   } | null;
+  subscriptionMeasures: AdminUserSubscriptionMeasures;
   emails: AdminUserEmailRecord[];
   reviewActivity: AdminUserReviewActivityRecord[];
   timeline: AdminUserTimelineEvent[];
@@ -7654,12 +7668,12 @@ export interface AdminFirstPaidCohortReport {
   asOfMonthLabel: string;
   billingSource: AdminSubscriptionAnalyticsSource;
   planSegment: AdminSubscriptionPlanType;
-  cohorts: Array<{
+  cohorts: {
     firstPaidMonth: string;
     cohortSize: number;
     retainedInMonth: number;
     retentionRate: number;
-  }>;
+  }[];
 }
 
 export interface AdminMonthlyRevenueGrowthReport {
@@ -7753,6 +7767,51 @@ export function adminFetchMonthlyRevenueGrowthReport(params: {
     "revenue/monthly",
     params,
   );
+}
+
+export async function adminBackfillSubscriptionLifecycle(params?: {
+  limit?: number;
+}): Promise<{
+  ok: boolean;
+  scanned?: number;
+  created?: number;
+  skipped?: number;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription-analytics/lifecycle/backfill`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: params?.limit ?? 2000 }),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Backfill failed"),
+      };
+    }
+    const record = raw as {
+      scanned?: number;
+      created?: number;
+      skipped?: number;
+    };
+    return {
+      ok: true,
+      scanned: record.scanned,
+      created: record.created,
+      skipped: record.skipped,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
 }
 
 export async function adminListSubscriptions(params?: {
