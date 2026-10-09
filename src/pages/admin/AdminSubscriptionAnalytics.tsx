@@ -42,11 +42,32 @@ function monthLabel(year: number, month: number) {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
 
+/** Milliseconds until the next UTC month starts (plus a small buffer). */
+function msUntilNextUtcMonthBoundary() {
+  const now = Date.now();
+  const d = new Date(now);
+  const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1, 0, 0, 0, 0);
+  return Math.max(next - now, 0) + 50;
+}
+
 export default function AdminSubscriptionAnalytics() {
   const initial = useMemo(() => currentUtcMonth(), []);
-  const maxMonth = useMemo(() => monthLabel(initial.year, initial.month), [initial]);
+  const [utcMonth, setUtcMonth] = useState(initial);
+  const maxMonth = monthLabel(utcMonth.year, utcMonth.month);
   const [year, setYear] = useState(initial.year);
   const [month, setMonth] = useState(initial.month);
+
+  useEffect(() => {
+    let timeoutId = 0;
+    const schedule = () => {
+      timeoutId = window.setTimeout(() => {
+        setUtcMonth(currentUtcMonth());
+        schedule();
+      }, Math.min(msUntilNextUtcMonthBoundary(), 2_000_000_000));
+    };
+    schedule();
+    return () => window.clearTimeout(timeoutId);
+  }, []);
   const [source, setSource] =
     useState<AdminSubscriptionAnalyticsSource>("all");
   const [planType, setPlanType] = useState<AdminSubscriptionPlanType>("all");
@@ -63,18 +84,35 @@ export default function AdminSubscriptionAnalytics() {
   const [backfilling, setBackfilling] = useState(false);
   const [backfillNote, setBackfillNote] = useState<string | null>(null);
   const loadGeneration = useRef(0);
+  const loadAbortRef = useRef<AbortController | null>(null);
+  const loadLatestRef = useRef<() => Promise<void>>(async () => undefined);
 
   const load = useCallback(async () => {
+    loadAbortRef.current?.abort();
+    const controller = new AbortController();
+    loadAbortRef.current = controller;
     const generation = ++loadGeneration.current;
     setLoading(true);
     setError(null);
-    const params = { month, year, source, planType };
+    const params = {
+      month,
+      year,
+      source,
+      planType,
+      signal: controller.signal,
+    };
     const [r, c, rev] = await Promise.all([
       adminFetchMonthlyRetentionReport(params),
       adminFetchFirstPaidCohortReport(params),
       adminFetchMonthlyRevenueGrowthReport(params),
     ]);
-    if (generation !== loadGeneration.current) return;
+    if (
+      controller.signal.aborted ||
+      generation !== loadGeneration.current
+    ) {
+      return;
+    }
+    if (r.aborted || c.aborted || rev.aborted) return;
 
     if (!r.ok || !r.data || !c.ok || !c.data || !rev.ok || !rev.data) {
       setError(
@@ -95,10 +133,13 @@ export default function AdminSubscriptionAnalytics() {
     setLoading(false);
   }, [month, year, source, planType]);
 
+  loadLatestRef.current = load;
+
   useEffect(() => {
     void load();
     return () => {
       loadGeneration.current += 1;
+      loadAbortRef.current?.abort();
     };
   }, [load]);
 
@@ -198,7 +239,7 @@ export default function AdminSubscriptionAnalytics() {
                 setBackfillNote(
                   `Backfill: scanned ${res.scanned ?? 0}, created ${res.created ?? 0}, skipped ${res.skipped ?? 0}`,
                 );
-                await load();
+                await loadLatestRef.current();
               })();
             }}
           >
