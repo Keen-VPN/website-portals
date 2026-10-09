@@ -86,6 +86,9 @@ const AdminSubscriptions = lazy(
 );
 const AdminPricing = lazy(() => import("./pages/admin/AdminPricing"));
 const AdminChurn = lazy(() => import("./pages/admin/AdminChurn"));
+const AdminSubscriptionAnalytics = lazy(
+  () => import("./pages/admin/AdminSubscriptionAnalytics"),
+);
 const AdminJiraDelivery = lazy(
   () => import("./pages/admin/AdminJiraDelivery"),
 );
@@ -402,6 +405,10 @@ const App = () => (
                 <Route path="subscriptions" element={<AdminSubscriptions />} />
                 <Route path="pricing" element={<AdminPricing />} />
                 <Route path="churn" element={<AdminChurn />} />
+                <Route
+                  path="subscription-analytics"
+                  element={<AdminSubscriptionAnalytics />}
+                />
                 <Route path="jira-delivery" element={<AdminJiraDelivery />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="utm-attribution" element={<AdminUtmAttribution />} />
