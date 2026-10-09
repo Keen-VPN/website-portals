@@ -63,7 +63,7 @@ export default function AdminSubscriptionAnalytics() {
       timeoutId = window.setTimeout(() => {
         setUtcMonth(currentUtcMonth());
         schedule();
-      }, msUntilNextUtcMonthBoundary());
+      }, Math.min(msUntilNextUtcMonthBoundary(), 2_000_000_000));
     };
     schedule();
     return () => window.clearTimeout(timeoutId);
