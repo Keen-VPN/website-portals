@@ -7623,6 +7623,138 @@ export async function adminFetchChurnTrend(params: {
   }
 }
 
+export type AdminSubscriptionAnalyticsSource =
+  | "all"
+  | "stripe"
+  | "apple_iap"
+  | "google_play";
+
+export type AdminSubscriptionPlanType = "all" | "individual" | "business";
+
+export interface AdminMonthlyRetentionReport {
+  monthLabel: string;
+  monthRangeLabel: string;
+  isPartialMonth: boolean;
+  billingSource: AdminSubscriptionAnalyticsSource;
+  planSegment: AdminSubscriptionPlanType;
+  activePaidUsers: number;
+  renewals: number;
+  renewalRate: number;
+  churnedSubscriptions: number;
+  churnRate: number;
+  reactivations: number;
+  cancellationsRequested: number;
+  paymentFailures: number;
+  refunds: number;
+  chargebacks: number;
+  initialPurchases: number;
+}
+
+export interface AdminFirstPaidCohortReport {
+  asOfMonthLabel: string;
+  billingSource: AdminSubscriptionAnalyticsSource;
+  planSegment: AdminSubscriptionPlanType;
+  cohorts: Array<{
+    firstPaidMonth: string;
+    cohortSize: number;
+    retainedInMonth: number;
+    retentionRate: number;
+  }>;
+}
+
+export interface AdminMonthlyRevenueGrowthReport {
+  monthLabel: string;
+  monthRangeLabel: string;
+  isPartialMonth: boolean;
+  billingSource: AdminSubscriptionAnalyticsSource;
+  planSegment: AdminSubscriptionPlanType;
+  currentMonthRevenue: number;
+  previousMonthRevenue: number;
+  absoluteChange: number;
+  momGrowthPercent: number | null;
+  growthTargetPercent: number;
+  differenceFromTargetPercent: number | null;
+  aboveTarget: boolean | null;
+  grossPositiveRevenue: number;
+  refundsAndChargebacks: number;
+}
+
+async function adminFetchSubscriptionAnalyticsMonth<T>(
+  path: string,
+  params: {
+    month: number;
+    year: number;
+    source?: AdminSubscriptionAnalyticsSource;
+    planType?: AdminSubscriptionPlanType;
+  },
+): Promise<{ ok: boolean; data?: T; error?: string }> {
+  try {
+    const query = new URLSearchParams();
+    query.set("month", String(params.month));
+    query.set("year", String(params.year));
+    if (params.source && params.source !== "all") {
+      query.set("source", params.source);
+    }
+    if (params.planType && params.planType !== "all") {
+      query.set("planType", params.planType);
+    }
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription-analytics/${path}?${query.toString()}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load analytics"),
+      };
+    }
+    const record = raw as { data?: T };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export function adminFetchMonthlyRetentionReport(params: {
+  month: number;
+  year: number;
+  source?: AdminSubscriptionAnalyticsSource;
+  planType?: AdminSubscriptionPlanType;
+}) {
+  return adminFetchSubscriptionAnalyticsMonth<AdminMonthlyRetentionReport>(
+    "retention/monthly",
+    params,
+  );
+}
+
+export function adminFetchFirstPaidCohortReport(params: {
+  month: number;
+  year: number;
+  source?: AdminSubscriptionAnalyticsSource;
+  planType?: AdminSubscriptionPlanType;
+}) {
+  return adminFetchSubscriptionAnalyticsMonth<AdminFirstPaidCohortReport>(
+    "cohorts/first-paid",
+    params,
+  );
+}
+
+export function adminFetchMonthlyRevenueGrowthReport(params: {
+  month: number;
+  year: number;
+  source?: AdminSubscriptionAnalyticsSource;
+  planType?: AdminSubscriptionPlanType;
+}) {
+  return adminFetchSubscriptionAnalyticsMonth<AdminMonthlyRevenueGrowthReport>(
+    "revenue/monthly",
+    params,
+  );
+}
+
 export async function adminListSubscriptions(params?: {
   page?: number;
   limit?: number;
