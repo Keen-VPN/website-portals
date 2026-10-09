@@ -44,7 +44,8 @@ function monthLabel(year: number, month: number) {
 
 export default function AdminSubscriptionAnalytics() {
   const initial = useMemo(() => currentUtcMonth(), []);
-  const maxMonth = useMemo(() => monthLabel(initial.year, initial.month), [initial]);
+  const nowUtc = currentUtcMonth();
+  const maxMonth = monthLabel(nowUtc.year, nowUtc.month);
   const [year, setYear] = useState(initial.year);
   const [month, setMonth] = useState(initial.month);
   const [source, setSource] =
@@ -63,18 +64,35 @@ export default function AdminSubscriptionAnalytics() {
   const [backfilling, setBackfilling] = useState(false);
   const [backfillNote, setBackfillNote] = useState<string | null>(null);
   const loadGeneration = useRef(0);
+  const loadAbortRef = useRef<AbortController | null>(null);
+  const loadLatestRef = useRef<() => Promise<void>>(async () => undefined);
 
   const load = useCallback(async () => {
+    loadAbortRef.current?.abort();
+    const controller = new AbortController();
+    loadAbortRef.current = controller;
     const generation = ++loadGeneration.current;
     setLoading(true);
     setError(null);
-    const params = { month, year, source, planType };
+    const params = {
+      month,
+      year,
+      source,
+      planType,
+      signal: controller.signal,
+    };
     const [r, c, rev] = await Promise.all([
       adminFetchMonthlyRetentionReport(params),
       adminFetchFirstPaidCohortReport(params),
       adminFetchMonthlyRevenueGrowthReport(params),
     ]);
-    if (generation !== loadGeneration.current) return;
+    if (
+      controller.signal.aborted ||
+      generation !== loadGeneration.current
+    ) {
+      return;
+    }
+    if (r.aborted || c.aborted || rev.aborted) return;
 
     if (!r.ok || !r.data || !c.ok || !c.data || !rev.ok || !rev.data) {
       setError(
@@ -95,10 +113,13 @@ export default function AdminSubscriptionAnalytics() {
     setLoading(false);
   }, [month, year, source, planType]);
 
+  loadLatestRef.current = load;
+
   useEffect(() => {
     void load();
     return () => {
       loadGeneration.current += 1;
+      loadAbortRef.current?.abort();
     };
   }, [load]);
 
@@ -198,7 +219,7 @@ export default function AdminSubscriptionAnalytics() {
                 setBackfillNote(
                   `Backfill: scanned ${res.scanned ?? 0}, created ${res.created ?? 0}, skipped ${res.skipped ?? 0}`,
                 );
-                await load();
+                await loadLatestRef.current();
               })();
             }}
           >

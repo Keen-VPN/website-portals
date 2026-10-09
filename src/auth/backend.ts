@@ -7700,8 +7700,9 @@ async function adminFetchSubscriptionAnalyticsMonth<T>(
     year: number;
     source?: AdminSubscriptionAnalyticsSource;
     planType?: AdminSubscriptionPlanType;
+    signal?: AbortSignal;
   },
-): Promise<{ ok: boolean; data?: T; error?: string }> {
+): Promise<{ ok: boolean; data?: T; error?: string; aborted?: boolean }> {
   try {
     const query = new URLSearchParams();
     query.set("month", String(params.month));
@@ -7714,7 +7715,7 @@ async function adminFetchSubscriptionAnalyticsMonth<T>(
     }
     const response = await fetch(
       `${BACKEND_URL}/admin/subscription-analytics/${path}?${query.toString()}`,
-      { credentials: "include" },
+      { credentials: "include", signal: params.signal },
     );
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -7726,6 +7727,9 @@ async function adminFetchSubscriptionAnalyticsMonth<T>(
     const record = raw as { data?: T };
     return { ok: true, data: record.data };
   } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, aborted: true, error: "Request aborted" };
+    }
     return {
       ok: false,
       error: e instanceof Error ? e.message : "Network error",
@@ -7738,6 +7742,7 @@ export function adminFetchMonthlyRetentionReport(params: {
   year: number;
   source?: AdminSubscriptionAnalyticsSource;
   planType?: AdminSubscriptionPlanType;
+  signal?: AbortSignal;
 }) {
   return adminFetchSubscriptionAnalyticsMonth<AdminMonthlyRetentionReport>(
     "retention/monthly",
@@ -7750,6 +7755,7 @@ export function adminFetchFirstPaidCohortReport(params: {
   year: number;
   source?: AdminSubscriptionAnalyticsSource;
   planType?: AdminSubscriptionPlanType;
+  signal?: AbortSignal;
 }) {
   return adminFetchSubscriptionAnalyticsMonth<AdminFirstPaidCohortReport>(
     "cohorts/first-paid",
@@ -7762,6 +7768,7 @@ export function adminFetchMonthlyRevenueGrowthReport(params: {
   year: number;
   source?: AdminSubscriptionAnalyticsSource;
   planType?: AdminSubscriptionPlanType;
+  signal?: AbortSignal;
 }) {
   return adminFetchSubscriptionAnalyticsMonth<AdminMonthlyRevenueGrowthReport>(
     "revenue/monthly",

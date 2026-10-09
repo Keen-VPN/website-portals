@@ -456,7 +456,9 @@ export default function AdminUserProfile() {
             <MeasureTile
               label="Signed up"
               value={formatDateTime(
-                profile?.subscriptionMeasures?.signedUpAt ?? null,
+                profile?.subscriptionMeasures?.signedUpAt ??
+                  profile?.user.createdAt ??
+                  null,
               )}
             />
             <MeasureTile
