@@ -42,12 +42,32 @@ function monthLabel(year: number, month: number) {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
 
+/** Milliseconds until the next UTC month starts (plus a small buffer). */
+function msUntilNextUtcMonthBoundary() {
+  const now = Date.now();
+  const d = new Date(now);
+  const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1, 0, 0, 0, 0);
+  return Math.max(next - now, 0) + 50;
+}
+
 export default function AdminSubscriptionAnalytics() {
   const initial = useMemo(() => currentUtcMonth(), []);
-  const nowUtc = currentUtcMonth();
-  const maxMonth = monthLabel(nowUtc.year, nowUtc.month);
+  const [utcMonth, setUtcMonth] = useState(initial);
+  const maxMonth = monthLabel(utcMonth.year, utcMonth.month);
   const [year, setYear] = useState(initial.year);
   const [month, setMonth] = useState(initial.month);
+
+  useEffect(() => {
+    let timeoutId = 0;
+    const schedule = () => {
+      timeoutId = window.setTimeout(() => {
+        setUtcMonth(currentUtcMonth());
+        schedule();
+      }, msUntilNextUtcMonthBoundary());
+    };
+    schedule();
+    return () => window.clearTimeout(timeoutId);
+  }, []);
   const [source, setSource] =
     useState<AdminSubscriptionAnalyticsSource>("all");
   const [planType, setPlanType] = useState<AdminSubscriptionPlanType>("all");

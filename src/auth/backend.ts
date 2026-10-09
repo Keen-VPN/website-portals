@@ -7717,7 +7717,12 @@ async function adminFetchSubscriptionAnalyticsMonth<T>(
       `${BACKEND_URL}/admin/subscription-analytics/${path}?${query.toString()}`,
       { credentials: "include", signal: params.signal },
     );
-    const raw: unknown = await response.json().catch(() => ({}));
+    const raw: unknown = await response.json().catch((err: unknown) => {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        throw err;
+      }
+      return {};
+    });
     if (!response.ok) {
       return {
         ok: false,
