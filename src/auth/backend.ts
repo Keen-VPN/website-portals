@@ -11214,3 +11214,226 @@ export async function adminRunPricingDriftAudit(): Promise<{
     };
   }
 }
+
+// --- Admin research (Fireflies transcripts + interview recruitment) ---
+
+export type AdminMeetingTranscript = {
+  id: string;
+  externalMeetingId: string;
+  title: string;
+  meetingType: string;
+  occurredAt: string;
+  attendees: unknown;
+  speakerSegments?: unknown;
+  transcriptText?: string;
+  source: string;
+  ingestedAt: string;
+  ingestionStatus: string;
+  lastError?: string | null;
+  attemptCount: number;
+  createdAt: string;
+};
+
+export type AdminResearchStudy = {
+  id: string;
+  name: string;
+  goal: string | null;
+  incentiveCents: number;
+  incentiveLabel: string;
+  schedulingUrl: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { participants: number };
+};
+
+export type AdminInterviewParticipant = {
+  id: string;
+  studyId: string;
+  email: string;
+  name: string | null;
+  recruitSource: string;
+  status: string;
+  scheduledAt: string | null;
+  completedAt: string | null;
+  transcriptId: string | null;
+  incentiveStatus: string;
+  notes: string | null;
+  transcript?: {
+    id: string;
+    title: string;
+    occurredAt: string;
+    meetingType: string;
+  } | null;
+  incentive?: { id: string; paidAt: string } | null;
+};
+
+async function adminResearchJson<T>(
+  path: string,
+  init?: RequestInit,
+  fallbackError = "Request failed",
+): Promise<{ ok: boolean; data?: T; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
+    }
+    const record = raw as { data?: T };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchResearchTranscripts(params?: {
+  meetingType?: string;
+  from?: string;
+  to?: string;
+  q?: string;
+  ingestionStatus?: string;
+  limit?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params?.meetingType) query.set("meetingType", params.meetingType);
+  if (params?.from) query.set("from", params.from);
+  if (params?.to) query.set("to", params.to);
+  if (params?.q) query.set("q", params.q);
+  if (params?.ingestionStatus)
+    query.set("ingestionStatus", params.ingestionStatus);
+  if (params?.limit) query.set("limit", String(params.limit));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return adminResearchJson<{
+    items: AdminMeetingTranscript[];
+    total: number;
+  }>(`/admin/research/transcripts${suffix}`, undefined, "Failed to load transcripts");
+}
+
+export async function adminFetchResearchStudies() {
+  return adminResearchJson<AdminResearchStudy[]>(
+    "/admin/research/studies",
+    undefined,
+    "Failed to load studies",
+  );
+}
+
+export async function adminCreateResearchStudy(body: {
+  name: string;
+  goal?: string;
+  schedulingUrl?: string;
+  incentiveCents?: number;
+  incentiveLabel?: string;
+  status?: string;
+}) {
+  return adminResearchJson<AdminResearchStudy>(
+    "/admin/research/studies",
+    { method: "POST", body: JSON.stringify(body) },
+    "Failed to create study",
+  );
+}
+
+export async function adminFetchResearchStudy(id: string) {
+  return adminResearchJson<
+    AdminResearchStudy & { participants: AdminInterviewParticipant[] }
+  >(`/admin/research/studies/${id}`, undefined, "Failed to load study");
+}
+
+export async function adminUpdateResearchStudy(
+  id: string,
+  body: Record<string, unknown>,
+) {
+  return adminResearchJson<AdminResearchStudy>(
+    `/admin/research/studies/${id}`,
+    { method: "PATCH", body: JSON.stringify(body) },
+    "Failed to update study",
+  );
+}
+
+export async function adminAddInterviewParticipant(
+  studyId: string,
+  body: {
+    email: string;
+    name?: string;
+    recruitSource: string;
+    notes?: string;
+  },
+) {
+  return adminResearchJson<AdminInterviewParticipant>(
+    `/admin/research/studies/${studyId}/participants`,
+    { method: "POST", body: JSON.stringify(body) },
+    "Failed to add participant",
+  );
+}
+
+export async function adminUpdateInterviewParticipantStatus(
+  participantId: string,
+  body: { status: string; notes?: string },
+) {
+  return adminResearchJson<AdminInterviewParticipant>(
+    `/admin/research/participants/${participantId}/status`,
+    { method: "PATCH", body: JSON.stringify(body) },
+    "Failed to update participant",
+  );
+}
+
+export async function adminLinkInterviewTranscript(
+  participantId: string,
+  transcriptId: string,
+) {
+  return adminResearchJson<AdminInterviewParticipant>(
+    `/admin/research/participants/${participantId}/link-transcript`,
+    {
+      method: "POST",
+      body: JSON.stringify({ transcriptId }),
+    },
+    "Failed to link transcript",
+  );
+}
+
+export async function adminAssociateInterviewTranscript(participantId: string) {
+  return adminResearchJson<{ matched: boolean }>(
+    `/admin/research/participants/${participantId}/associate-transcript`,
+    { method: "POST", body: "{}" },
+    "Failed to associate transcript",
+  );
+}
+
+export async function adminMarkInterviewIncentivePaid(
+  participantId: string,
+  note?: string,
+) {
+  return adminResearchJson<unknown>(
+    `/admin/research/participants/${participantId}/mark-incentive-paid`,
+    {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    },
+    "Failed to mark incentive paid",
+  );
+}
+
+export async function adminReconcileFirefliesTranscripts() {
+  return adminResearchJson<{
+    scanned: number;
+    succeeded: number;
+    failed: number;
+    skipped: number;
+  }>(
+    "/admin/research/transcripts/reconcile",
+    { method: "POST", body: "{}" },
+    "Failed to reconcile transcripts",
+  );
+}
