@@ -18,6 +18,7 @@ import {
   UserCircle,
   Link2,
   Share2,
+  Scale,
 } from "lucide-react";
 import { useFeatureFlags } from "@/lib/feature-flags";
 
@@ -126,6 +127,15 @@ export default function AdminSidebarLayout() {
               <Gift className="h-4 w-4" />
               Perks
             </NavLink>
+            {can("class_actions.read") ? (
+              <NavLink
+                to="/admin/class-actions"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                <Scale className="h-4 w-4" />
+                Class Action Review
+              </NavLink>
+            ) : null}
             <NavLink
               to="/admin/hot-links"
               className={({ isActive }) => linkClass(isActive)}

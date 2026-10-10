@@ -11202,3 +11202,370 @@ export async function adminRunPricingDriftAudit(): Promise<{
     };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Admin — class-action discovery review (human-in-the-loop)
+// ---------------------------------------------------------------------------
+
+export type ClassActionReviewStatus =
+  | "PENDING_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "EXPIRED";
+
+export type ClassActionReviewAction = "approve" | "reject" | "expire" | "reopen";
+
+export type ClassActionCandidateSort =
+  | "discovered_desc"
+  | "discovered_asc"
+  | "deadline_asc"
+  | "deadline_desc"
+  | "title_asc";
+
+export interface ClassActionCandidateListItem {
+  id: string;
+  title: string;
+  defendant: string | null;
+  caseIdentifier: string | null;
+  status: ClassActionReviewStatus;
+  sourceName: string | null;
+  sourceUrl: string;
+  claimDeadline: string | null;
+  discoveredAt: string;
+  validationOutcome: string | null;
+  uncertaintyCount: number;
+  possibleDuplicateCount: number;
+  linkedDuplicateOfId: string | null;
+  extractionMethod: string | null;
+  reviewedAt: string | null;
+  reviewedVia: string | null;
+  published: boolean;
+}
+
+export interface ClassActionCandidateList {
+  items: ClassActionCandidateListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: Record<ClassActionReviewStatus, number>;
+}
+
+export interface ClassActionEvidenceRef {
+  field: string;
+  quote: string;
+  sourceUrl: string;
+  verified: boolean;
+  origin: "ai" | "parser";
+}
+
+export interface ClassActionDuplicateMatch {
+  kind: "recommendation" | "perk";
+  id: string;
+  title: string;
+  status: string;
+  reason: string;
+  score: number;
+  caseIdentifierConflict: boolean;
+}
+
+export interface ClassActionCandidateDetail {
+  candidate: {
+    id: string;
+    title: string;
+    status: ClassActionReviewStatus;
+    sourceUrl: string;
+    canonicalSourceUrl: string | null;
+    sourceName: string | null;
+    partnerName: string | null;
+    caseIdentifier: string | null;
+    claimDeadline: string | null;
+    claimUrl: string | null;
+    settlementAmount: string | null;
+    potentialPayment: string | null;
+    summary: string | null;
+    eligibilitySummary: string | null;
+    proofOfPurchase: string | null;
+    eligibleGeographies: string | null;
+    classDefinition: string | null;
+    aiSummary: string | null;
+    aiModel: string | null;
+    aiExtractedAt: string | null;
+    extractionMethod: string | null;
+    evidence: ClassActionEvidenceRef[] | null;
+    uncertaintyFlags: string[] | null;
+    validationOutcome: string | null;
+    validationWarnings: string[] | null;
+    duplicateMatches: ClassActionDuplicateMatch[] | null;
+    duplicateOfId: string | null;
+    discoveredAt: string;
+    retrievedAt: string | null;
+    reviewedAt: string | null;
+    reviewedVia: string | null;
+    reviewerNotes: string | null;
+    expiredReason: string | null;
+    publishedAt: string | null;
+    unpublishedAt: string | null;
+  };
+  perk: {
+    id: string;
+    title: string;
+    isActive: boolean;
+    endsAt: string | null;
+    redemptionUrl: string | null;
+  } | null;
+  reviewedBy: { id: string; name: string | null; email: string } | null;
+  duplicateOf: { id: string; title: string; status: ClassActionReviewStatus } | null;
+  allowedActions: ClassActionReviewAction[];
+  publicationChecks: {
+    ok: boolean;
+    failures: { code: string; message: string }[];
+    evaluatedFor: "approval" | "publication";
+  };
+  customerVisible: boolean;
+  captures: {
+    id: string;
+    sourceName: string | null;
+    sourceUrl: string;
+    canonicalUrl: string;
+    finalUrl: string | null;
+    httpStatus: number | null;
+    retrievalOutcome: string;
+    retrievedAt: string;
+    pageTitle: string | null;
+    isPrimary: boolean;
+    conflicts: { field: string; existing: string | null; incoming: string | null }[] | null;
+    snapshotText: string | null;
+    snapshotTruncated: boolean;
+  }[];
+  history: {
+    id: string;
+    action: string;
+    actorType: "admin" | "slack" | "system";
+    admin: { id: string; name: string | null; email: string } | null;
+    slackUserId: string | null;
+    fromStatus: ClassActionReviewStatus | null;
+    toStatus: ClassActionReviewStatus | null;
+    notes: string | null;
+    metadata: { reason?: unknown } | null;
+    createdAt: string;
+  }[];
+  relatedIngestion: {
+    id: string;
+    sourceUrl: string | null;
+    outcome: string;
+    reason: string;
+    createdAt: string;
+  }[];
+}
+
+export interface ClassActionDiscoveryRun {
+  id: string;
+  trigger: string;
+  status: "running" | "succeeded" | "partial" | "failed" | "skipped";
+  startedAt: string;
+  finishedAt: string | null;
+  sources: string[];
+  stats: Record<string, number> | null;
+  operationalIssues: string[];
+  error: string | null;
+  triggeredBy: { id: string; name: string | null; email: string } | null;
+}
+
+export interface ClassActionDiscoveryStatus {
+  settings: {
+    discoveryEnabled: boolean;
+    analystEnabled: boolean;
+    intervalHours: number;
+    sources: { known: string[]; unknown: string[] };
+    aiConfigured: boolean;
+    aiModel: string | null;
+    requireAi: boolean;
+    maxCandidatesPerRun: number;
+    maxNewPerRun: number;
+    concurrency: number;
+    maxAiCallsPerRun: number;
+  };
+  pendingCount: number;
+  lastSuccessfulRun: {
+    id: string;
+    startedAt: string;
+    finishedAt: string | null;
+    status: string;
+  } | null;
+  recentRuns: ClassActionDiscoveryRun[];
+}
+
+export interface ClassActionIngestionRecord {
+  id: string;
+  runId: string | null;
+  sourceId: string;
+  sourceUrl: string | null;
+  outcome: string;
+  reason: string;
+  matchedRecommendationId: string | null;
+  matchedPerkId: string | null;
+  createdAt: string;
+  submittedBy: { id: string; name: string | null } | null;
+}
+
+interface AdminResult<T> {
+  ok: boolean;
+  data?: T;
+  error?: string;
+  unauthorized?: boolean;
+  forbidden?: boolean;
+}
+
+async function classActionAdminRequest<T>(
+  path: string,
+  init: { method?: "GET" | "POST"; body?: unknown; signal?: AbortSignal },
+  fallbackError: string,
+): Promise<AdminResult<T>> {
+  try {
+    const method = init.method ?? "GET";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/class-action-candidates${path}`,
+      {
+        method,
+        credentials: "include",
+        signal: init.signal,
+        headers:
+          method === "GET"
+            ? undefined
+            : {
+                "Content-Type": "application/json",
+                // Required by the backend CSRF guard on mutations.
+                "X-Requested-With": "XMLHttpRequest",
+              },
+        body: method === "GET" ? undefined : JSON.stringify(init.body ?? {}),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        unauthorized: response.status === 401,
+        forbidden: response.status === 403,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
+    }
+    return { ok: true, data: (raw as { data?: T }).data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export function adminListClassActionCandidates(params: {
+  status?: ClassActionReviewStatus | "ALL";
+  q?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: ClassActionCandidateSort;
+  signal?: AbortSignal;
+}): Promise<AdminResult<ClassActionCandidateList>> {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.q?.trim()) query.set("q", params.q.trim());
+  if (params.page) query.set("page", String(params.page));
+  if (params.pageSize) query.set("pageSize", String(params.pageSize));
+  if (params.sort) query.set("sort", params.sort);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return classActionAdminRequest(
+    suffix,
+    { signal: params.signal },
+    "Failed to load class-action candidates",
+  );
+}
+
+export function adminGetClassActionCandidate(
+  id: string,
+  signal?: AbortSignal,
+): Promise<AdminResult<ClassActionCandidateDetail>> {
+  return classActionAdminRequest(
+    `/${encodeURIComponent(id)}`,
+    { signal },
+    "Failed to load class-action candidate",
+  );
+}
+
+export function adminClassActionDecision(
+  id: string,
+  action: ClassActionReviewAction | "notes",
+  body: { notes?: string; reason?: string },
+): Promise<AdminResult<ClassActionCandidateDetail>> {
+  return classActionAdminRequest(
+    `/${encodeURIComponent(id)}/${action}`,
+    { method: "POST", body },
+    "Review action failed",
+  );
+}
+
+export function adminFetchClassActionDiscoveryStatus(
+  signal?: AbortSignal,
+): Promise<AdminResult<ClassActionDiscoveryStatus>> {
+  return classActionAdminRequest(
+    "/discovery/status",
+    { signal },
+    "Failed to load discovery status",
+  );
+}
+
+export function adminRunClassActionDiscovery(): Promise<
+  AdminResult<{
+    runId: string | null;
+    status: ClassActionDiscoveryRun["status"];
+    reason?: string;
+    stats: Record<string, number>;
+    operationalIssues: string[];
+  }>
+> {
+  return classActionAdminRequest(
+    "/discovery/run",
+    { method: "POST" },
+    "Discovery run failed",
+  );
+}
+
+export function adminSubmitClassActionUrl(url: string): Promise<
+  AdminResult<{
+    outcome: string;
+    message: string;
+    recommendationId?: string;
+    runId: string;
+  }>
+> {
+  return classActionAdminRequest(
+    "/submit",
+    { method: "POST", body: { url } },
+    "Submission failed",
+  );
+}
+
+export function adminListClassActionIngestion(params: {
+  page?: number;
+  pageSize?: number;
+  signal?: AbortSignal;
+}): Promise<
+  AdminResult<{
+    items: ClassActionIngestionRecord[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }>
+> {
+  const query = new URLSearchParams();
+  if (params.page) query.set("page", String(params.page));
+  if (params.pageSize) query.set("pageSize", String(params.pageSize));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return classActionAdminRequest(
+    `/ingestion${suffix}`,
+    { signal: params.signal },
+    "Failed to load ingestion records",
+  );
+}
