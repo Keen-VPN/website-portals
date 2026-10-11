@@ -95,7 +95,9 @@ export default function AdminResearch() {
 
   const transcriptAbort = useRef<AbortController | null>(null);
   const studyDetailAbort = useRef<AbortController | null>(null);
+  const studiesAbort = useRef<AbortController | null>(null);
   const selectedStudyIdRef = useRef<string | null>(null);
+  const loadedStudyDetailIdRef = useRef<string | null>(null);
 
   const loadTranscripts = useCallback(
     async (opts?: { offset?: number; append?: boolean }) => {
@@ -140,8 +142,16 @@ export default function AdminResearch() {
   );
 
   const loadStudies = useCallback(async () => {
+    studiesAbort.current?.abort();
+    const controller = new AbortController();
+    studiesAbort.current = controller;
+
     setError(null);
-    const res = await adminFetchResearchStudies();
+    const res = await adminFetchResearchStudies({ signal: controller.signal });
+    if (controller.signal.aborted || studiesAbort.current !== controller) {
+      return;
+    }
+    if (res.error === "aborted") return;
     if (!res.ok || !res.data) {
       setError(res.error ?? "Failed to load studies");
       return;
@@ -150,8 +160,14 @@ export default function AdminResearch() {
   }, []);
 
   const loadStudyDetail = useCallback(async (id: string) => {
+    const switchingStudy = loadedStudyDetailIdRef.current !== id;
     selectedStudyIdRef.current = id;
     setSelectedStudyId(id);
+    if (switchingStudy) {
+      setStudyDetail(null);
+      setSchedulingUrlDraft("");
+      loadedStudyDetailIdRef.current = null;
+    }
     setError(null);
 
     studyDetailAbort.current?.abort();
@@ -169,6 +185,7 @@ export default function AdminResearch() {
       setError(res.error ?? "Failed to load study");
       return;
     }
+    loadedStudyDetailIdRef.current = res.data.id;
     setStudyDetail(res.data);
     setSchedulingUrlDraft(res.data.schedulingUrl ?? "");
   }, []);
@@ -188,6 +205,7 @@ export default function AdminResearch() {
     return () => {
       transcriptAbort.current?.abort();
       studyDetailAbort.current?.abort();
+      studiesAbort.current?.abort();
     };
   }, []);
 
@@ -219,6 +237,7 @@ export default function AdminResearch() {
         <div className="flex gap-2">
           <button
             type="button"
+            aria-pressed={tab === "studies"}
             className={`rounded-md border px-3 py-2 text-sm ${
               tab === "studies" ? "bg-muted" : "hover:bg-muted"
             }`}
@@ -228,6 +247,7 @@ export default function AdminResearch() {
           </button>
           <button
             type="button"
+            aria-pressed={tab === "transcripts"}
             className={`rounded-md border px-3 py-2 text-sm ${
               tab === "transcripts" ? "bg-muted" : "hover:bg-muted"
             }`}
@@ -610,6 +630,7 @@ export default function AdminResearch() {
                                 setParticipantEmail("");
                                 setParticipantName("");
                                 void loadStudyDetail(studyDetail.id);
+                                void loadStudies();
                               }
                             })
                             .finally(() => setAddingParticipant(false));

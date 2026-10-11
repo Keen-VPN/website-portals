@@ -11319,7 +11319,7 @@ export async function adminFetchResearchTranscripts(params?: {
   if (params?.q) query.set("q", params.q);
   if (params?.ingestionStatus)
     query.set("ingestionStatus", params.ingestionStatus);
-  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.limit != null) query.set("limit", String(params.limit));
   if (params?.offset != null) query.set("offset", String(params.offset));
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return adminResearchJson<{
