@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
   adminAddInterviewParticipant,
@@ -46,6 +46,21 @@ const PARTICIPANT_STATUSES = [
   "CANCELED",
 ] as const;
 
+const TRANSCRIPT_PAGE_SIZE = 50;
+
+/** Only allow http(s) scheduling links — blocks javascript: etc. */
+function safeHttpUrl(raw: string | null | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 export default function AdminResearch() {
   const { can } = useAdminAuth();
   const canRead = can("research.read");
@@ -54,17 +69,22 @@ export default function AdminResearch() {
   const [tab, setTab] = useState<"transcripts" | "studies">("studies");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [addingParticipant, setAddingParticipant] = useState(false);
 
   const [meetingType, setMeetingType] = useState("");
-  const [q, setQ] = useState("");
+  const [qDraft, setQDraft] = useState("");
+  const [qSubmitted, setQSubmitted] = useState("");
   const [transcripts, setTranscripts] = useState<AdminMeetingTranscript[]>([]);
   const [transcriptTotal, setTranscriptTotal] = useState(0);
+  const [transcriptOffset, setTranscriptOffset] = useState(0);
+  const [loadingMoreTranscripts, setLoadingMoreTranscripts] = useState(false);
 
   const [studies, setStudies] = useState<AdminResearchStudy[]>([]);
   const [selectedStudyId, setSelectedStudyId] = useState<string | null>(null);
   const [studyDetail, setStudyDetail] = useState<
     (AdminResearchStudy & { participants: AdminInterviewParticipant[] }) | null
   >(null);
+  const [schedulingUrlDraft, setSchedulingUrlDraft] = useState("");
 
   const [newStudyName, setNewStudyName] = useState("");
   const [newStudyUrl, setNewStudyUrl] = useState("");
@@ -72,20 +92,52 @@ export default function AdminResearch() {
   const [participantName, setParticipantName] = useState("");
   const [participantSource, setParticipantSource] =
     useState<(typeof RECRUIT_SOURCES)[number]>("CUSTOMER_OUTREACH");
-  const loadTranscripts = useCallback(async () => {
-    setError(null);
-    const res = await adminFetchResearchTranscripts({
-      meetingType: meetingType || undefined,
-      q: q.trim() || undefined,
-      limit: 50,
-    });
-    if (!res.ok || !res.data) {
-      setError(res.error ?? "Failed to load transcripts");
-      return;
-    }
-    setTranscripts(res.data.items);
-    setTranscriptTotal(res.data.total);
-  }, [meetingType, q]);
+
+  const transcriptAbort = useRef<AbortController | null>(null);
+  const studyDetailAbort = useRef<AbortController | null>(null);
+  const selectedStudyIdRef = useRef<string | null>(null);
+
+  const loadTranscripts = useCallback(
+    async (opts?: { offset?: number; append?: boolean }) => {
+      const offset = opts?.offset ?? 0;
+      const append = opts?.append ?? false;
+
+      transcriptAbort.current?.abort();
+      const controller = new AbortController();
+      transcriptAbort.current = controller;
+
+      if (append) setLoadingMoreTranscripts(true);
+      else setError(null);
+
+      const res = await adminFetchResearchTranscripts({
+        meetingType: meetingType || undefined,
+        q: qSubmitted.trim() || undefined,
+        limit: TRANSCRIPT_PAGE_SIZE,
+        offset,
+        signal: controller.signal,
+      });
+
+      if (controller.signal.aborted || transcriptAbort.current !== controller) {
+        return;
+      }
+      if (res.error === "aborted") return;
+
+      if (!res.ok || !res.data) {
+        setError(res.error ?? "Failed to load transcripts");
+        setLoadingMoreTranscripts(false);
+        return;
+      }
+
+      const page = res.data;
+      setTranscripts((prev) =>
+        append ? [...prev, ...page.items] : page.items,
+      );
+      setTranscriptTotal(page.total);
+      setTranscriptOffset(offset + page.items.length);
+      setLoadingMoreTranscripts(false);
+    },
+    [meetingType, qSubmitted],
+  );
 
   const loadStudies = useCallback(async () => {
     setError(null);
@@ -98,21 +150,46 @@ export default function AdminResearch() {
   }, []);
 
   const loadStudyDetail = useCallback(async (id: string) => {
+    selectedStudyIdRef.current = id;
+    setSelectedStudyId(id);
     setError(null);
-    const res = await adminFetchResearchStudy(id);
+
+    studyDetailAbort.current?.abort();
+    const controller = new AbortController();
+    studyDetailAbort.current = controller;
+
+    const res = await adminFetchResearchStudy(id, { signal: controller.signal });
+    if (controller.signal.aborted || studyDetailAbort.current !== controller) {
+      return;
+    }
+    if (res.error === "aborted") return;
+    if (selectedStudyIdRef.current !== id) return;
+
     if (!res.ok || !res.data) {
       setError(res.error ?? "Failed to load study");
       return;
     }
     setStudyDetail(res.data);
-    setSelectedStudyId(id);
+    setSchedulingUrlDraft(res.data.schedulingUrl ?? "");
   }, []);
 
   useEffect(() => {
     if (!canRead) return;
     void loadStudies();
-    void loadTranscripts();
-  }, [canRead, loadStudies, loadTranscripts]);
+  }, [canRead, loadStudies]);
+
+  useEffect(() => {
+    if (!canRead || tab !== "transcripts") return;
+    void loadTranscripts({ offset: 0, append: false });
+    return () => transcriptAbort.current?.abort();
+  }, [canRead, tab, loadTranscripts]);
+
+  useEffect(() => {
+    return () => {
+      transcriptAbort.current?.abort();
+      studyDetailAbort.current?.abort();
+    };
+  }, []);
 
   if (!canRead) {
     return (
@@ -121,6 +198,9 @@ export default function AdminResearch() {
       </div>
     );
   }
+
+  const safeSchedulingHref = safeHttpUrl(studyDetail?.schedulingUrl);
+  const hasMoreTranscripts = transcripts.length < transcriptTotal;
 
   return (
     <div className="space-y-6">
@@ -166,8 +246,19 @@ export default function AdminResearch() {
 
       {tab === "transcripts" ? (
         <section className="space-y-4">
-          <div className="flex flex-wrap gap-2">
+          <form
+            className="flex flex-wrap gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setQSubmitted(qDraft.trim());
+            }}
+          >
+            <label className="sr-only" htmlFor="research-meeting-type">
+              Meeting type
+            </label>
             <select
+              id="research-meeting-type"
+              aria-label="Meeting type"
               className="rounded-md border border-border bg-background px-3 py-2 text-sm"
               value={meetingType}
               onChange={(e) => setMeetingType(e.target.value)}
@@ -178,16 +269,20 @@ export default function AdminResearch() {
                 </option>
               ))}
             </select>
+            <label className="sr-only" htmlFor="research-transcript-q">
+              Search transcripts
+            </label>
             <input
+              id="research-transcript-q"
+              aria-label="Search transcripts"
               className="min-w-[200px] flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
               placeholder="Search title or transcript…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
+              value={qDraft}
+              onChange={(e) => setQDraft(e.target.value)}
             />
             <button
-              type="button"
+              type="submit"
               className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
-              onClick={() => void loadTranscripts()}
             >
               Search
             </button>
@@ -201,7 +296,7 @@ export default function AdminResearch() {
                   void adminReconcileFirefliesTranscripts()
                     .then((res) => {
                       if (!res.ok) setError(res.error ?? "Reconcile failed");
-                      else void loadTranscripts();
+                      else void loadTranscripts({ offset: 0, append: false });
                     })
                     .finally(() => setBusy(false));
                 }}
@@ -209,9 +304,10 @@ export default function AdminResearch() {
                 Reconcile Fireflies
               </button>
             ) : null}
-          </div>
+          </form>
           <p className="text-xs text-muted-foreground">
-            {transcriptTotal} transcript{transcriptTotal === 1 ? "" : "s"}
+            Showing {transcripts.length} of {transcriptTotal} transcript
+            {transcriptTotal === 1 ? "" : "s"}
           </p>
           <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-left text-sm">
@@ -248,10 +344,7 @@ export default function AdminResearch() {
                 ))}
                 {transcripts.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="p-4 text-muted-foreground"
-                    >
+                    <td colSpan={4} className="p-4 text-muted-foreground">
                       No transcripts yet.
                     </td>
                   </tr>
@@ -259,20 +352,45 @@ export default function AdminResearch() {
               </tbody>
             </table>
           </div>
+          {hasMoreTranscripts ? (
+            <button
+              type="button"
+              disabled={loadingMoreTranscripts}
+              className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+              onClick={() =>
+                void loadTranscripts({
+                  offset: transcriptOffset,
+                  append: true,
+                })
+              }
+            >
+              {loadingMoreTranscripts ? "Loading…" : "Load more"}
+            </button>
+          ) : null}
         </section>
       ) : (
         <section className="space-y-6">
           {canWrite ? (
             <div className="flex flex-wrap gap-2 rounded-lg border border-border p-4">
+              <label className="sr-only" htmlFor="research-new-study-name">
+                Study name
+              </label>
               <input
+                id="research-new-study-name"
+                aria-label="Study name"
                 className="min-w-[180px] flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
                 placeholder="Study name"
                 value={newStudyName}
                 onChange={(e) => setNewStudyName(e.target.value)}
               />
+              <label className="sr-only" htmlFor="research-new-study-url">
+                Scheduling link
+              </label>
               <input
+                id="research-new-study-url"
+                aria-label="Scheduling link"
                 className="min-w-[220px] flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
-                placeholder="Scheduling link (Calendly etc.)"
+                placeholder="Scheduling link (https://…)"
                 value={newStudyUrl}
                 onChange={(e) => setNewStudyUrl(e.target.value)}
               />
@@ -281,10 +399,20 @@ export default function AdminResearch() {
                 disabled={busy || !newStudyName.trim()}
                 className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
                 onClick={() => {
+                  const trimmedUrl = newStudyUrl.trim();
+                  const safeUrl = trimmedUrl
+                    ? safeHttpUrl(trimmedUrl)
+                    : null;
+                  if (trimmedUrl && !safeUrl) {
+                    setError(
+                      "Scheduling URL must be a valid http:// or https:// link",
+                    );
+                    return;
+                  }
                   setBusy(true);
                   void adminCreateResearchStudy({
                     name: newStudyName.trim(),
-                    schedulingUrl: newStudyUrl.trim() || undefined,
+                    schedulingUrl: safeUrl || undefined,
                     status: "ACTIVE",
                     incentiveCents: 5000,
                     incentiveLabel: "$50 gift card",
@@ -347,39 +475,64 @@ export default function AdminResearch() {
                       Incentive: {studyDetail.incentiveLabel} (
                       {studyDetail.incentiveCents}¢)
                     </p>
-                    {studyDetail.schedulingUrl ? (
+                    {safeSchedulingHref ? (
                       <a
                         className="mt-2 inline-block text-sm text-primary underline"
-                        href={studyDetail.schedulingUrl}
+                        href={safeSchedulingHref}
                         target="_blank"
                         rel="noreferrer"
                       >
                         Open scheduling link
                       </a>
+                    ) : studyDetail.schedulingUrl ? (
+                      <p className="mt-2 text-sm text-destructive">
+                        Stored scheduling URL is not a valid http(s) link.
+                      </p>
                     ) : (
                       <p className="mt-2 text-sm text-muted-foreground">
                         No scheduling link set.
                       </p>
                     )}
                     {canWrite ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div
+                        key={studyDetail.id}
+                        className="mt-3 flex flex-wrap gap-2"
+                      >
+                        <label
+                          className="sr-only"
+                          htmlFor={`study-scheduling-url-${studyDetail.id}`}
+                        >
+                          Update scheduling URL
+                        </label>
                         <input
+                          id={`study-scheduling-url-${studyDetail.id}`}
+                          aria-label="Update scheduling URL"
                           className="min-w-[220px] flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
-                          placeholder="Update scheduling URL"
-                          defaultValue={studyDetail.schedulingUrl ?? ""}
-                          id="study-scheduling-url"
+                          placeholder="Update scheduling URL (https://…)"
+                          value={schedulingUrlDraft}
+                          onChange={(e) =>
+                            setSchedulingUrlDraft(e.target.value)
+                          }
                         />
                         <button
                           type="button"
                           className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
                           onClick={() => {
-                            const el = document.getElementById(
-                              "study-scheduling-url",
-                            ) as HTMLInputElement | null;
+                            const trimmed = schedulingUrlDraft.trim();
+                            const safeUrl = trimmed
+                              ? safeHttpUrl(trimmed)
+                              : null;
+                            if (trimmed && !safeUrl) {
+                              setError(
+                                "Scheduling URL must be a valid http:// or https:// link",
+                              );
+                              return;
+                            }
                             void adminUpdateResearchStudy(studyDetail.id, {
-                              schedulingUrl: el?.value?.trim() || null,
+                              schedulingUrl: safeUrl,
                             }).then((res) => {
-                              if (!res.ok) setError(res.error ?? "Update failed");
+                              if (!res.ok)
+                                setError(res.error ?? "Update failed");
                               else void loadStudyDetail(studyDetail.id);
                             });
                           }}
@@ -392,19 +545,37 @@ export default function AdminResearch() {
 
                   {canWrite ? (
                     <div className="flex flex-wrap gap-2 rounded-lg border border-border p-4">
+                      <label className="sr-only" htmlFor="research-participant-email">
+                        Participant email
+                      </label>
                       <input
+                        id="research-participant-email"
+                        aria-label="Participant email"
                         className="rounded-md border border-border bg-background px-3 py-2 text-sm"
                         placeholder="Email"
                         value={participantEmail}
                         onChange={(e) => setParticipantEmail(e.target.value)}
                       />
+                      <label className="sr-only" htmlFor="research-participant-name">
+                        Participant name
+                      </label>
                       <input
+                        id="research-participant-name"
+                        aria-label="Participant name"
                         className="rounded-md border border-border bg-background px-3 py-2 text-sm"
                         placeholder="Name"
                         value={participantName}
                         onChange={(e) => setParticipantName(e.target.value)}
                       />
+                      <label
+                        className="sr-only"
+                        htmlFor="research-participant-source"
+                      >
+                        Recruit source
+                      </label>
                       <select
+                        id="research-participant-source"
+                        aria-label="Recruit source"
                         className="rounded-md border border-border bg-background px-3 py-2 text-sm"
                         value={participantSource}
                         onChange={(e) =>
@@ -421,24 +592,30 @@ export default function AdminResearch() {
                       </select>
                       <button
                         type="button"
-                        disabled={!participantEmail.trim()}
+                        disabled={
+                          addingParticipant || !participantEmail.trim()
+                        }
                         className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
                         onClick={() => {
+                          setAddingParticipant(true);
                           void adminAddInterviewParticipant(studyDetail.id, {
                             email: participantEmail.trim(),
                             name: participantName.trim() || undefined,
                             recruitSource: participantSource,
-                          }).then((res) => {
-                            if (!res.ok) setError(res.error ?? "Add failed");
-                            else {
-                              setParticipantEmail("");
-                              setParticipantName("");
-                              void loadStudyDetail(studyDetail.id);
-                            }
-                          });
+                          })
+                            .then((res) => {
+                              if (!res.ok)
+                                setError(res.error ?? "Add failed");
+                              else {
+                                setParticipantEmail("");
+                                setParticipantName("");
+                                void loadStudyDetail(studyDetail.id);
+                              }
+                            })
+                            .finally(() => setAddingParticipant(false));
                         }}
                       >
-                        Add participant
+                        {addingParticipant ? "Adding…" : "Add participant"}
                       </button>
                     </div>
                   ) : null}
@@ -468,6 +645,7 @@ export default function AdminResearch() {
                             <td className="p-3">
                               {canWrite ? (
                                 <select
+                                  aria-label={`Status for ${p.email}`}
                                   className="rounded-md border border-border bg-background px-2 py-1 text-xs"
                                   value={p.status}
                                   onChange={(e) => {
@@ -556,10 +734,13 @@ export default function AdminResearch() {
                                         ).then((res) => {
                                           if (!res.ok)
                                             setError(
-                                              res.error ?? "Payment mark failed",
+                                              res.error ??
+                                                "Payment mark failed",
                                             );
                                           else
-                                            void loadStudyDetail(studyDetail.id);
+                                            void loadStudyDetail(
+                                              studyDetail.id,
+                                            );
                                         });
                                       }}
                                     >

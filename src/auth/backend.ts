@@ -11217,7 +11217,7 @@ export async function adminRunPricingDriftAudit(): Promise<{
 
 // --- Admin research (Fireflies transcripts + interview recruitment) ---
 
-export type AdminMeetingTranscript = {
+export interface AdminMeetingTranscript {
   id: string;
   externalMeetingId: string;
   title: string;
@@ -11232,9 +11232,9 @@ export type AdminMeetingTranscript = {
   lastError?: string | null;
   attemptCount: number;
   createdAt: string;
-};
+}
 
-export type AdminResearchStudy = {
+export interface AdminResearchStudy {
   id: string;
   name: string;
   goal: string | null;
@@ -11245,9 +11245,9 @@ export type AdminResearchStudy = {
   createdAt: string;
   updatedAt: string;
   _count?: { participants: number };
-};
+}
 
-export type AdminInterviewParticipant = {
+export interface AdminInterviewParticipant {
   id: string;
   studyId: string;
   email: string;
@@ -11266,11 +11266,11 @@ export type AdminInterviewParticipant = {
     meetingType: string;
   } | null;
   incentive?: { id: string; paidAt: string } | null;
-};
+}
 
 async function adminResearchJson<T>(
   path: string,
-  init?: RequestInit,
+  init?: RequestInit & { signal?: AbortSignal },
   fallbackError = "Request failed",
 ): Promise<{ ok: boolean; data?: T; error?: string }> {
   try {
@@ -11278,7 +11278,7 @@ async function adminResearchJson<T>(
       credentials: "include",
       ...init,
       headers: {
-        "Content-Type": "application/json",
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
         ...(init?.headers ?? {}),
       },
     });
@@ -11292,6 +11292,9 @@ async function adminResearchJson<T>(
     const record = raw as { data?: T };
     return { ok: true, data: record.data };
   } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "aborted" };
+    }
     return {
       ok: false,
       error: e instanceof Error ? e.message : "Network error",
@@ -11306,6 +11309,8 @@ export async function adminFetchResearchTranscripts(params?: {
   q?: string;
   ingestionStatus?: string;
   limit?: number;
+  offset?: number;
+  signal?: AbortSignal;
 }) {
   const query = new URLSearchParams();
   if (params?.meetingType) query.set("meetingType", params.meetingType);
@@ -11315,17 +11320,26 @@ export async function adminFetchResearchTranscripts(params?: {
   if (params?.ingestionStatus)
     query.set("ingestionStatus", params.ingestionStatus);
   if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.offset != null) query.set("offset", String(params.offset));
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return adminResearchJson<{
     items: AdminMeetingTranscript[];
     total: number;
-  }>(`/admin/research/transcripts${suffix}`, undefined, "Failed to load transcripts");
+    limit: number;
+    offset: number;
+  }>(
+    `/admin/research/transcripts${suffix}`,
+    { signal: params?.signal },
+    "Failed to load transcripts",
+  );
 }
 
-export async function adminFetchResearchStudies() {
+export async function adminFetchResearchStudies(params?: {
+  signal?: AbortSignal;
+}) {
   return adminResearchJson<AdminResearchStudy[]>(
     "/admin/research/studies",
-    undefined,
+    { signal: params?.signal },
     "Failed to load studies",
   );
 }
@@ -11345,10 +11359,17 @@ export async function adminCreateResearchStudy(body: {
   );
 }
 
-export async function adminFetchResearchStudy(id: string) {
+export async function adminFetchResearchStudy(
+  id: string,
+  params?: { signal?: AbortSignal },
+) {
   return adminResearchJson<
     AdminResearchStudy & { participants: AdminInterviewParticipant[] }
-  >(`/admin/research/studies/${id}`, undefined, "Failed to load study");
+  >(
+    `/admin/research/studies/${encodeURIComponent(id)}`,
+    { signal: params?.signal },
+    "Failed to load study",
+  );
 }
 
 export async function adminUpdateResearchStudy(
@@ -11356,7 +11377,7 @@ export async function adminUpdateResearchStudy(
   body: Record<string, unknown>,
 ) {
   return adminResearchJson<AdminResearchStudy>(
-    `/admin/research/studies/${id}`,
+    `/admin/research/studies/${encodeURIComponent(id)}`,
     { method: "PATCH", body: JSON.stringify(body) },
     "Failed to update study",
   );
@@ -11372,7 +11393,7 @@ export async function adminAddInterviewParticipant(
   },
 ) {
   return adminResearchJson<AdminInterviewParticipant>(
-    `/admin/research/studies/${studyId}/participants`,
+    `/admin/research/studies/${encodeURIComponent(studyId)}/participants`,
     { method: "POST", body: JSON.stringify(body) },
     "Failed to add participant",
   );
@@ -11383,7 +11404,7 @@ export async function adminUpdateInterviewParticipantStatus(
   body: { status: string; notes?: string },
 ) {
   return adminResearchJson<AdminInterviewParticipant>(
-    `/admin/research/participants/${participantId}/status`,
+    `/admin/research/participants/${encodeURIComponent(participantId)}/status`,
     { method: "PATCH", body: JSON.stringify(body) },
     "Failed to update participant",
   );
@@ -11394,7 +11415,7 @@ export async function adminLinkInterviewTranscript(
   transcriptId: string,
 ) {
   return adminResearchJson<AdminInterviewParticipant>(
-    `/admin/research/participants/${participantId}/link-transcript`,
+    `/admin/research/participants/${encodeURIComponent(participantId)}/link-transcript`,
     {
       method: "POST",
       body: JSON.stringify({ transcriptId }),
@@ -11405,7 +11426,7 @@ export async function adminLinkInterviewTranscript(
 
 export async function adminAssociateInterviewTranscript(participantId: string) {
   return adminResearchJson<{ matched: boolean }>(
-    `/admin/research/participants/${participantId}/associate-transcript`,
+    `/admin/research/participants/${encodeURIComponent(participantId)}/associate-transcript`,
     { method: "POST", body: "{}" },
     "Failed to associate transcript",
   );
@@ -11416,7 +11437,7 @@ export async function adminMarkInterviewIncentivePaid(
   note?: string,
 ) {
   return adminResearchJson<unknown>(
-    `/admin/research/participants/${participantId}/mark-incentive-paid`,
+    `/admin/research/participants/${encodeURIComponent(participantId)}/mark-incentive-paid`,
     {
       method: "POST",
       body: JSON.stringify({ note }),
