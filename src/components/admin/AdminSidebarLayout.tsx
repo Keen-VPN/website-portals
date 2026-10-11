@@ -18,6 +18,7 @@ import {
   UserCircle,
   Link2,
   Share2,
+  Mic2,
 } from "lucide-react";
 import { useFeatureFlags } from "@/lib/feature-flags";
 
@@ -85,6 +86,15 @@ export default function AdminSidebarLayout() {
               <BarChart3 className="h-4 w-4" />
               Product Events
             </NavLink>
+            {can("research.read") ? (
+              <NavLink
+                to="/admin/research"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                <Mic2 className="h-4 w-4" />
+                Research
+              </NavLink>
+            ) : null}
             <NavLink
               to="/admin/domain-insights"
               className={({ isActive }) => linkClass(isActive)}
