@@ -152,6 +152,8 @@ export default function AdminResearch() {
   const loadStudyDetail = useCallback(async (id: string) => {
     selectedStudyIdRef.current = id;
     setSelectedStudyId(id);
+    setStudyDetail(null);
+    setSchedulingUrlDraft("");
     setError(null);
 
     studyDetailAbort.current?.abort();
@@ -219,6 +221,7 @@ export default function AdminResearch() {
         <div className="flex gap-2">
           <button
             type="button"
+            aria-pressed={tab === "studies"}
             className={`rounded-md border px-3 py-2 text-sm ${
               tab === "studies" ? "bg-muted" : "hover:bg-muted"
             }`}
@@ -228,6 +231,7 @@ export default function AdminResearch() {
           </button>
           <button
             type="button"
+            aria-pressed={tab === "transcripts"}
             className={`rounded-md border px-3 py-2 text-sm ${
               tab === "transcripts" ? "bg-muted" : "hover:bg-muted"
             }`}
@@ -610,6 +614,7 @@ export default function AdminResearch() {
                                 setParticipantEmail("");
                                 setParticipantName("");
                                 void loadStudyDetail(studyDetail.id);
+                                void loadStudies();
                               }
                             })
                             .finally(() => setAddingParticipant(false));
