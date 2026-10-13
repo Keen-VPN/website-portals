@@ -11458,3 +11458,178 @@ export async function adminReconcileFirefliesTranscripts() {
     "Failed to reconcile transcripts",
   );
 }
+
+/**
+ * AdminClassActionReviewController is guarded by AdminCsrfGuard: cookie-authenticated
+ * POST/PATCH/DELETE must send X-Requested-With: XMLHttpRequest (see backend
+ * admin-csrf.guard.ts). Most other admin endpoints do not use that guard yet.
+ * Same-origin portal fetches are unaffected; cross-origin VITE_BACKEND_URL must
+ * allow this header in CORS if mutations are called from another origin.
+ */
+const ADMIN_CLASS_ACTION_MUTATION_HEADERS = {
+  "Content-Type": "application/json",
+  "X-Requested-With": "XMLHttpRequest",
+} as const;
+
+async function adminClassActionJson<T>(
+  path: string,
+  init?: RequestInit & { signal?: AbortSignal },
+  fallbackError = "Request failed",
+): Promise<{ ok: boolean; data?: T; error?: string; status?: number }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        ...(init?.method && init.method !== "GET"
+          ? ADMIN_CLASS_ACTION_MUTATION_HEADERS
+          : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
+    }
+    const record = raw as { data?: T };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export type AdminClassActionCandidateStatus =
+  | "PENDING_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "EXPIRED";
+
+export type AdminClassActionReviewAction =
+  | "approve"
+  | "reject"
+  | "expire"
+  | "reopen";
+
+export interface AdminClassActionCandidateListItem {
+  id: string;
+  title: string;
+  defendant: string | null;
+  caseIdentifier: string | null;
+  status: AdminClassActionCandidateStatus;
+  sourceName: string;
+  sourceUrl: string;
+  claimDeadline: string | null;
+  marketSizeEstimate: number | null;
+  discoveredAt: string;
+  validationOutcome: string;
+  uncertaintyCount: number;
+  possibleDuplicateCount: number;
+  linkedDuplicateOfId: string | null;
+  extractionMethod: string;
+  reviewedAt: string | null;
+  reviewedVia: string | null;
+  published: boolean;
+}
+
+export interface AdminClassActionCandidateListResponse {
+  items: AdminClassActionCandidateListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: Record<AdminClassActionCandidateStatus, number>;
+}
+
+export interface AdminClassActionCandidateDetail {
+  candidate: Record<string, unknown> & {
+    id: string;
+    title: string;
+    status: AdminClassActionCandidateStatus;
+    sourceUrl: string;
+    claimUrl: string | null;
+    claimDeadline: string | null;
+    potentialPayment: string | null;
+    settlementAmount: string | null;
+    eligibilitySummary: string | null;
+    summary: string | null;
+    marketSizeEstimate: number | null;
+    marketSizeEstimateSource: string | null;
+    rationale: string;
+    reviewerNotes: string | null;
+  };
+  perk: {
+    id: string;
+    title: string;
+    isActive: boolean;
+    endsAt: string | null;
+    redemptionUrl: string | null;
+  } | null;
+  allowedActions: AdminClassActionReviewAction[];
+  publicationChecks: {
+    ok: boolean;
+    failures: { code: string; message: string }[];
+    evaluatedFor: string;
+  };
+  customerVisible: boolean;
+  history: {
+    id: string;
+    action: string;
+    createdAt: string;
+    notes: string | null;
+    admin: { name: string | null; email: string } | null;
+  }[];
+}
+
+export async function adminFetchClassActionCandidates(params?: {
+  status?: AdminClassActionCandidateStatus | "ALL";
+  q?: string;
+  page?: number;
+  pageSize?: number;
+  signal?: AbortSignal;
+}) {
+  const query = new URLSearchParams();
+  if (params?.status) query.set("status", params.status);
+  if (params?.q) query.set("q", params.q);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.pageSize) query.set("pageSize", String(params.pageSize));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return adminClassActionJson<AdminClassActionCandidateListResponse>(
+    `/admin/class-action-candidates${suffix}`,
+    { signal: params?.signal },
+    "Failed to load class-action candidates",
+  );
+}
+
+export async function adminFetchClassActionCandidate(id: string, params?: {
+  signal?: AbortSignal;
+}) {
+  return adminClassActionJson<AdminClassActionCandidateDetail>(
+    `/admin/class-action-candidates/${encodeURIComponent(id)}`,
+    { signal: params?.signal },
+    "Failed to load class-action candidate",
+  );
+}
+
+export async function adminClassActionReviewDecision(
+  id: string,
+  action: "approve" | "reject",
+  notes?: string,
+) {
+  return adminClassActionJson<AdminClassActionCandidateDetail>(
+    `/admin/class-action-candidates/${encodeURIComponent(id)}/${action}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ notes: notes ?? undefined }),
+    },
+    `Failed to ${action} candidate`,
+  );
+}
