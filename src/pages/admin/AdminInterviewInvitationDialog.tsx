@@ -112,16 +112,19 @@ export function AdminInterviewInvitationDialog({
     setSchedulingUrl(selectedStudy.schedulingUrl ?? "");
   }, [selectedStudy, studyId]);
 
-  function composeBody() {
-    return {
+  function composeBody(includeForceResend: boolean) {
+    const body = {
       studyId,
       email: email.trim() || undefined,
       schedulingUrl: schedulingUrl.trim() || undefined,
       incentiveLabel: incentiveLabel.trim() || undefined,
       subject: subject.trim() || undefined,
       personalMessage: personalMessage.trim() || undefined,
-      forceResend,
     };
+    if (includeForceResend) {
+      return { ...body, forceResend };
+    }
+    return body;
   }
 
   async function handlePreview() {
@@ -133,7 +136,10 @@ export function AdminInterviewInvitationDialog({
     setBusy(true);
     setError(null);
     setMessage(null);
-    const res = await adminPreviewUserInterviewInvitation(userId, composeBody());
+    const res = await adminPreviewUserInterviewInvitation(
+      userId,
+      composeBody(false),
+    );
     if (session !== openSessionRef.current) return;
     setBusy(false);
     if (!res.ok) {
@@ -154,7 +160,7 @@ export function AdminInterviewInvitationDialog({
     setBusy(true);
     setError(null);
     setMessage(null);
-    const res = await adminSendUserInterviewInvitation(userId, composeBody());
+    const res = await adminSendUserInterviewInvitation(userId, composeBody(true));
     if (session !== openSessionRef.current) return;
     setBusy(false);
     if (!res.ok) {
