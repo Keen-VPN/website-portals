@@ -60,6 +60,7 @@ import {
   confirmPerkReceived,
   dismissPerk,
   fetchFriendsDashboard,
+  fetchPerk,
   fetchPerks,
   getUserProfileInformation,
   getSessionToken,
@@ -514,15 +515,21 @@ const Perks = () => {
     [detailsPerkId, visiblePerks, perks],
   );
 
-  // `?perk=<id>` deep links from the Chrome extension and Perks emails.
+  // `?perk=<id>` deep links from the Chrome extension and Perks emails. The
+  // list only holds the selected tab, so a perk the member already completed,
+  // snoozed or dismissed is looked up to find its tab before opening.
+  const deepLinkRef = useRef<{
+    perkId: string;
+    tabResolved: boolean;
+    /** List shown when the tab lookup started; wait for a newer one. */
+    staleList?: PerkItem[];
+  } | null>(null);
+
   useEffect(() => {
-    if (perks.length === 0) return;
     const params = new URLSearchParams(window.location.search);
     const linkedPerkId = params.get("perk");
     if (!linkedPerkId) return;
-    if (perks.some((perk) => perk.id === linkedPerkId)) {
-      setDetailsPerkId(linkedPerkId);
-    }
+    deepLinkRef.current = { perkId: linkedPerkId, tabResolved: false };
     params.delete("perk");
     const query = params.toString();
     window.history.replaceState(
@@ -530,7 +537,42 @@ const Perks = () => {
       "",
       `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
     );
-  }, [perks]);
+  }, []);
+
+  useEffect(() => {
+    const pending = deepLinkRef.current;
+    if (!pending || loading || refreshing || initialLoad) return;
+    if (pending.staleList === perks) return;
+
+    if (perks.some((perk) => perk.id === pending.perkId)) {
+      deepLinkRef.current = null;
+      setDetailsPerkId(pending.perkId);
+      return;
+    }
+    if (pending.tabResolved) {
+      deepLinkRef.current = null;
+      return;
+    }
+
+    const session = getSessionToken();
+    if (!session) {
+      deepLinkRef.current = null;
+      return;
+    }
+    pending.tabResolved = true;
+    pending.staleList = perks;
+    void fetchPerk(session, pending.perkId).then((res) => {
+      if (deepLinkRef.current !== pending) return;
+      const tab = res.success ? res.data?.userTab : undefined;
+      if (!tab || tab === selectedTab) {
+        deepLinkRef.current = null;
+        return;
+      }
+      setSelectedCategory("all");
+      setSearch("");
+      setSelectedTab(tab);
+    });
+  }, [perks, loading, refreshing, initialLoad, selectedTab]);
 
   useEffect(() => {
     if (detailsPerkId && !detailsPerk) {
