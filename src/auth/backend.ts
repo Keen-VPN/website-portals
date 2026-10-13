@@ -4115,6 +4115,10 @@ export interface AdminInterviewInvitationComposeBody {
   schedulingUrl?: string;
   personalMessage?: string;
   subject?: string;
+}
+
+export interface AdminInterviewInvitationSendBody
+  extends AdminInterviewInvitationComposeBody {
   forceResend?: boolean;
 }
 
@@ -4161,7 +4165,7 @@ export async function adminPreviewUserInterviewInvitation(
 
 export async function adminSendUserInterviewInvitation(
   userId: string,
-  body: AdminInterviewInvitationComposeBody,
+  body: AdminInterviewInvitationSendBody,
 ): Promise<{
   ok: boolean;
   data?: AdminInterviewInvitationSendResult;

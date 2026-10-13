@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 
 interface AdminInterviewInvitationDialogProps {
   userId: string;
@@ -32,6 +33,7 @@ export function AdminInterviewInvitationDialog({
   onOpenChange,
   onSent,
 }: AdminInterviewInvitationDialogProps) {
+  const { toast } = useToast();
   const [studies, setStudies] = useState<AdminResearchStudy[]>([]);
   const [studyId, setStudyId] = useState("");
   const [email, setEmail] = useState(defaultEmail);
@@ -45,8 +47,18 @@ export function AdminInterviewInvitationDialog({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const studiesAbort = useRef<AbortController | null>(null);
+  const openSessionRef = useRef(0);
 
   const selectedStudy = studies.find((s) => s.id === studyId) ?? null;
+
+  function effectiveRecipientEmail() {
+    return email.trim() || defaultEmail.trim();
+  }
+
+  function handleDialogOpenChange(nextOpen: boolean) {
+    if (!nextOpen && busy) return;
+    onOpenChange(nextOpen);
+  }
 
   const loadStudies = useCallback(async () => {
     studiesAbort.current?.abort();
@@ -57,7 +69,7 @@ export function AdminInterviewInvitationDialog({
     if (controller.signal.aborted) return;
     setLoadingStudies(false);
     if (!res.ok || !res.data) {
-      setError(res.error ?? "Failed to load studies");
+      setError(res.error ?? "Failed to load research studies");
       return;
     }
     const eligible = res.data.filter(
@@ -72,7 +84,21 @@ export function AdminInterviewInvitationDialog({
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    return () => {
+      openSessionRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    openSessionRef.current += 1;
+  }, [userId]);
+
+  useEffect(() => {
+    if (!open) {
+      setBusy(false);
+      return;
+    }
+    openSessionRef.current += 1;
     setStudyId("");
     setEmail(defaultEmail);
     setSubject("");
@@ -81,7 +107,10 @@ export function AdminInterviewInvitationDialog({
     setMessage(null);
     setForceResend(false);
     void loadStudies();
-    return () => studiesAbort.current?.abort();
+    return () => {
+      openSessionRef.current += 1;
+      studiesAbort.current?.abort();
+    };
   }, [open, defaultEmail, userId, loadStudies]);
 
   useEffect(() => {
@@ -96,58 +125,74 @@ export function AdminInterviewInvitationDialog({
     setSchedulingUrl(selectedStudy.schedulingUrl ?? "");
   }, [selectedStudy, studyId]);
 
-  function composeBody() {
-    return {
+  function composeBody(includeForceResend: boolean) {
+    const body = {
       studyId,
       email: email.trim() || undefined,
       schedulingUrl: schedulingUrl.trim() || undefined,
       incentiveLabel: incentiveLabel.trim() || undefined,
       subject: subject.trim() || undefined,
       personalMessage: personalMessage.trim() || undefined,
-      forceResend,
     };
+    if (includeForceResend) {
+      return { ...body, forceResend };
+    }
+    return body;
   }
 
   async function handlePreview() {
     if (!selectedStudy) {
-      setError("Select a study");
+      setError("Select a research study");
       return;
     }
+    const session = openSessionRef.current;
     setBusy(true);
     setError(null);
     setMessage(null);
-    const res = await adminPreviewUserInterviewInvitation(userId, composeBody());
+    const res = await adminPreviewUserInterviewInvitation(
+      userId,
+      composeBody(false),
+    );
+    if (session !== openSessionRef.current) return;
     setBusy(false);
     if (!res.ok) {
       setError(res.error ?? "Preview failed");
       return;
     }
     setMessage(
-      `Preview sent to your admin inbox. Recipient would be ${res.data?.recipientEmail ?? email}.`,
+      `Preview sent to your admin inbox. Recipient would be ${res.data?.recipientEmail ?? effectiveRecipientEmail()}.`,
     );
   }
 
   async function handleSend() {
     if (!selectedStudy) {
-      setError("Select a study");
+      setError("Select a research study");
       return;
     }
+    const session = openSessionRef.current;
     setBusy(true);
     setError(null);
     setMessage(null);
-    const res = await adminSendUserInterviewInvitation(userId, composeBody());
+    const res = await adminSendUserInterviewInvitation(userId, composeBody(true));
+    if (session !== openSessionRef.current) return;
     setBusy(false);
     if (!res.ok) {
       setError(res.error ?? "Send failed");
       return;
     }
-    setMessage("Interview invitation sent.");
+    const recipient = effectiveRecipientEmail();
+    toast({
+      title: "Interview invitation sent",
+      ...(recipient
+        ? { description: `Email sent to ${recipient}.` }
+        : {}),
+    });
     onSent();
     onOpenChange(false);
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Request interview</DialogTitle>
@@ -164,7 +209,7 @@ export function AdminInterviewInvitationDialog({
             </p>
           ) : null}
           <div className="space-y-2">
-            <Label htmlFor="interview-study">Study</Label>
+            <Label htmlFor="interview-study">Research study</Label>
             <select
               id="interview-study"
               className="w-full rounded-md border border-border bg-background px-3 py-2"
@@ -174,7 +219,7 @@ export function AdminInterviewInvitationDialog({
             >
               {studies.length === 0 ? (
                 <option value="">
-                  {loadingStudies ? "Loading…" : "No active studies"}
+                  {loadingStudies ? "Loading…" : "No active research studies"}
                 </option>
               ) : (
                 studies.map((s) => (
@@ -242,7 +287,7 @@ export function AdminInterviewInvitationDialog({
               onChange={(e) => setForceResend(e.target.checked)}
               disabled={busy}
             />
-            Force resend (ignore 14-day dedupe for this study)
+            Force resend (ignore 14-day dedupe for this research study)
           </label>
         </div>
         <DialogFooter className="gap-2 sm:gap-0">
