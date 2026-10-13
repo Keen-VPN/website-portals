@@ -53,7 +53,12 @@ export default function AdminClassActionDetail() {
     if (seq !== loadSeq.current) return;
     if (candidateIdRef.current !== requestedId) return;
     if (res.ok && res.data) {
-      if (res.data.candidate.id !== requestedId) return;
+      if (res.data.candidate.id !== requestedId) {
+        setDetail(null);
+        setError("Failed to load recommendation");
+        setLoading(false);
+        return;
+      }
       setDetail(res.data);
     } else {
       setDetail(null);
@@ -86,6 +91,7 @@ export default function AdminClassActionDetail() {
     if (candidateIdRef.current !== requestedId) return;
     if (res.ok && res.data) {
       if (res.data.candidate.id !== requestedId) return;
+      loadSeq.current += 1;
       setDetail(res.data);
       setNotes("");
     } else {

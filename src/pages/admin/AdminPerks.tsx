@@ -865,8 +865,6 @@ export default function AdminPerks() {
     const next = new URLSearchParams(searchParams);
     next.delete("perkId");
     setSearchParams(next, { replace: true });
-    const timer = window.setTimeout(() => setHighlightPerkId(null), 6000);
-    return () => window.clearTimeout(timer);
   }, [
     expiredPerks,
     loading,
@@ -875,6 +873,12 @@ export default function AdminPerks() {
     searchParams,
     setSearchParams,
   ]);
+
+  useEffect(() => {
+    if (!highlightPerkId) return;
+    const timer = window.setTimeout(() => setHighlightPerkId(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [highlightPerkId]);
 
   const openCreate = () => {
     const existing = adminId ? readPerkFormDraft(adminId) : null;

@@ -17,6 +17,8 @@ import {
 } from "@/auth/backend";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
+const PAGE_SIZE = 25;
+
 function formatMarketSize(value: number | null): string {
   if (value == null || value < 1) return "Not available";
   return value.toLocaleString("en-US");
@@ -61,12 +63,12 @@ export default function AdminClassActions() {
       status,
       q: q || undefined,
       page,
-      pageSize: 25,
+      pageSize: PAGE_SIZE,
     });
     if (seq !== loadSeq.current) return;
     if (res.ok && res.data) {
       const newTotal = res.data.total;
-      const newPageCount = Math.max(1, Math.ceil(newTotal / 25));
+      const newPageCount = Math.max(1, Math.ceil(newTotal / PAGE_SIZE));
       if (page > newPageCount) {
         setPage(newPageCount);
         setLoading(false);
@@ -101,7 +103,7 @@ export default function AdminClassActions() {
     );
   }
 
-  const pageCount = Math.max(1, Math.ceil(total / 25));
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="space-y-6">

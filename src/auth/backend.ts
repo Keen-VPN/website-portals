@@ -11459,7 +11459,13 @@ export async function adminReconcileFirefliesTranscripts() {
   );
 }
 
-/** Class-action review routes use AdminCsrfGuard: unsafe methods require this header. */
+/**
+ * AdminClassActionReviewController is guarded by AdminCsrfGuard: cookie-authenticated
+ * POST/PATCH/DELETE must send X-Requested-With: XMLHttpRequest (see backend
+ * admin-csrf.guard.ts). Most other admin endpoints do not use that guard yet.
+ * Same-origin portal fetches are unaffected; cross-origin VITE_BACKEND_URL must
+ * allow this header in CORS if mutations are called from another origin.
+ */
 const ADMIN_CLASS_ACTION_MUTATION_HEADERS = {
   "Content-Type": "application/json",
   "X-Requested-With": "XMLHttpRequest",
