@@ -75,6 +75,8 @@ export function AdminInterviewInvitationDialog({
     if (!open) return;
     setStudyId("");
     setEmail(defaultEmail);
+    setSubject("");
+    setPersonalMessage("");
     setError(null);
     setMessage(null);
     setForceResend(false);
