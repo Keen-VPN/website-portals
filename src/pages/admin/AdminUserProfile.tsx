@@ -301,8 +301,10 @@ export default function AdminUserProfile() {
     setInterviewDialogOpen(false);
   }, [userId]);
 
-  const profileMatchesRoute =
-    Boolean(userId && user && user.id === userId);
+  const user = profile?.user;
+  const profileMatchesRoute = Boolean(
+    userId && user && user.id === userId,
+  );
 
   async function handleAdminAuthEmailChange(event: React.FormEvent) {
     event.preventDefault();
@@ -373,8 +375,6 @@ export default function AdminUserProfile() {
     setAuthEmailMessage(res.message ?? "Pending email change cancelled.");
     void loadAuthEmail(forUserId);
   }
-
-  const user = profile?.user;
 
   return (
     <div className="space-y-6">
