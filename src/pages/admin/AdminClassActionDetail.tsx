@@ -185,6 +185,14 @@ export default function AdminClassActionDetail() {
                   {c.summary}
                 </p>
               ) : null}
+              {c.rationale ? (
+                <p className="whitespace-pre-wrap">
+                  <span className="text-muted-foreground">
+                    Discovery rationale (internal):
+                  </span>{" "}
+                  {c.rationale}
+                </p>
+              ) : null}
             </section>
 
             <section className="rounded-lg border border-border p-4 space-y-2 text-sm">
@@ -245,6 +253,8 @@ export default function AdminClassActionDetail() {
             <section className="rounded-lg border border-border p-4 space-y-3">
               <h3 className="font-semibold">Review decision</h3>
               <Textarea
+                id="class-action-reviewer-notes"
+                aria-label="Optional reviewer notes"
                 placeholder="Optional reviewer notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
