@@ -17,13 +17,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-type Props = {
+interface AdminInterviewInvitationDialogProps {
   userId: string;
   defaultEmail: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSent: () => void;
-};
+}
 
 export function AdminInterviewInvitationDialog({
   userId,
@@ -31,7 +31,7 @@ export function AdminInterviewInvitationDialog({
   open,
   onOpenChange,
   onSent,
-}: Props) {
+}: AdminInterviewInvitationDialogProps) {
   const [studies, setStudies] = useState<AdminResearchStudy[]>([]);
   const [studyId, setStudyId] = useState("");
   const [email, setEmail] = useState(defaultEmail);
@@ -64,10 +64,8 @@ export function AdminInterviewInvitationDialog({
       (s) => s.status === "ACTIVE" || s.status === "DRAFT",
     );
     setStudies(eligible);
-    if (!studyId && eligible.length > 0) {
-      setStudyId(eligible[0].id);
-    }
-  }, [studyId]);
+    setStudyId((current) => current || eligible[0]?.id || "");
+  }, []);
 
   useEffect(() => {
     if (!open) return;

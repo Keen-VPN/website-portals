@@ -4108,7 +4108,7 @@ export interface AdminInterviewInvitationSendResult {
   subject: string;
 }
 
-export type AdminInterviewInvitationComposeBody = {
+export interface AdminInterviewInvitationComposeBody {
   studyId: string;
   email?: string;
   incentiveLabel?: string;
@@ -4116,7 +4116,7 @@ export type AdminInterviewInvitationComposeBody = {
   personalMessage?: string;
   subject?: string;
   forceResend?: boolean;
-};
+}
 
 export async function adminPreviewUserInterviewInvitation(
   userId: string,
