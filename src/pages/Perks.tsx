@@ -507,10 +507,30 @@ const Perks = () => {
   const detailsPerk = useMemo(
     () =>
       detailsPerkId
-        ? (visiblePerks.find((perk) => perk.id === detailsPerkId) ?? null)
+        ? (visiblePerks.find((perk) => perk.id === detailsPerkId) ??
+          perks.find((perk) => perk.id === detailsPerkId) ??
+          null)
         : null,
-    [detailsPerkId, visiblePerks],
+    [detailsPerkId, visiblePerks, perks],
   );
+
+  // `?perk=<id>` deep links from the Chrome extension and Perks emails.
+  useEffect(() => {
+    if (perks.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const linkedPerkId = params.get("perk");
+    if (!linkedPerkId) return;
+    if (perks.some((perk) => perk.id === linkedPerkId)) {
+      setDetailsPerkId(linkedPerkId);
+    }
+    params.delete("perk");
+    const query = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+    );
+  }, [perks]);
 
   useEffect(() => {
     if (detailsPerkId && !detailsPerk) {
