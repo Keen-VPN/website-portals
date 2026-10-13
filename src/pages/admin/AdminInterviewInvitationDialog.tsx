@@ -64,24 +64,35 @@ export function AdminInterviewInvitationDialog({
       (s) => s.status === "ACTIVE" || s.status === "DRAFT",
     );
     setStudies(eligible);
-    setStudyId((current) => current || eligible[0]?.id || "");
+    setStudyId((current) =>
+      current && eligible.some((s) => s.id === current)
+        ? current
+        : eligible[0]?.id ?? "",
+    );
   }, []);
 
   useEffect(() => {
     if (!open) return;
+    setStudyId("");
     setEmail(defaultEmail);
     setError(null);
     setMessage(null);
     setForceResend(false);
     void loadStudies();
     return () => studiesAbort.current?.abort();
-  }, [open, defaultEmail, loadStudies]);
+  }, [open, defaultEmail, userId, loadStudies]);
 
   useEffect(() => {
-    if (!selectedStudy) return;
+    if (!selectedStudy) {
+      if (!studyId) {
+        setIncentiveLabel("");
+        setSchedulingUrl("");
+      }
+      return;
+    }
     setIncentiveLabel(selectedStudy.incentiveLabel);
     setSchedulingUrl(selectedStudy.schedulingUrl ?? "");
-  }, [selectedStudy]);
+  }, [selectedStudy, studyId]);
 
   function composeBody() {
     return {
@@ -96,7 +107,7 @@ export function AdminInterviewInvitationDialog({
   }
 
   async function handlePreview() {
-    if (!studyId) {
+    if (!selectedStudy) {
       setError("Select a study");
       return;
     }
@@ -115,7 +126,7 @@ export function AdminInterviewInvitationDialog({
   }
 
   async function handleSend() {
-    if (!studyId) {
+    if (!selectedStudy) {
       setError("Select a study");
       return;
     }
@@ -237,11 +248,15 @@ export function AdminInterviewInvitationDialog({
             type="button"
             variant="outline"
             onClick={() => void handlePreview()}
-            disabled={busy || !studyId}
+            disabled={busy || !selectedStudy}
           >
             Preview to my inbox
           </Button>
-          <Button type="button" onClick={() => void handleSend()} disabled={busy || !studyId}>
+          <Button
+            type="button"
+            onClick={() => void handleSend()}
+            disabled={busy || !selectedStudy}
+          >
             Send invitation
           </Button>
         </DialogFooter>
