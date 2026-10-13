@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 
 interface AdminInterviewInvitationDialogProps {
   userId: string;
@@ -32,6 +33,7 @@ export function AdminInterviewInvitationDialog({
   onOpenChange,
   onSent,
 }: AdminInterviewInvitationDialogProps) {
+  const { toast } = useToast();
   const [studies, setStudies] = useState<AdminResearchStudy[]>([]);
   const [studyId, setStudyId] = useState("");
   const [email, setEmail] = useState(defaultEmail);
@@ -45,8 +47,14 @@ export function AdminInterviewInvitationDialog({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const studiesAbort = useRef<AbortController | null>(null);
+  const openSessionRef = useRef(0);
 
   const selectedStudy = studies.find((s) => s.id === studyId) ?? null;
+
+  function handleDialogOpenChange(nextOpen: boolean) {
+    if (!nextOpen && busy) return;
+    onOpenChange(nextOpen);
+  }
 
   const loadStudies = useCallback(async () => {
     studiesAbort.current?.abort();
@@ -72,7 +80,15 @@ export function AdminInterviewInvitationDialog({
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    openSessionRef.current += 1;
+  }, [userId]);
+
+  useEffect(() => {
+    if (!open) {
+      setBusy(false);
+      return;
+    }
+    openSessionRef.current += 1;
     setStudyId("");
     setEmail(defaultEmail);
     setSubject("");
@@ -113,10 +129,12 @@ export function AdminInterviewInvitationDialog({
       setError("Select a study");
       return;
     }
+    const session = openSessionRef.current;
     setBusy(true);
     setError(null);
     setMessage(null);
     const res = await adminPreviewUserInterviewInvitation(userId, composeBody());
+    if (session !== openSessionRef.current) return;
     setBusy(false);
     if (!res.ok) {
       setError(res.error ?? "Preview failed");
@@ -132,22 +150,27 @@ export function AdminInterviewInvitationDialog({
       setError("Select a study");
       return;
     }
+    const session = openSessionRef.current;
     setBusy(true);
     setError(null);
     setMessage(null);
     const res = await adminSendUserInterviewInvitation(userId, composeBody());
+    if (session !== openSessionRef.current) return;
     setBusy(false);
     if (!res.ok) {
       setError(res.error ?? "Send failed");
       return;
     }
-    setMessage("Interview invitation sent.");
+    toast({
+      title: "Interview invitation sent",
+      description: `Email sent to ${email.trim()}.`,
+    });
     onSent();
     onOpenChange(false);
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Request interview</DialogTitle>

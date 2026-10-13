@@ -263,6 +263,7 @@ export default function AdminUserProfile() {
 
     setLoading(true);
     setError(null);
+    setProfile(null);
 
     const res = await adminFetchUserEngagementProfile(userId, {
       signal: controller.signal,
@@ -295,6 +296,13 @@ export default function AdminUserProfile() {
       authEmailMutationId.current += 1;
     };
   }, [load]);
+
+  useEffect(() => {
+    setInterviewDialogOpen(false);
+  }, [userId]);
+
+  const profileMatchesRoute =
+    Boolean(userId && user && user.id === userId);
 
   async function handleAdminAuthEmailChange(event: React.FormEvent) {
     event.preventDefault();
@@ -396,7 +404,7 @@ export default function AdminUserProfile() {
               View sessions
             </Link>
           ) : null}
-          {canRequestInterview && userId && user ? (
+          {canRequestInterview && profileMatchesRoute ? (
             <Button
               type="button"
               variant="outline"
@@ -671,7 +679,7 @@ export default function AdminUserProfile() {
         )}
       </section>
 
-      {userId && user ? (
+      {profileMatchesRoute && userId && user ? (
         <AdminInterviewInvitationDialog
           userId={userId}
           defaultEmail={user.email}
