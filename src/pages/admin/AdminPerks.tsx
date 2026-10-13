@@ -851,13 +851,14 @@ export default function AdminPerks() {
   }, [adminId, applyDraft, canWrite, searchParams, setSearchParams]);
 
   useEffect(() => {
-    if (loading || loadingExpired) return;
+    if (loading) return;
     const id = searchParams.get("perkId")?.trim();
     if (!id) {
       setPerkFocusMissingId(null);
       lastFocusedPerkIdRef.current = null;
       return;
     }
+    if (loadingExpired && !perks.some((p) => p.id === id)) return;
     const inCatalog =
       perks.some((p) => p.id === id) ||
       expiredPerks.some((p) => p.id === id);
