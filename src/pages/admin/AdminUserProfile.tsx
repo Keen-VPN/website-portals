@@ -17,6 +17,7 @@ import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AdminInterviewInvitationDialog } from "./AdminInterviewInvitationDialog";
 
 function formatDateTime(iso: string | null) {
   if (!iso) return "—";
@@ -206,6 +207,8 @@ export default function AdminUserProfile() {
   const { userId } = useParams<{ userId: string }>();
   const { can } = useAdminAuth();
   const canWriteAuthEmail = can("users.write");
+  const canRequestInterview = can("research.write");
+  const [interviewDialogOpen, setInterviewDialogOpen] = useState(false);
   const [profile, setProfile] = useState<AdminUserEngagementProfile | null>(
     null,
   );
@@ -392,6 +395,15 @@ export default function AdminUserProfile() {
             >
               View sessions
             </Link>
+          ) : null}
+          {canRequestInterview && userId && user ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setInterviewDialogOpen(true)}
+            >
+              Request interview
+            </Button>
           ) : null}
           <button
             type="button"
@@ -658,6 +670,16 @@ export default function AdminUserProfile() {
           <TimelineList events={profile?.timeline ?? []} />
         )}
       </section>
+
+      {userId && user ? (
+        <AdminInterviewInvitationDialog
+          userId={userId}
+          defaultEmail={user.email}
+          open={interviewDialogOpen}
+          onOpenChange={setInterviewDialogOpen}
+          onSent={() => void load()}
+        />
+      ) : null}
     </div>
   );
 }

@@ -4091,6 +4091,115 @@ export interface AdminUserEngagementProfile {
   timeline: AdminUserTimelineEvent[];
 }
 
+export interface AdminInterviewInvitationPreview {
+  subject: string;
+  recipientEmail: string;
+  schedulingUrl: string;
+  incentiveLabel: string;
+  studyName: string;
+  personalMessage: string | null;
+}
+
+export interface AdminInterviewInvitationSendResult {
+  invitationId: string;
+  participantId: string;
+  resendEmailId: string | null;
+  emailSentAt: string;
+  subject: string;
+}
+
+export interface AdminInterviewInvitationComposeBody {
+  studyId: string;
+  email?: string;
+  incentiveLabel?: string;
+  schedulingUrl?: string;
+  personalMessage?: string;
+  subject?: string;
+  forceResend?: boolean;
+}
+
+export async function adminPreviewUserInterviewInvitation(
+  userId: string,
+  body: AdminInterviewInvitationComposeBody,
+): Promise<{
+  ok: boolean;
+  data?: AdminInterviewInvitationPreview;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/interview-invitations/preview`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to send interview invite preview",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminInterviewInvitationPreview };
+    if (!record.data) {
+      return { ok: false, error: "Invalid response from server" };
+    }
+    return { ok: true, data: record.data };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
+export async function adminSendUserInterviewInvitation(
+  userId: string,
+  body: AdminInterviewInvitationComposeBody,
+): Promise<{
+  ok: boolean;
+  data?: AdminInterviewInvitationSendResult;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/interview-invitations/send`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to send interview invitation",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminInterviewInvitationSendResult };
+    if (!record.data) {
+      return { ok: false, error: "Invalid response from server" };
+    }
+    return { ok: true, data: record.data };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
 export async function adminFetchUserEngagementProfile(
   userId: string,
   params?: { signal?: AbortSignal },
