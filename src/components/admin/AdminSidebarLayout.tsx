@@ -19,6 +19,7 @@ import {
   Link2,
   Share2,
   Mic2,
+  Scale,
 } from "lucide-react";
 import { useFeatureFlags } from "@/lib/feature-flags";
 
@@ -93,6 +94,15 @@ export default function AdminSidebarLayout() {
               >
                 <Mic2 className="h-4 w-4" />
                 Research
+              </NavLink>
+            ) : null}
+            {can("class_actions.read") ? (
+              <NavLink
+                to="/admin/class-actions"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                <Scale className="h-4 w-4" />
+                Class Actions
               </NavLink>
             ) : null}
             <NavLink
