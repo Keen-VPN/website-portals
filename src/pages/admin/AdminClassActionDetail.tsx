@@ -30,6 +30,15 @@ export default function AdminClassActionDetail() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const loadSeq = useRef(0);
+  const candidateIdRef = useRef(candidateId);
+  candidateIdRef.current = candidateId;
+
+  useEffect(() => {
+    setDetail(null);
+    setNotes("");
+    setError(null);
+    setLoading(true);
+  }, [candidateId]);
 
   const load = useCallback(async () => {
     if (!canRead || !candidateId) {
@@ -39,9 +48,12 @@ export default function AdminClassActionDetail() {
     const seq = ++loadSeq.current;
     setLoading(true);
     setError(null);
-    const res = await adminFetchClassActionCandidate(candidateId);
+    const requestedId = candidateId;
+    const res = await adminFetchClassActionCandidate(requestedId);
     if (seq !== loadSeq.current) return;
+    if (candidateIdRef.current !== requestedId) return;
     if (res.ok && res.data) {
+      if (res.data.candidate.id !== requestedId) return;
       setDetail(res.data);
     } else {
       setDetail(null);
@@ -64,13 +76,16 @@ export default function AdminClassActionDetail() {
     if (!candidateId || !canReview) return;
     setBusy(true);
     setError(null);
+    const requestedId = candidateId;
     const res = await adminClassActionReviewDecision(
-      candidateId,
+      requestedId,
       action,
       notes.trim() || undefined,
     );
     setBusy(false);
+    if (candidateIdRef.current !== requestedId) return;
     if (res.ok && res.data) {
+      if (res.data.candidate.id !== requestedId) return;
       setDetail(res.data);
       setNotes("");
     } else {
@@ -96,6 +111,9 @@ export default function AdminClassActionDetail() {
   }
 
   const c = detail?.candidate;
+  const canApprove =
+    detail?.allowedActions.includes("approve") ?? false;
+  const canReject = detail?.allowedActions.includes("reject") ?? false;
 
   return (
     <div className="space-y-6">
@@ -192,11 +210,15 @@ export default function AdminClassActionDetail() {
               {detail.perk ? (
                 <p>
                   <Link
-                    to="/admin/perks"
+                    to={`/admin/perks?perkId=${encodeURIComponent(detail.perk.id)}`}
                     className="text-primary hover:underline"
                   >
-                    Linked perk ({detail.perk.isActive ? "active" : "inactive"})
+                    Linked perk: {detail.perk.title} (
+                    {detail.perk.isActive ? "active" : "inactive"})
                   </Link>
+                  <span className="block font-mono text-xs text-muted-foreground">
+                    {detail.perk.id}
+                  </span>
                 </p>
               ) : null}
             </section>
@@ -213,7 +235,7 @@ export default function AdminClassActionDetail() {
             </section>
           ) : null}
 
-          {canReview && detail.allowedActions.includes("approve") ? (
+          {canReview && (canApprove || canReject) ? (
             <section className="rounded-lg border border-border p-4 space-y-3">
               <h3 className="font-semibold">Review decision</h3>
               <Textarea
@@ -223,19 +245,23 @@ export default function AdminClassActionDetail() {
                 rows={3}
               />
               <div className="flex flex-wrap gap-2">
-                <Button
-                  disabled={busy}
-                  onClick={() => void runDecision("approve")}
-                >
-                  Approve & publish
-                </Button>
-                <Button
-                  variant="destructive"
-                  disabled={busy}
-                  onClick={() => void runDecision("reject")}
-                >
-                  Reject
-                </Button>
+                {canApprove ? (
+                  <Button
+                    disabled={busy}
+                    onClick={() => void runDecision("approve")}
+                  >
+                    Approve & publish
+                  </Button>
+                ) : null}
+                {canReject ? (
+                  <Button
+                    variant="destructive"
+                    disabled={busy}
+                    onClick={() => void runDecision("reject")}
+                  >
+                    Reject
+                  </Button>
+                ) : null}
               </div>
             </section>
           ) : null}

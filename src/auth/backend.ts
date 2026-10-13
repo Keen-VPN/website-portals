@@ -11459,7 +11459,8 @@ export async function adminReconcileFirefliesTranscripts() {
   );
 }
 
-const ADMIN_MUTATION_HEADERS = {
+/** Class-action review routes use AdminCsrfGuard: unsafe methods require this header. */
+const ADMIN_CLASS_ACTION_MUTATION_HEADERS = {
   "Content-Type": "application/json",
   "X-Requested-With": "XMLHttpRequest",
 } as const;
@@ -11475,7 +11476,7 @@ async function adminClassActionJson<T>(
       ...init,
       headers: {
         ...(init?.method && init.method !== "GET"
-          ? ADMIN_MUTATION_HEADERS
+          ? ADMIN_CLASS_ACTION_MUTATION_HEADERS
           : {}),
         ...(init?.headers ?? {}),
       },

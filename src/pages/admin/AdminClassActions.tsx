@@ -65,8 +65,15 @@ export default function AdminClassActions() {
     });
     if (seq !== loadSeq.current) return;
     if (res.ok && res.data) {
+      const newTotal = res.data.total;
+      const newPageCount = Math.max(1, Math.ceil(newTotal / 25));
+      if (page > newPageCount) {
+        setPage(newPageCount);
+        setLoading(false);
+        return;
+      }
       setItems(res.data.items);
-      setTotal(res.data.total);
+      setTotal(newTotal);
     } else {
       setItems([]);
       setTotal(0);
@@ -139,6 +146,8 @@ export default function AdminClassActions() {
           }}
         >
           <Input
+            id="class-action-candidate-search"
+            aria-label="Search class-action candidates"
             placeholder="Search title, defendant, case id, source…"
             value={qDraft}
             onChange={(e) => setQDraft(e.target.value)}
