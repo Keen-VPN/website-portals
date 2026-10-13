@@ -492,7 +492,10 @@ export default function AdminPerks() {
   const [error, setError] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(true);
   const [highlightPerkId, setHighlightPerkId] = useState<string | null>(null);
-  const focusedPerkFromQueryRef = useRef(false);
+  const [perkFocusMissingId, setPerkFocusMissingId] = useState<string | null>(
+    null,
+  );
+  const lastFocusedPerkIdRef = useRef<string | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -848,14 +851,24 @@ export default function AdminPerks() {
   }, [adminId, applyDraft, canWrite, searchParams, setSearchParams]);
 
   useEffect(() => {
-    if (focusedPerkFromQueryRef.current || loading) return;
+    if (loading) return;
     const id = searchParams.get("perkId")?.trim();
-    if (!id) return;
+    if (!id) {
+      setPerkFocusMissingId(null);
+      lastFocusedPerkIdRef.current = null;
+      return;
+    }
+    if (loadingExpired && !perks.some((p) => p.id === id)) return;
     const inCatalog =
       perks.some((p) => p.id === id) ||
       expiredPerks.some((p) => p.id === id);
-    if (!inCatalog && loadingExpired) return;
-    focusedPerkFromQueryRef.current = true;
+    if (!inCatalog) {
+      setPerkFocusMissingId(id);
+      return;
+    }
+    setPerkFocusMissingId(null);
+    if (lastFocusedPerkIdRef.current === id) return;
+    lastFocusedPerkIdRef.current = id;
     setHighlightPerkId(id);
     window.requestAnimationFrame(() => {
       document
@@ -1154,6 +1167,16 @@ export default function AdminPerks() {
       {error ? (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
+        </div>
+      ) : null}
+
+      {perkFocusMissingId ? (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-950 dark:text-amber-100">
+          No perk found for{" "}
+          <span className="font-mono">{perkFocusMissingId}</span>. The deep link
+          may be stale or the catalog failed to load —{" "}
+          <span className="font-mono">?perkId=</span> was kept in the URL so you
+          can refresh or search the list below.
         </div>
       ) : null}
 

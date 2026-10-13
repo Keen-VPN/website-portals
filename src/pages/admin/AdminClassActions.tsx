@@ -70,8 +70,9 @@ export default function AdminClassActions() {
       const newTotal = res.data.total;
       const newPageCount = Math.max(1, Math.ceil(newTotal / PAGE_SIZE));
       if (page > newPageCount) {
+        setItems([]);
+        setTotal(newTotal);
         setPage(newPageCount);
-        setLoading(false);
         return;
       }
       setItems(res.data.items);
