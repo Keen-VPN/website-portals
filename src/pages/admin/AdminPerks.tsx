@@ -491,6 +491,8 @@ export default function AdminPerks() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(true);
+  const [highlightPerkId, setHighlightPerkId] = useState<string | null>(null);
+  const focusedPerkFromQueryRef = useRef(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -844,6 +846,39 @@ export default function AdminPerks() {
     next.delete(ADMIN_PERK_RESTORE_QUERY);
     setSearchParams(next, { replace: true });
   }, [adminId, applyDraft, canWrite, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (focusedPerkFromQueryRef.current || loading) return;
+    const id = searchParams.get("perkId")?.trim();
+    if (!id) return;
+    const inCatalog =
+      perks.some((p) => p.id === id) ||
+      expiredPerks.some((p) => p.id === id);
+    if (!inCatalog && loadingExpired) return;
+    focusedPerkFromQueryRef.current = true;
+    setHighlightPerkId(id);
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById(`admin-perk-${id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    const next = new URLSearchParams(searchParams);
+    next.delete("perkId");
+    setSearchParams(next, { replace: true });
+  }, [
+    expiredPerks,
+    loading,
+    loadingExpired,
+    perks,
+    searchParams,
+    setSearchParams,
+  ]);
+
+  useEffect(() => {
+    if (!highlightPerkId) return;
+    const timer = window.setTimeout(() => setHighlightPerkId(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [highlightPerkId]);
 
   const openCreate = () => {
     const existing = adminId ? readPerkFormDraft(adminId) : null;
@@ -1589,7 +1624,13 @@ export default function AdminPerks() {
                   perks.map((perk) => (
                     <tr
                       key={perk.id}
-                      className="group transition-colors hover:bg-muted/35"
+                      id={`admin-perk-${perk.id}`}
+                      className={[
+                        "group transition-colors hover:bg-muted/35",
+                        highlightPerkId === perk.id
+                          ? "bg-primary/10 ring-2 ring-inset ring-primary/40"
+                          : "",
+                      ].join(" ")}
                     >
                       <td className="px-4 py-3.5 align-top">
                         <div className="flex items-start gap-3">
@@ -1811,7 +1852,16 @@ export default function AdminPerks() {
                 </tr>
               ) : (
                 expiredPerks.map((perk) => (
-                  <tr key={perk.id} className="border-b border-border/60">
+                  <tr
+                    key={perk.id}
+                    id={`admin-perk-${perk.id}`}
+                    className={[
+                      "border-b border-border/60",
+                      highlightPerkId === perk.id
+                        ? "bg-primary/10 ring-2 ring-inset ring-primary/40"
+                        : "",
+                    ].join(" ")}
+                  >
                     <td className="px-3 py-2 font-medium">{perk.title}</td>
                     <td className="px-3 py-2">
                       {formatAdminDate(perk.endsAt ?? perk.lastExpiredAt)}

@@ -124,6 +124,12 @@ const AdminEmailUnsubscribes = lazy(
 const AdminClassActionEmailCta = lazy(
   () => import("./pages/admin/AdminClassActionEmailCta"),
 );
+const AdminClassActions = lazy(
+  () => import("./pages/admin/AdminClassActions"),
+);
+const AdminClassActionDetail = lazy(
+  () => import("./pages/admin/AdminClassActionDetail"),
+);
 const AdminUserProfiles = lazy(
   () => import("./pages/admin/AdminUserProfiles"),
 );
@@ -442,6 +448,11 @@ const App = () => (
                 <Route
                   path="class-action-email-cta"
                   element={<AdminClassActionEmailCta />}
+                />
+                <Route path="class-actions" element={<AdminClassActions />} />
+                <Route
+                  path="class-actions/:candidateId"
+                  element={<AdminClassActionDetail />}
                 />
               </Route>
               <Route path="*" element={<NotFound />} />
