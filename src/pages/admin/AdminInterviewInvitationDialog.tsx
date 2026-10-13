@@ -51,6 +51,10 @@ export function AdminInterviewInvitationDialog({
 
   const selectedStudy = studies.find((s) => s.id === studyId) ?? null;
 
+  function effectiveRecipientEmail() {
+    return email.trim() || defaultEmail.trim();
+  }
+
   function handleDialogOpenChange(nextOpen: boolean) {
     if (!nextOpen && busy) return;
     onOpenChange(nextOpen);
@@ -65,7 +69,7 @@ export function AdminInterviewInvitationDialog({
     if (controller.signal.aborted) return;
     setLoadingStudies(false);
     if (!res.ok || !res.data) {
-      setError(res.error ?? "Failed to load studies");
+      setError(res.error ?? "Failed to load research studies");
       return;
     }
     const eligible = res.data.filter(
@@ -77,6 +81,12 @@ export function AdminInterviewInvitationDialog({
         ? current
         : eligible[0]?.id ?? "",
     );
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      openSessionRef.current += 1;
+    };
   }, []);
 
   useEffect(() => {
@@ -97,7 +107,10 @@ export function AdminInterviewInvitationDialog({
     setMessage(null);
     setForceResend(false);
     void loadStudies();
-    return () => studiesAbort.current?.abort();
+    return () => {
+      openSessionRef.current += 1;
+      studiesAbort.current?.abort();
+    };
   }, [open, defaultEmail, userId, loadStudies]);
 
   useEffect(() => {
@@ -129,7 +142,7 @@ export function AdminInterviewInvitationDialog({
 
   async function handlePreview() {
     if (!selectedStudy) {
-      setError("Select a study");
+      setError("Select a research study");
       return;
     }
     const session = openSessionRef.current;
@@ -147,13 +160,13 @@ export function AdminInterviewInvitationDialog({
       return;
     }
     setMessage(
-      `Preview sent to your admin inbox. Recipient would be ${res.data?.recipientEmail ?? email}.`,
+      `Preview sent to your admin inbox. Recipient would be ${res.data?.recipientEmail ?? effectiveRecipientEmail()}.`,
     );
   }
 
   async function handleSend() {
     if (!selectedStudy) {
-      setError("Select a study");
+      setError("Select a research study");
       return;
     }
     const session = openSessionRef.current;
@@ -167,9 +180,12 @@ export function AdminInterviewInvitationDialog({
       setError(res.error ?? "Send failed");
       return;
     }
+    const recipient = effectiveRecipientEmail();
     toast({
       title: "Interview invitation sent",
-      description: `Email sent to ${email.trim()}.`,
+      ...(recipient
+        ? { description: `Email sent to ${recipient}.` }
+        : {}),
     });
     onSent();
     onOpenChange(false);
@@ -193,7 +209,7 @@ export function AdminInterviewInvitationDialog({
             </p>
           ) : null}
           <div className="space-y-2">
-            <Label htmlFor="interview-study">Study</Label>
+            <Label htmlFor="interview-study">Research study</Label>
             <select
               id="interview-study"
               className="w-full rounded-md border border-border bg-background px-3 py-2"
@@ -203,7 +219,7 @@ export function AdminInterviewInvitationDialog({
             >
               {studies.length === 0 ? (
                 <option value="">
-                  {loadingStudies ? "Loading…" : "No active studies"}
+                  {loadingStudies ? "Loading…" : "No active research studies"}
                 </option>
               ) : (
                 studies.map((s) => (
@@ -271,7 +287,7 @@ export function AdminInterviewInvitationDialog({
               onChange={(e) => setForceResend(e.target.checked)}
               disabled={busy}
             />
-            Force resend (ignore 14-day dedupe for this study)
+            Force resend (ignore 14-day dedupe for this research study)
           </label>
         </div>
         <DialogFooter className="gap-2 sm:gap-0">
