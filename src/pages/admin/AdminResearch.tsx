@@ -4,6 +4,9 @@ import {
   adminAddInterviewParticipant,
   adminAssociateInterviewTranscript,
   adminCreateResearchStudy,
+  adminDeleteInterviewParticipant,
+  adminDeleteResearchStudy,
+  adminDeleteResearchTranscript,
   adminFetchResearchStudies,
   adminFetchResearchStudy,
   adminFetchResearchTranscripts,
@@ -16,6 +19,7 @@ import {
   type AdminMeetingTranscript,
   type AdminResearchStudy,
 } from "@/auth/backend";
+import { AdminResearchTranscriptDetailDialog } from "@/pages/admin/AdminResearchTranscriptDetailDialog";
 
 const MEETING_TYPES = [
   { value: "", label: "All types" },
@@ -72,8 +76,13 @@ export default function AdminResearch() {
   const [addingParticipant, setAddingParticipant] = useState(false);
 
   const [meetingType, setMeetingType] = useState("");
+  const [hideFailedIngest, setHideFailedIngest] = useState(true);
   const [qDraft, setQDraft] = useState("");
   const [qSubmitted, setQSubmitted] = useState("");
+  const [transcriptDetailId, setTranscriptDetailId] = useState<string | null>(
+    null,
+  );
+  const [transcriptDetailOpen, setTranscriptDetailOpen] = useState(false);
   const [transcripts, setTranscripts] = useState<AdminMeetingTranscript[]>([]);
   const [transcriptTotal, setTranscriptTotal] = useState(0);
   const [transcriptOffset, setTranscriptOffset] = useState(0);
@@ -114,6 +123,7 @@ export default function AdminResearch() {
       const res = await adminFetchResearchTranscripts({
         meetingType: meetingType || undefined,
         q: qSubmitted.trim() || undefined,
+        excludeFailed: hideFailedIngest || undefined,
         limit: TRANSCRIPT_PAGE_SIZE,
         offset,
         signal: controller.signal,
@@ -138,7 +148,7 @@ export default function AdminResearch() {
       setTranscriptOffset(offset + page.items.length);
       setLoadingMoreTranscripts(false);
     },
-    [meetingType, qSubmitted],
+    [meetingType, qSubmitted, hideFailedIngest],
   );
 
   const loadStudies = useCallback(async () => {
@@ -227,8 +237,10 @@ export default function AdminResearch() {
           <h2 className="text-2xl font-bold">Research</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Fireflies transcripts for the Iteration Engine, plus interview
-            recruitment with $50 gift-card tracking. Paste a Calendly link as
-            the study scheduling URL; with the Calendly webhook enabled,
+            recruitment with $50 gift-card tracking. Runbook:{" "}
+            <code className="text-xs">docs/ADMIN_RESEARCH_RUNBOOK.md</code>{" "}
+            (title format, auto-match, gift-card steps). Paste a Calendly link
+            as the study scheduling URL; with the Calendly webhook enabled,
             bookings auto-mark participants Scheduled (use{" "}
             <code className="text-xs">utm_content=&lt;studyId&gt;</code> on the
             link when you run multiple studies).
@@ -325,9 +337,17 @@ export default function AdminResearch() {
               </button>
             ) : null}
           </form>
+          <label className="flex w-fit items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={hideFailedIngest}
+              onChange={(e) => setHideFailedIngest(e.target.checked)}
+            />
+            Hide failed ingestions (webhook test rows)
+          </label>
           <p className="text-xs text-muted-foreground">
             Showing {transcripts.length} of {transcriptTotal} transcript
-            {transcriptTotal === 1 ? "" : "s"}
+            {transcriptTotal === 1 ? "" : "s"} · {TRANSCRIPT_PAGE_SIZE} per page
           </p>
           <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-left text-sm">
@@ -337,6 +357,7 @@ export default function AdminResearch() {
                   <th className="p-3">Type</th>
                   <th className="p-3">Date</th>
                   <th className="p-3">Status</th>
+                  <th className="p-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -360,11 +381,53 @@ export default function AdminResearch() {
                         </div>
                       ) : null}
                     </td>
+                    <td className="p-3">
+                      <div className="flex flex-col gap-1">
+                        <button
+                          type="button"
+                          className="text-left text-xs text-primary underline"
+                          onClick={() => {
+                            setTranscriptDetailId(t.id);
+                            setTranscriptDetailOpen(true);
+                          }}
+                        >
+                          View transcript
+                        </button>
+                        {canWrite ? (
+                          <button
+                            type="button"
+                            className="text-left text-xs text-destructive underline"
+                            onClick={() => {
+                              if (
+                                !window.confirm(
+                                  `Delete transcript “${t.title}”? Only unlinked rows can be removed.`,
+                                )
+                              ) {
+                                return;
+                              }
+                              void adminDeleteResearchTranscript(t.id).then(
+                                (res) => {
+                                  if (!res.ok)
+                                    setError(res.error ?? "Delete failed");
+                                  else
+                                    void loadTranscripts({
+                                      offset: 0,
+                                      append: false,
+                                    });
+                                },
+                              );
+                            }}
+                          >
+                            Delete
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
                   </tr>
                 ))}
                 {transcripts.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="p-4 text-muted-foreground">
+                    <td colSpan={5} className="p-4 text-muted-foreground">
                       No transcripts yet.
                     </td>
                   </tr>
@@ -490,7 +553,40 @@ export default function AdminResearch() {
               ) : (
                 <>
                   <div className="rounded-lg border border-border p-4">
-                    <h3 className="text-lg font-semibold">{studyDetail.name}</h3>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <h3 className="text-lg font-semibold">
+                        {studyDetail.name}
+                      </h3>
+                      {canWrite ? (
+                        <button
+                          type="button"
+                          className="text-sm text-destructive underline"
+                          onClick={() => {
+                            if (
+                              !window.confirm(
+                                `Delete study “${studyDetail.name}” and all participants? This cannot be undone.`,
+                              )
+                            ) {
+                              return;
+                            }
+                            void adminDeleteResearchStudy(studyDetail.id).then(
+                              (res) => {
+                                if (!res.ok)
+                                  setError(res.error ?? "Delete failed");
+                                else {
+                                  setStudyDetail(null);
+                                  setSelectedStudyId(null);
+                                  loadedStudyDetailIdRef.current = null;
+                                  void loadStudies();
+                                }
+                              },
+                            );
+                          }}
+                        >
+                          Delete study
+                        </button>
+                      ) : null}
+                    </div>
                     <p className="mt-1 text-sm text-muted-foreground">
                       Incentive: {studyDetail.incentiveLabel} (
                       {studyDetail.incentiveCents}¢)
@@ -701,23 +797,52 @@ export default function AdminResearch() {
                               )}
                             </td>
                             <td className="p-3">
-                              {canWrite ? (
-                                <div className="flex flex-col gap-1">
-                                  {!p.transcript ? (
+                              <div className="flex flex-col gap-1">
+                                {canWrite ? (
+                                  <>
+                                    {!p.transcript ? (
+                                      <button
+                                        type="button"
+                                        className="text-left text-xs text-primary underline"
+                                        onClick={() => {
+                                          void adminAssociateInterviewTranscript(
+                                            p.id,
+                                          ).then((res) => {
+                                            if (!res.ok)
+                                              setError(
+                                                res.error ?? "Match failed",
+                                              );
+                                            else if (!res.data?.matched)
+                                              setError(
+                                                "No matching user_interview transcript found",
+                                              );
+                                            else
+                                              void loadStudyDetail(
+                                                studyDetail.id,
+                                              );
+                                          });
+                                        }}
+                                      >
+                                        Auto-match transcript
+                                      </button>
+                                    ) : null}
                                     <button
                                       type="button"
                                       className="text-left text-xs text-primary underline"
                                       onClick={() => {
-                                        void adminAssociateInterviewTranscript(
+                                        const raw = window.prompt(
+                                          p.transcript
+                                            ? "Transcript UUID (replaces current link)"
+                                            : "Transcript UUID to link",
+                                        );
+                                        if (!raw?.trim()) return;
+                                        void adminLinkInterviewTranscript(
                                           p.id,
+                                          raw.trim(),
                                         ).then((res) => {
                                           if (!res.ok)
                                             setError(
-                                              res.error ?? "Match failed",
-                                            );
-                                          else if (!res.data?.matched)
-                                            setError(
-                                              "No matching user_interview transcript found",
+                                              res.error ?? "Link failed",
                                             );
                                           else
                                             void loadStudyDetail(
@@ -726,67 +851,85 @@ export default function AdminResearch() {
                                         });
                                       }}
                                     >
-                                      Auto-match transcript
+                                      {p.transcript
+                                        ? "Change transcript…"
+                                        : "Link transcript…"}
                                     </button>
-                                  ) : null}
+                                    {p.status === "COMPLETED" &&
+                                    p.incentiveStatus === "PENDING" ? (
+                                      <button
+                                        type="button"
+                                        className="text-left text-xs text-primary underline"
+                                        onClick={() => {
+                                          void adminMarkInterviewIncentivePaid(
+                                            p.id,
+                                          ).then((res) => {
+                                            if (!res.ok)
+                                              setError(
+                                                res.error ??
+                                                  "Payment mark failed",
+                                              );
+                                            else
+                                              void loadStudyDetail(
+                                                studyDetail.id,
+                                              );
+                                          });
+                                        }}
+                                      >
+                                        Mark $50 paid
+                                      </button>
+                                    ) : null}
+                                    <button
+                                      type="button"
+                                      className="text-left text-xs text-destructive underline"
+                                      onClick={() => {
+                                        if (
+                                          !window.confirm(
+                                            `Remove participant ${p.email} from this study?`,
+                                          )
+                                        ) {
+                                          return;
+                                        }
+                                        void adminDeleteInterviewParticipant(
+                                          p.id,
+                                        ).then((res) => {
+                                          if (!res.ok)
+                                            setError(
+                                              res.error ?? "Delete failed",
+                                            );
+                                          else {
+                                            void loadStudyDetail(
+                                              studyDetail.id,
+                                            );
+                                            void loadStudies();
+                                          }
+                                        });
+                                      }}
+                                    >
+                                      Remove participant
+                                    </button>
+                                  </>
+                                ) : null}
+                                {p.transcript ? (
                                   <button
                                     type="button"
                                     className="text-left text-xs text-primary underline"
                                     onClick={() => {
-                                      const raw = window.prompt(
-                                        p.transcript
-                                          ? "Transcript UUID (replaces current link)"
-                                          : "Transcript UUID to link",
-                                      );
-                                      if (!raw?.trim()) return;
-                                      void adminLinkInterviewTranscript(
-                                        p.id,
-                                        raw.trim(),
-                                      ).then((res) => {
-                                        if (!res.ok)
-                                          setError(res.error ?? "Link failed");
-                                        else
-                                          void loadStudyDetail(studyDetail.id);
-                                      });
+                                      setTranscriptDetailId(p.transcript!.id);
+                                      setTranscriptDetailOpen(true);
                                     }}
                                   >
-                                    {p.transcript
-                                      ? "Change transcript…"
-                                      : "Link transcript…"}
+                                    View transcript
                                   </button>
-                                  {p.transcript &&
-                                  p.status === "COMPLETED" &&
-                                  p.incentiveStatus === "PAID" ? (
-                                    <span className="text-xs text-muted-foreground">
-                                      Linked and paid
-                                    </span>
-                                  ) : null}
-                                  {p.status === "COMPLETED" &&
-                                  p.incentiveStatus === "PENDING" ? (
-                                    <button
-                                      type="button"
-                                      className="text-left text-xs text-primary underline"
-                                      onClick={() => {
-                                        void adminMarkInterviewIncentivePaid(
-                                          p.id,
-                                        ).then((res) => {
-                                          if (!res.ok)
-                                            setError(
-                                              res.error ??
-                                                "Payment mark failed",
-                                            );
-                                          else
-                                            void loadStudyDetail(
-                                              studyDetail.id,
-                                            );
-                                        });
-                                      }}
-                                    >
-                                      Mark $50 paid
-                                    </button>
-                                  ) : null}
-                                </div>
-                              ) : null}
+                                ) : null}
+                                {p.transcript &&
+                                p.status === "COMPLETED" &&
+                                p.incentiveStatus === "PAID" ? (
+                                  <span className="text-xs text-muted-foreground">
+                                    Linked and paid
+                                  </span>
+                                ) : null}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -809,6 +952,15 @@ export default function AdminResearch() {
           </div>
         </section>
       )}
+
+      <AdminResearchTranscriptDetailDialog
+        transcriptId={transcriptDetailId}
+        open={transcriptDetailOpen}
+        onOpenChange={(open) => {
+          setTranscriptDetailOpen(open);
+          if (!open) setTranscriptDetailId(null);
+        }}
+      />
     </div>
   );
 }
