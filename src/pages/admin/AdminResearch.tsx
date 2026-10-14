@@ -703,32 +703,40 @@ export default function AdminResearch() {
                             <td className="p-3">
                               {canWrite ? (
                                 <div className="flex flex-col gap-1">
-                                  <button
-                                    type="button"
-                                    className="text-left text-xs text-primary underline"
-                                    onClick={() => {
-                                      void adminAssociateInterviewTranscript(
-                                        p.id,
-                                      ).then((res) => {
-                                        if (!res.ok)
-                                          setError(res.error ?? "Match failed");
-                                        else if (!res.data?.matched)
-                                          setError(
-                                            "No matching user_interview transcript found",
-                                          );
-                                        else
-                                          void loadStudyDetail(studyDetail.id);
-                                      });
-                                    }}
-                                  >
-                                    Auto-match transcript
-                                  </button>
+                                  {!p.transcript ? (
+                                    <button
+                                      type="button"
+                                      className="text-left text-xs text-primary underline"
+                                      onClick={() => {
+                                        void adminAssociateInterviewTranscript(
+                                          p.id,
+                                        ).then((res) => {
+                                          if (!res.ok)
+                                            setError(
+                                              res.error ?? "Match failed",
+                                            );
+                                          else if (!res.data?.matched)
+                                            setError(
+                                              "No matching user_interview transcript found",
+                                            );
+                                          else
+                                            void loadStudyDetail(
+                                              studyDetail.id,
+                                            );
+                                        });
+                                      }}
+                                    >
+                                      Auto-match transcript
+                                    </button>
+                                  ) : null}
                                   <button
                                     type="button"
                                     className="text-left text-xs text-primary underline"
                                     onClick={() => {
                                       const raw = window.prompt(
-                                        "Transcript UUID to link",
+                                        p.transcript
+                                          ? "Transcript UUID (replaces current link)"
+                                          : "Transcript UUID to link",
                                       );
                                       if (!raw?.trim()) return;
                                       void adminLinkInterviewTranscript(
@@ -742,8 +750,17 @@ export default function AdminResearch() {
                                       });
                                     }}
                                   >
-                                    Link transcript…
+                                    {p.transcript
+                                      ? "Change transcript…"
+                                      : "Link transcript…"}
                                   </button>
+                                  {p.transcript &&
+                                  p.status === "COMPLETED" &&
+                                  p.incentiveStatus === "PAID" ? (
+                                    <span className="text-xs text-muted-foreground">
+                                      Linked and paid
+                                    </span>
+                                  ) : null}
                                   {p.status === "COMPLETED" &&
                                   p.incentiveStatus === "PENDING" ? (
                                     <button
