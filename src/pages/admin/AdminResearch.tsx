@@ -341,7 +341,13 @@ export default function AdminResearch() {
             <input
               type="checkbox"
               checked={hideFailedIngest}
-              onChange={(e) => setHideFailedIngest(e.target.checked)}
+              onChange={(e) => {
+                setTranscripts([]);
+                setTranscriptTotal(0);
+                setTranscriptOffset(0);
+                setLoadingMoreTranscripts(false);
+                setHideFailedIngest(e.target.checked);
+              }}
             />
             Hide failed ingestions (webhook test rows)
           </label>
@@ -569,18 +575,24 @@ export default function AdminResearch() {
                             ) {
                               return;
                             }
-                            void adminDeleteResearchStudy(studyDetail.id).then(
-                              (res) => {
-                                if (!res.ok)
-                                  setError(res.error ?? "Delete failed");
-                                else {
+                            const deletingStudyId = studyDetail.id;
+                            void adminDeleteResearchStudy(
+                              deletingStudyId,
+                            ).then((res) => {
+                              if (!res.ok)
+                                setError(res.error ?? "Delete failed");
+                              else {
+                                if (
+                                  selectedStudyIdRef.current === deletingStudyId
+                                ) {
+                                  selectedStudyIdRef.current = null;
                                   setStudyDetail(null);
                                   setSelectedStudyId(null);
                                   loadedStudyDetailIdRef.current = null;
-                                  void loadStudies();
                                 }
-                              },
-                            );
+                                void loadStudies();
+                              }
+                            });
                           }}
                         >
                           Delete study
@@ -915,7 +927,9 @@ export default function AdminResearch() {
                                     type="button"
                                     className="text-left text-xs text-primary underline"
                                     onClick={() => {
-                                      setTranscriptDetailId(p.transcript!.id);
+                                      const transcriptId = p.transcript?.id;
+                                      if (!transcriptId) return;
+                                      setTranscriptDetailId(transcriptId);
                                       setTranscriptDetailOpen(true);
                                     }}
                                   >

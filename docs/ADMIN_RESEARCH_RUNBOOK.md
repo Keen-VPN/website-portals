@@ -25,7 +25,7 @@ Auto-match links a participant to a transcript when **all** of the following hol
 4. Transcript `occurredAt` is within **±48 hours** of the participant’s `scheduledAt` or `completedAt` (whichever is set).
 5. Among matches, the **newest** transcript by `occurredAt` wins.
 
-If auto-match fails, use **Link transcript…** with the Keen transcript **UUID** from the Transcripts tab (not the Fireflies meeting id).
+If auto-match fails, link manually from the participant **Actions** column: **Link transcript…** when none is linked, or **Change transcript…** to replace an existing link. Paste the Keen transcript **UUID** from the Transcripts tab (not the Fireflies meeting id).
 
 ## Gift card ($50) workflow
 
@@ -33,7 +33,7 @@ If auto-match fails, use **Link transcript…** with the Keen transcript **UUID*
 2. Add participant or send **Request interview** from the user admin profile.
 3. Set scheduling URL on the study; Calendly webhook can mark **SCHEDULED** when `utm_content=<studyId>` is on the link.
 4. After the call, set status **COMPLETED** (manually or via your scheduling flow).
-5. **Auto-match** or **Link transcript…** so the row shows a linked transcript.
+5. **Auto-match**, **Link transcript…**, or **Change transcript…** so the row shows a linked transcript.
 6. Click **Mark $50 paid** — writes the incentive ledger (prevents double pay).
 7. Read-only admins see **Linked and paid** when transcript is linked, status is COMPLETED, and incentive is PAID.
 
