@@ -11421,6 +11421,7 @@ export async function adminFetchResearchTranscripts(params?: {
   to?: string;
   q?: string;
   ingestionStatus?: string;
+  excludeFailed?: boolean;
   limit?: number;
   offset?: number;
   signal?: AbortSignal;
@@ -11432,6 +11433,7 @@ export async function adminFetchResearchTranscripts(params?: {
   if (params?.q) query.set("q", params.q);
   if (params?.ingestionStatus)
     query.set("ingestionStatus", params.ingestionStatus);
+  if (params?.excludeFailed) query.set("excludeFailed", "true");
   if (params?.limit != null) query.set("limit", String(params.limit));
   if (params?.offset != null) query.set("offset", String(params.offset));
   const suffix = query.toString() ? `?${query.toString()}` : "";
@@ -11444,6 +11446,25 @@ export async function adminFetchResearchTranscripts(params?: {
     `/admin/research/transcripts${suffix}`,
     { signal: params?.signal },
     "Failed to load transcripts",
+  );
+}
+
+export async function adminFetchResearchTranscriptById(
+  id: string,
+  params?: { signal?: AbortSignal },
+) {
+  return adminResearchJson<AdminMeetingTranscript>(
+    `/admin/research/transcripts/${encodeURIComponent(id)}`,
+    { signal: params?.signal },
+    "Failed to load transcript",
+  );
+}
+
+export async function adminDeleteResearchTranscript(id: string) {
+  return adminResearchJson<{ deleted: true }>(
+    `/admin/research/transcripts/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+    "Failed to delete transcript",
   );
 }
 
@@ -11496,6 +11517,14 @@ export async function adminUpdateResearchStudy(
   );
 }
 
+export async function adminDeleteResearchStudy(id: string) {
+  return adminResearchJson<{ deleted: true }>(
+    `/admin/research/studies/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+    "Failed to delete study",
+  );
+}
+
 export async function adminAddInterviewParticipant(
   studyId: string,
   body: {
@@ -11520,6 +11549,14 @@ export async function adminUpdateInterviewParticipantStatus(
     `/admin/research/participants/${encodeURIComponent(participantId)}/status`,
     { method: "PATCH", body: JSON.stringify(body) },
     "Failed to update participant",
+  );
+}
+
+export async function adminDeleteInterviewParticipant(participantId: string) {
+  return adminResearchJson<{ deleted: true }>(
+    `/admin/research/participants/${encodeURIComponent(participantId)}`,
+    { method: "DELETE" },
+    "Failed to delete participant",
   );
 }
 
