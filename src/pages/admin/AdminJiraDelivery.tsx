@@ -92,7 +92,8 @@ export default function AdminJiraDelivery() {
   const [report, setReport] = useState<AdminJiraDeliveryReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [rpFilter, setRpFilter] = useState("");
+  const [rpFilterDraft, setRpFilterDraft] = useState("");
+  const [rpFilterApplied, setRpFilterApplied] = useState("");
   const [pointsSinceOpen, setPointsSinceOpen] = useState(false);
   const [meetingSinceLocal, setMeetingSinceLocal] = useState(
     defaultMeetingSinceLocal,
@@ -102,6 +103,9 @@ export default function AdminJiraDelivery() {
   const [pointsSinceLoading, setPointsSinceLoading] = useState(false);
   const [pointsSinceError, setPointsSinceError] = useState<string | null>(null);
   const loadGeneration = useRef(0);
+  const pointsSinceGeneration = useRef(0);
+  const skipMeetingClearOnce = useRef(false);
+  const loadPointsSinceRef = useRef<() => Promise<void>>(async () => {});
 
   const load = useCallback(
     async (
@@ -141,26 +145,42 @@ export default function AdminJiraDelivery() {
   );
 
   useEffect(() => {
-    void load(month, year, { rp: rpFilter });
+    void load(month, year, { rp: rpFilterApplied });
     return () => {
       loadGeneration.current += 1;
     };
-  }, [load, month, year, rpFilter]);
+  }, [load, month, year, rpFilterApplied]);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setRpFilterApplied(rpFilterDraft.trim());
+    }, 500);
+    return () => window.clearTimeout(handle);
+  }, [rpFilterDraft]);
 
   const loadPointsSince = useCallback(async () => {
-    setPointsSinceLoading(true);
-    setPointsSinceError(null);
+    const generation = ++pointsSinceGeneration.current;
     const since = new Date(meetingSinceLocal);
     if (Number.isNaN(since.getTime())) {
       setPointsSinceError("Enter a valid meeting date and time.");
+      setPointsSinceReport(null);
       setPointsSinceLoading(false);
       return;
     }
-    const res = await adminFetchJiraPointsSinceReport({
-      since: since.toISOString(),
-    });
+    const sinceIso = since.toISOString();
+    setPointsSinceLoading(true);
+    setPointsSinceError(null);
+
+    const res = await adminFetchJiraPointsSinceReport({ since: sinceIso });
+
+    if (generation !== pointsSinceGeneration.current) return;
+
     if (!res.ok || !res.data) {
       setPointsSinceError(res.error ?? "Failed to load report");
+      setPointsSinceLoading(false);
+      return;
+    }
+    if (res.data.since !== sinceIso) {
       setPointsSinceLoading(false);
       return;
     }
@@ -168,10 +188,28 @@ export default function AdminJiraDelivery() {
     setPointsSinceLoading(false);
   }, [meetingSinceLocal]);
 
+  loadPointsSinceRef.current = loadPointsSince;
+
+  useEffect(() => {
+    if (!pointsSinceOpen) {
+      skipMeetingClearOnce.current = false;
+      return;
+    }
+    skipMeetingClearOnce.current = true;
+    void loadPointsSinceRef.current();
+  }, [pointsSinceOpen]);
+
   useEffect(() => {
     if (!pointsSinceOpen) return;
-    void loadPointsSince();
-  }, [pointsSinceOpen, loadPointsSince]);
+    if (skipMeetingClearOnce.current) {
+      skipMeetingClearOnce.current = false;
+      return;
+    }
+    pointsSinceGeneration.current += 1;
+    setPointsSinceReport(null);
+    setPointsSinceError(null);
+    setPointsSinceLoading(false);
+  }, [meetingSinceLocal, pointsSinceOpen]);
 
   const chartRows = useMemo(
     () =>
@@ -217,8 +255,14 @@ export default function AdminJiraDelivery() {
             type="search"
             placeholder="All RPs"
             className="w-36 rounded-md border border-border bg-background px-3 py-1.5 text-sm"
-            value={rpFilter}
-            onChange={(e) => setRpFilter(e.target.value)}
+            value={rpFilterDraft}
+            onChange={(e) => setRpFilterDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                setRpFilterApplied(rpFilterDraft.trim());
+              }
+            }}
           />
           <label className="text-sm text-muted-foreground" htmlFor="jira-month">
             Month
@@ -242,7 +286,10 @@ export default function AdminJiraDelivery() {
             variant="outline"
             size="sm"
             onClick={() =>
-              void load(month, year, { preserveOnError: true, rp: rpFilter })
+              void load(month, year, {
+                preserveOnError: true,
+                rp: rpFilterApplied,
+              })
             }
             disabled={loading}
           >
