@@ -3772,6 +3772,11 @@ export interface AdminJiraDeliveryRpRow {
   points: number;
   percentOfTotal: number;
   suspended?: boolean;
+  storyPointThreshold?: number | null;
+  percentTowardThreshold?: number | null;
+  dailyUpdatesSubmitted?: number | null;
+  dailyUpdatesExpected?: number | null;
+  dailyUpdatesMissing?: number | null;
 }
 
 export interface AdminJiraDeliveryEnvironmentRow {
@@ -3809,6 +3814,36 @@ export interface AdminJiraDeliveryReport {
   trend: AdminJiraDeliveryTrendPoint[];
   kennaCreatedEstimates?: AdminJiraKennaCreatedEstimates;
   configured: boolean;
+  geekbotDailyUpdatesConfigured?: boolean;
+  storyPointThresholdLevels?: number[];
+  storyPointThresholdsConfigured?: boolean;
+}
+
+export interface AdminJiraPointsSinceStoryRow {
+  key: string;
+  summary: string;
+  points: number;
+  assigneeDisplayName: string;
+  assigneeAccountId: string | null;
+  resolvedAt: string;
+  jiraUrl: string;
+}
+
+export interface AdminJiraPointsSinceMemberRow {
+  assigneeAccountId: string | null;
+  assigneeDisplayName: string;
+  points: number;
+  storyCount: number;
+  stories: AdminJiraPointsSinceStoryRow[];
+}
+
+export interface AdminJiraPointsSinceReport {
+  since: string;
+  reportGeneratedAt: string;
+  configured: boolean;
+  totalPoints: number;
+  completedIssueCount: number;
+  members: AdminJiraPointsSinceMemberRow[];
 }
 
 export interface AdminChurnTrendPoint {
@@ -7616,11 +7651,15 @@ export async function adminFetchChurnReport(params: {
 export async function adminFetchJiraDeliveryReport(params: {
   month: number;
   year: number;
+  rp?: string;
 }): Promise<{ ok: boolean; data?: AdminJiraDeliveryReport; error?: string }> {
   try {
     const query = new URLSearchParams();
     query.set("month", String(params.month));
     query.set("year", String(params.year));
+    if (params.rp?.trim()) {
+      query.set("rp", params.rp.trim());
+    }
     const response = await fetch(
       `${BACKEND_URL}/admin/jira-delivery?${query.toString()}`,
       { credentials: "include" },
@@ -7636,6 +7675,36 @@ export async function adminFetchJiraDeliveryReport(params: {
       };
     }
     const record = raw as { data?: AdminJiraDeliveryReport };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchJiraPointsSinceReport(params: {
+  since: string;
+}): Promise<{ ok: boolean; data?: AdminJiraPointsSinceReport; error?: string }> {
+  try {
+    const query = new URLSearchParams();
+    query.set("since", params.since);
+    const response = await fetch(
+      `${BACKEND_URL}/admin/jira-delivery/points-since?${query.toString()}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load points since last meeting",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminJiraPointsSinceReport };
     return { ok: true, data: record.data };
   } catch (e) {
     return {
