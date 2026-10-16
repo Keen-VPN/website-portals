@@ -39,6 +39,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const RP_FILTER_ALL = "__all__";
+const RP_OPTION_PREFIX = "rp:";
+
+function encodeRpSelectValue(displayName: string): string {
+  return `${RP_OPTION_PREFIX}${encodeURIComponent(displayName)}`;
+}
+
+function decodeRpSelectValue(value: string): string | null {
+  if (!value.startsWith(RP_OPTION_PREFIX)) return null;
+  try {
+    return decodeURIComponent(value.slice(RP_OPTION_PREFIX.length));
+  } catch {
+    return null;
+  }
+}
 
 function defaultMeetingSinceLocal(): string {
   const d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -92,8 +115,8 @@ export default function AdminJiraDelivery() {
   const [report, setReport] = useState<AdminJiraDeliveryReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [rpFilterDraft, setRpFilterDraft] = useState("");
   const [rpFilterApplied, setRpFilterApplied] = useState("");
+  const [rpDirectoryNames, setRpDirectoryNames] = useState<string[]>([]);
   const [pointsSinceOpen, setPointsSinceOpen] = useState(false);
   const [meetingSinceLocal, setMeetingSinceLocal] = useState(
     defaultMeetingSinceLocal,
@@ -152,11 +175,30 @@ export default function AdminJiraDelivery() {
   }, [load, month, year, rpFilterApplied]);
 
   useEffect(() => {
-    const handle = window.setTimeout(() => {
-      setRpFilterApplied(rpFilterDraft.trim());
-    }, 500);
-    return () => window.clearTimeout(handle);
-  }, [rpFilterDraft]);
+    if (!report || rpFilterApplied) return;
+    const names = [
+      ...new Set(
+        report.byRp
+          .map((row) => row.assigneeDisplayName.trim())
+          .filter((name) => name.length > 0),
+      ),
+    ].sort((a, b) => a.localeCompare(b));
+    setRpDirectoryNames(names);
+  }, [report, rpFilterApplied]);
+
+  const rpSelectOptions = useMemo(() => {
+    const names = [...rpDirectoryNames];
+    if (
+      rpFilterApplied &&
+      !names.some(
+        (name) => name.toLowerCase() === rpFilterApplied.toLowerCase(),
+      )
+    ) {
+      names.push(rpFilterApplied);
+      names.sort((a, b) => a.localeCompare(b));
+    }
+    return names;
+  }, [rpDirectoryNames, rpFilterApplied]);
 
   const loadPointsSince = useCallback(async () => {
     const generation = ++pointsSinceGeneration.current;
@@ -250,20 +292,36 @@ export default function AdminJiraDelivery() {
           <label className="text-sm text-muted-foreground" htmlFor="jira-rp">
             RP filter
           </label>
-          <input
-            id="jira-rp"
-            type="search"
-            placeholder="All RPs"
-            className="w-36 rounded-md border border-border bg-background px-3 py-1.5 text-sm"
-            value={rpFilterDraft}
-            onChange={(e) => setRpFilterDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                setRpFilterApplied(rpFilterDraft.trim());
+          <Select
+            value={
+              rpFilterApplied
+                ? encodeRpSelectValue(rpFilterApplied)
+                : RP_FILTER_ALL
+            }
+            onValueChange={(value) => {
+              if (value === RP_FILTER_ALL) {
+                setRpFilterApplied("");
+                return;
               }
+              const name = decodeRpSelectValue(value);
+              setRpFilterApplied(name ?? "");
             }}
-          />
+          >
+            <SelectTrigger id="jira-rp" className="h-9 w-[11rem]">
+              <SelectValue placeholder="All RPs" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={RP_FILTER_ALL}>All RPs</SelectItem>
+              {rpSelectOptions.map((name) => (
+                <SelectItem
+                  key={encodeRpSelectValue(name)}
+                  value={encodeRpSelectValue(name)}
+                >
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <label className="text-sm text-muted-foreground" htmlFor="jira-month">
             Month
           </label>
@@ -277,6 +335,8 @@ export default function AdminJiraDelivery() {
               const [y, m] = e.target.value.split("-").map(Number);
               if (!y || !m) return;
               if (isFutureMonth(m, y, initial)) return;
+              setRpFilterApplied("");
+              setRpDirectoryNames([]);
               setYear(y);
               setMonth(m);
             }}
@@ -286,9 +346,10 @@ export default function AdminJiraDelivery() {
             variant="outline"
             size="sm"
             onClick={() => {
-              const rp = rpFilterDraft.trim();
-              setRpFilterApplied(rp);
-              void load(month, year, { preserveOnError: true, rp });
+              void load(month, year, {
+                preserveOnError: true,
+                rp: rpFilterApplied,
+              });
             }}
             disabled={loading}
           >
