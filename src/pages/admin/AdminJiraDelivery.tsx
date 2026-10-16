@@ -8,9 +8,16 @@ import {
 } from "recharts";
 import {
   adminFetchJiraDeliveryReport,
+  adminFetchJiraPointsSinceReport,
   type AdminJiraDeliveryReport,
+  type AdminJiraPointsSinceReport,
 } from "@/auth/backend";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Card,
   CardContent,
@@ -24,6 +31,29 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+function defaultMeetingSinceLocal(): string {
+  const d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatResolvedAt(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
 
 function currentMonthYear(): {
   month: number;
@@ -62,13 +92,22 @@ export default function AdminJiraDelivery() {
   const [report, setReport] = useState<AdminJiraDeliveryReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rpFilter, setRpFilter] = useState("");
+  const [pointsSinceOpen, setPointsSinceOpen] = useState(false);
+  const [meetingSinceLocal, setMeetingSinceLocal] = useState(
+    defaultMeetingSinceLocal,
+  );
+  const [pointsSinceReport, setPointsSinceReport] =
+    useState<AdminJiraPointsSinceReport | null>(null);
+  const [pointsSinceLoading, setPointsSinceLoading] = useState(false);
+  const [pointsSinceError, setPointsSinceError] = useState<string | null>(null);
   const loadGeneration = useRef(0);
 
   const load = useCallback(
     async (
       targetMonth: number,
       targetYear: number,
-      options?: { preserveOnError?: boolean },
+      options?: { preserveOnError?: boolean; rp?: string },
     ) => {
       const generation = ++loadGeneration.current;
       setLoading(true);
@@ -81,6 +120,7 @@ export default function AdminJiraDelivery() {
       const res = await adminFetchJiraDeliveryReport({
         month: targetMonth,
         year: targetYear,
+        rp: options?.rp?.trim() || undefined,
       });
 
       if (generation !== loadGeneration.current) return;
@@ -101,11 +141,37 @@ export default function AdminJiraDelivery() {
   );
 
   useEffect(() => {
-    void load(month, year);
+    void load(month, year, { rp: rpFilter });
     return () => {
       loadGeneration.current += 1;
     };
-  }, [load, month, year]);
+  }, [load, month, year, rpFilter]);
+
+  const loadPointsSince = useCallback(async () => {
+    setPointsSinceLoading(true);
+    setPointsSinceError(null);
+    const since = new Date(meetingSinceLocal);
+    if (Number.isNaN(since.getTime())) {
+      setPointsSinceError("Enter a valid meeting date and time.");
+      setPointsSinceLoading(false);
+      return;
+    }
+    const res = await adminFetchJiraPointsSinceReport({
+      since: since.toISOString(),
+    });
+    if (!res.ok || !res.data) {
+      setPointsSinceError(res.error ?? "Failed to load report");
+      setPointsSinceLoading(false);
+      return;
+    }
+    setPointsSinceReport(res.data);
+    setPointsSinceLoading(false);
+  }, [meetingSinceLocal]);
+
+  useEffect(() => {
+    if (!pointsSinceOpen) return;
+    void loadPointsSince();
+  }, [pointsSinceOpen, loadPointsSince]);
 
   const chartRows = useMemo(
     () =>
@@ -134,7 +200,26 @@ export default function AdminJiraDelivery() {
             (created that month, any status), separate from Done-by-RP.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            onClick={() => setPointsSinceOpen(true)}
+          >
+            Points since last meeting
+          </Button>
+          <label className="text-sm text-muted-foreground" htmlFor="jira-rp">
+            RP filter
+          </label>
+          <input
+            id="jira-rp"
+            type="search"
+            placeholder="All RPs"
+            className="w-36 rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+            value={rpFilter}
+            onChange={(e) => setRpFilter(e.target.value)}
+          />
           <label className="text-sm text-muted-foreground" htmlFor="jira-month">
             Month
           </label>
@@ -156,13 +241,138 @@ export default function AdminJiraDelivery() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => void load(month, year, { preserveOnError: true })}
+            onClick={() =>
+              void load(month, year, { preserveOnError: true, rp: rpFilter })
+            }
             disabled={loading}
           >
             Refresh
           </Button>
         </div>
       </div>
+
+      <Dialog open={pointsSinceOpen} onOpenChange={setPointsSinceOpen}>
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Points since last meeting</DialogTitle>
+            <DialogDescription>
+              Done story points per RP from the selected meeting time through
+              now. Same counting rules as the monthly report (Done only, each
+              ticket once, missing estimates count as 1).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <label
+                className="text-sm text-muted-foreground"
+                htmlFor="meeting-since"
+              >
+                Previous meeting (local time)
+              </label>
+              <input
+                id="meeting-since"
+                type="datetime-local"
+                className="block rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+                value={meetingSinceLocal}
+                onChange={(e) => setMeetingSinceLocal(e.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pointsSinceLoading}
+              onClick={() => void loadPointsSince()}
+            >
+              {pointsSinceLoading ? "Refreshing…" : "Refresh"}
+            </Button>
+          </div>
+          {pointsSinceError ? (
+            <p className="text-sm text-destructive">{pointsSinceError}</p>
+          ) : null}
+          {pointsSinceReport?.configured === false ? (
+            <p className="text-sm text-muted-foreground">
+              Jira is not configured on the backend.
+            </p>
+          ) : null}
+          {pointsSinceReport?.configured ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {pointsSinceReport.completedIssueCount} Done tickets ·{" "}
+                {pointsSinceReport.totalPoints} points · generated{" "}
+                {formatResolvedAt(pointsSinceReport.reportGeneratedAt)}
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="py-2 pr-3 font-medium">Team member</th>
+                      <th className="py-2 pr-3 font-medium">Points</th>
+                      <th className="py-2 font-medium">Stories</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pointsSinceReport.members.map((member, index) => (
+                      <tr
+                        key={`${member.assigneeAccountId ?? "none"}:${member.assigneeDisplayName}:${index}`}
+                        className="border-b border-border/60 align-top"
+                      >
+                        <td className="py-2 pr-3">{member.assigneeDisplayName}</td>
+                        <td className="py-2 pr-3 tabular-nums">{member.points}</td>
+                        <td className="py-2">
+                          {member.storyCount === 0 ? (
+                            <span className="text-muted-foreground">0</span>
+                          ) : (
+                            <Collapsible>
+                              <CollapsibleTrigger className="text-left text-primary underline-offset-4 hover:underline">
+                                {member.storyCount} stor
+                                {member.storyCount === 1 ? "y" : "ies"}
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <ul className="mt-2 space-y-2 border-l border-border pl-3">
+                                  {member.stories.map((story) => (
+                                    <li key={story.key} className="text-xs">
+                                      <a
+                                        href={story.jiraUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="font-medium text-primary hover:underline"
+                                      >
+                                        {story.key}
+                                      </a>
+                                      <span className="text-muted-foreground">
+                                        {" "}
+                                        · {story.points} pt ·{" "}
+                                        {formatResolvedAt(story.resolvedAt)}
+                                      </span>
+                                      <div className="text-foreground">
+                                        {story.summary}
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setPointsSinceOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {error ? (
         <Card>
@@ -295,8 +505,10 @@ export default function AdminJiraDelivery() {
               <CardHeader>
                 <CardTitle className="text-base">Points by RP</CardTitle>
                 <CardDescription>
-                  Assignee when the story was Done. Suspended Jira accounts stay
-                  visible here (hidden from daily Slack).
+                  Assignee when the story was Done. Monthly targets from{" "}
+                  <code className="text-xs">JIRA_RP_STORY_POINT_THRESHOLDS</code>{" "}
+                  (35–70, no deploy). Suspended Jira accounts stay visible here
+                  (hidden from daily Slack).
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -309,6 +521,8 @@ export default function AdminJiraDelivery() {
                         <tr className="border-b text-left text-muted-foreground">
                           <th className="py-2 pr-3 font-medium">RP</th>
                           <th className="py-2 pr-3 font-medium">Points</th>
+                          <th className="py-2 pr-3 font-medium">Target</th>
+                          <th className="py-2 pr-3 font-medium">% of target</th>
                           <th className="py-2 font-medium">% of total</th>
                         </tr>
                       </thead>
@@ -329,6 +543,16 @@ export default function AdminJiraDelivery() {
                               </span>
                             </td>
                             <td className="py-2 pr-3 tabular-nums">{row.points}</td>
+                            <td className="py-2 pr-3 tabular-nums">
+                              {row.storyPointThreshold ?? "—"}
+                            </td>
+                            <td className="py-2 pr-3 tabular-nums">
+                              {row.percentTowardThreshold != null
+                                ? pct(row.percentTowardThreshold)
+                                : report.storyPointThresholdsConfigured
+                                  ? "—"
+                                  : "n/a"}
+                            </td>
                             <td className="py-2 tabular-nums">
                               {pct(row.percentOfTotal)}
                             </td>
@@ -338,6 +562,12 @@ export default function AdminJiraDelivery() {
                     </table>
                   </div>
                 )}
+                {report.storyPointThresholdLevels?.length ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Allowed monthly thresholds:{" "}
+                    {report.storyPointThresholdLevels.join(", ")}
+                  </p>
+                ) : null}
               </CardContent>
             </Card>
 
