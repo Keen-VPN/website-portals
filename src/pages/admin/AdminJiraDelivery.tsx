@@ -285,12 +285,11 @@ export default function AdminJiraDelivery() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() =>
-              void load(month, year, {
-                preserveOnError: true,
-                rp: rpFilterApplied,
-              })
-            }
+            onClick={() => {
+              const rp = rpFilterDraft.trim();
+              setRpFilterApplied(rp);
+              void load(month, year, { preserveOnError: true, rp });
+            }}
             disabled={loading}
           >
             Refresh
