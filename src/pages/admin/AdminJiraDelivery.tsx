@@ -222,10 +222,6 @@ export default function AdminJiraDelivery() {
       setPointsSinceLoading(false);
       return;
     }
-    if (res.data.since !== sinceIso) {
-      setPointsSinceLoading(false);
-      return;
-    }
     setPointsSinceReport(res.data);
     setPointsSinceLoading(false);
   }, [meetingSinceLocal]);
