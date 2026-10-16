@@ -48,6 +48,20 @@ import {
 } from "@/components/ui/select";
 
 const RP_FILTER_ALL = "__all__";
+const RP_OPTION_PREFIX = "rp:";
+
+function encodeRpSelectValue(displayName: string): string {
+  return `${RP_OPTION_PREFIX}${encodeURIComponent(displayName)}`;
+}
+
+function decodeRpSelectValue(value: string): string | null {
+  if (!value.startsWith(RP_OPTION_PREFIX)) return null;
+  try {
+    return decodeURIComponent(value.slice(RP_OPTION_PREFIX.length));
+  } catch {
+    return null;
+  }
+}
 
 function defaultMeetingSinceLocal(): string {
   const d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -159,10 +173,6 @@ export default function AdminJiraDelivery() {
       loadGeneration.current += 1;
     };
   }, [load, month, year, rpFilterApplied]);
-
-  useEffect(() => {
-    setRpFilterApplied("");
-  }, [month, year]);
 
   useEffect(() => {
     if (!report || rpFilterApplied) return;
@@ -283,9 +293,18 @@ export default function AdminJiraDelivery() {
             RP filter
           </label>
           <Select
-            value={rpFilterApplied || RP_FILTER_ALL}
+            value={
+              rpFilterApplied
+                ? encodeRpSelectValue(rpFilterApplied)
+                : RP_FILTER_ALL
+            }
             onValueChange={(value) => {
-              setRpFilterApplied(value === RP_FILTER_ALL ? "" : value);
+              if (value === RP_FILTER_ALL) {
+                setRpFilterApplied("");
+                return;
+              }
+              const name = decodeRpSelectValue(value);
+              setRpFilterApplied(name ?? "");
             }}
           >
             <SelectTrigger id="jira-rp" className="h-9 w-[11rem]">
@@ -294,7 +313,10 @@ export default function AdminJiraDelivery() {
             <SelectContent>
               <SelectItem value={RP_FILTER_ALL}>All RPs</SelectItem>
               {rpSelectOptions.map((name) => (
-                <SelectItem key={name} value={name}>
+                <SelectItem
+                  key={encodeRpSelectValue(name)}
+                  value={encodeRpSelectValue(name)}
+                >
                   {name}
                 </SelectItem>
               ))}
@@ -313,6 +335,8 @@ export default function AdminJiraDelivery() {
               const [y, m] = e.target.value.split("-").map(Number);
               if (!y || !m) return;
               if (isFutureMonth(m, y, initial)) return;
+              setRpFilterApplied("");
+              setRpDirectoryNames([]);
               setYear(y);
               setMonth(m);
             }}
