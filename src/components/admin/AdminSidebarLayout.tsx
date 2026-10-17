@@ -197,6 +197,15 @@ export default function AdminSidebarLayout() {
               <Activity className="h-4 w-4" />
               Connection Engagement
             </NavLink>
+            {can("nodes.mesh.read") ? (
+              <NavLink
+                to="/admin/network-mesh"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                <Activity className="h-4 w-4" />
+                Node mesh tests
+              </NavLink>
+            ) : null}
             <NavLink
               to="/admin/subscriptions"
               className={({ isActive }) => linkClass(isActive)}
