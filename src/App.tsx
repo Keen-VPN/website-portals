@@ -93,6 +93,9 @@ const AdminSubscriptionAnalytics = lazy(
 const AdminJiraDelivery = lazy(
   () => import("./pages/admin/AdminJiraDelivery"),
 );
+const AdminNetworkMesh = lazy(
+  () => import("./pages/admin/AdminNetworkMesh"),
+);
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminUserProfile = lazy(
   () => import("./pages/admin/AdminUserProfile"),
@@ -402,6 +405,7 @@ const App = () => (
                   path="connection-engagement"
                   element={<AdminConnectionEngagement />}
                 />
+                <Route path="network-mesh" element={<AdminNetworkMesh />} />
                 <Route
                   path="membership-transfer"
                   element={<MembershipTransferAdmin />}
