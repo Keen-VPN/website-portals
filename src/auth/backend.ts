@@ -11852,3 +11852,100 @@ export async function adminClassActionReviewDecision(
     `Failed to ${action} candidate`,
   );
 }
+
+export interface AdminNodeMeshRun {
+  id: string;
+  status: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  nodeCount: number;
+  totalTests: number;
+  completedTests: number;
+  failedTests: number;
+  concurrency: number;
+  createdAt: string;
+  errorMessage: string | null;
+}
+
+export interface AdminNodeMeshResultNode {
+  id: string;
+  region: string | null;
+  city: string | null;
+  country: string | null;
+  ip: string;
+}
+
+export interface AdminNodeMeshResult {
+  id: string;
+  runId: string;
+  sourceNodeId: string;
+  destNodeId: string;
+  status: string;
+  downloadMbps: number | null;
+  uploadMbps: number | null;
+  latencyMs: number | null;
+  packetLossPercent: number | null;
+  durationMs: number | null;
+  errorReason: string | null;
+  testedAt: string | null;
+  sourceNode?: AdminNodeMeshResultNode;
+  destNode?: AdminNodeMeshResultNode;
+}
+
+export interface AdminNodeMeshRunDetail extends AdminNodeMeshRun {
+  results: AdminNodeMeshResult[];
+}
+
+async function adminNodeMeshJson<T>(
+  path: string,
+  init?: RequestInit,
+  fallbackError = "Request failed",
+): Promise<{ ok: boolean; data?: T; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
+    }
+    const record = raw as { data?: T };
+    return { ok: true, data: (record.data ?? raw) as T };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export function adminFetchNodeMeshRuns(limit = 20) {
+  return adminNodeMeshJson<AdminNodeMeshRun[]>(
+    `/admin/node-mesh/runs?limit=${encodeURIComponent(String(limit))}`,
+    undefined,
+    "Failed to load mesh runs",
+  );
+}
+
+export function adminFetchNodeMeshRun(runId: string) {
+  return adminNodeMeshJson<AdminNodeMeshRunDetail>(
+    `/admin/node-mesh/runs/${encodeURIComponent(runId)}`,
+    undefined,
+    "Failed to load mesh run",
+  );
+}
+
+export function adminStartNodeMeshRun(body?: { concurrency?: number }) {
+  return adminNodeMeshJson<AdminNodeMeshRun>(`/admin/node-mesh/runs`, {
+    method: "POST",
+    body: JSON.stringify(body ?? {}),
+  }, "Failed to start mesh run");
+}
