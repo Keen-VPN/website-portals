@@ -105,28 +105,36 @@ export default function AdminNetworkMesh() {
       }
       if (!detailRes.ok || !detailRes.data) {
         setError(detailRes.error ?? "Failed to load run");
-        return;
+        return undefined;
       }
       setDetail(detailRes.data);
       setError(null);
       return detailRes.data.status;
     };
 
+    const isTerminalStatus = (status: string | undefined) =>
+      status !== undefined && TERMINAL_RUN_STATUSES.has(status);
+
     let timer: ReturnType<typeof setInterval> | undefined;
 
-    void (async () => {
-      const status = await refresh();
-      if (cancelled || !status || TERMINAL_RUN_STATUSES.has(status)) {
-        return;
-      }
+    const startPolling = () => {
       timer = window.setInterval(() => {
         void refresh().then((nextStatus) => {
-          if (nextStatus && TERMINAL_RUN_STATUSES.has(nextStatus) && timer) {
+          if (cancelled) return;
+          if (isTerminalStatus(nextStatus) && timer) {
             window.clearInterval(timer);
             timer = undefined;
           }
         });
       }, 8000);
+    };
+
+    void (async () => {
+      const status = await refresh();
+      if (cancelled || isTerminalStatus(status)) {
+        return;
+      }
+      startPolling();
     })();
 
     return () => {
