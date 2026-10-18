@@ -164,6 +164,7 @@ export function useLandingPage(): LandingVals {
       return;
     }
     let phase = 0;
+    setSPhase(0); // restart from "Checking…" (e.g. when reduced motion was just switched off)
     const id = setInterval(() => {
       phase = (phase + 1) % 3;
       setSPhase(phase);
