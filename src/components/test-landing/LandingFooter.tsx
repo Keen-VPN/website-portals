@@ -9,7 +9,7 @@ export default function LandingFooter({ v }: { v: LandingVals }) {
         <div style={{ maxWidth: "1280px", margin: "0 auto", display: "grid", gap: "48px" }}>
           <div className="kv-foot-cols" style={{ display: "grid", gap: "32px", fontSize: "14px" }}>
             <div style={{ display: "grid", gap: "10px", alignContent: "start" }}>
-              <span style={{ color: "#fff", fontWeight: "600" }}>Features</span>
+              <h3 style={{ margin: "0", color: "#fff", fontWeight: "600", fontSize: "inherit", lineHeight: "inherit" }}>Features</h3>
               <a href={marketingSiteUrl("/settlements.html")} style={{ color: "#c3cbdc" }}>Class action settlements</a>
               <a href={"#cookies"} style={{ color: "#c3cbdc" }}>Cookie banner blocking</a>
               <a href={marketingSiteUrl("/kill-switch.html")} style={{ color: "#c3cbdc" }}>Kill switch</a>
@@ -19,20 +19,20 @@ export default function LandingFooter({ v }: { v: LandingVals }) {
               <a href={marketingSiteUrl("/high-speed-vpn.html")} style={{ color: "#c3cbdc" }}>High-speed VPN</a>
             </div>
             <div style={{ display: "grid", gap: "10px", alignContent: "start" }}>
-              <span style={{ color: "#fff", fontWeight: "600" }}>KeenVPN</span>
+              <h3 style={{ margin: "0", color: "#fff", fontWeight: "600", fontSize: "inherit", lineHeight: "inherit" }}>KeenVPN</h3>
               <Link to={"/switch"} style={{ color: "#c3cbdc" }}>Transfer</Link>
               <a href={marketingSiteUrl("/settlements.html")} style={{ color: "#c3cbdc" }}>Settlements</a>
               <Link to={"/servers"} style={{ color: "#c3cbdc" }}>Server locations</Link>
               <Link to={"/pricing"} style={{ color: "#c3cbdc" }}>Pricing</Link>
             </div>
             <div style={{ display: "grid", gap: "10px", alignContent: "start" }}>
-              <span style={{ color: "#fff", fontWeight: "600" }}>Resources</span>
+              <h3 style={{ margin: "0", color: "#fff", fontWeight: "600", fontSize: "inherit", lineHeight: "inherit" }}>Resources</h3>
               <a href={marketingSiteUrl("/blog/")} style={{ color: "#c3cbdc" }}>Blog</a>
               <a href={"https://apps.apple.com/ng/app/keenvpn-secure-vpn/id6751677565?mt=12"} style={{ color: "#c3cbdc" }}>Download for macOS</a>
               <a href={"https://apps.apple.com/ng/app/keenvpn-secure-vpn/id6753761859"} style={{ color: "#c3cbdc" }}>Download for iOS</a>
             </div>
             <div style={{ display: "grid", gap: "10px", alignContent: "start" }}>
-              <span style={{ color: "#fff", fontWeight: "600" }}>Legal</span>
+              <h3 style={{ margin: "0", color: "#fff", fontWeight: "600", fontSize: "inherit", lineHeight: "inherit" }}>Legal</h3>
               <Link to={"/terms"} style={{ color: "#c3cbdc" }}>Terms</Link>
               <Link to={"/privacy"} style={{ color: "#c3cbdc" }}>Privacy</Link>
               <Link to={"/delete-account"} style={{ color: "#c3cbdc" }}>Delete account</Link>

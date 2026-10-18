@@ -10,7 +10,7 @@ export default function LandingCookies({ v }: { v: LandingVals }) {
     <>
       <section id="cookies" data-screen-label="Cookies" data-track-section="cookies" style={{ padding: "clamp(72px,9vw,128px) 24px" }}>
         <div style={{ maxWidth: "1280px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,460px),1fr))", gap: "clamp(40px,6vw,88px)", alignItems: "center" }}>
-          <div data-reveal="" style={{ position: "relative", border: "1px solid #e0d8c7", borderRadius: "14px", background: "#fff", overflow: "hidden", height: "420px", boxShadow: "0 30px 60px -36px rgba(15,32,64,.35)" }}>
+          <div data-reveal="" aria-hidden="true" style={{ position: "relative", border: "1px solid #e0d8c7", borderRadius: "14px", background: "#fff", overflow: "hidden", height: "420px", boxShadow: "0 30px 60px -36px rgba(15,32,64,.35)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", borderBottom: "1px solid #eee7d9", background: "#f6f1e7" }}>
               <div style={{ display: "flex", gap: "6px" }}>
                 <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#d9cfbd" }} />
@@ -186,7 +186,7 @@ export default function LandingCookies({ v }: { v: LandingVals }) {
               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                 {v.cookieModes.map((m, i) => (
                   <Fragment key={i}>
-                    <button type="button" style={{ font: "inherit", fontSize: "15px", fontWeight: "600", padding: "10px 16px", borderRadius: "8px", cursor: "pointer", border: `1px solid ${m.border}`, background: m.bg, color: m.color }} onClick={m.select}>{m.label}</button>
+                    <button type="button" aria-pressed={m.on} style={{ font: "inherit", fontSize: "15px", fontWeight: "600", padding: "10px 16px", borderRadius: "8px", cursor: "pointer", border: `1px solid ${m.border}`, background: m.bg, color: m.color }} onClick={m.select}>{m.label}</button>
                   </Fragment>
                 ))}
               </div>

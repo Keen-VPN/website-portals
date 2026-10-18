@@ -22,7 +22,7 @@ const hrefs = [...html.matchAll(/<a [^>]*href="([^"]*)"/g)].map((m) => m[1]);
 
 const appSource = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 const routes = new Set(
-  [...appSource.matchAll(/path="(\/[^"]*)"/g)].map((m) => m[1]),
+  [...appSource.matchAll(/<Route\s+path="(\/[^"]*)"/g)].map((m) => m[1]),
 );
 
 describe("TestLandingPage", () => {

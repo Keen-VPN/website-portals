@@ -92,7 +92,7 @@ function proj(v: Vec3, cosA: number, sinA: number, cosT: number, sinT: number): 
   return [x1, y2, z2];
 }
 
-function buildDots(topo: Topology | null): Float32Array {
+function buildDots(topo: Topology | null, count: number): Float32Array {
   const W = 2048;
   const H = 1024;
   let mask: Uint8ClampedArray | null = null;
@@ -143,7 +143,7 @@ function buildDots(topo: Topology | null): Float32Array {
       mask = x.getImageData(0, 0, W, H).data;
     }
   }
-  const N = 80000;
+  const N = count;
   const out: number[] = [];
   const ga = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < N; i++) {
@@ -165,6 +165,13 @@ function buildDots(topo: Topology | null): Float32Array {
   return new Float32Array(out);
 }
 
+/** Fewer dots on phones and low-power devices keeps the per-frame canvas work light. */
+function dotCount(): number {
+  const small = window.innerWidth < 700;
+  const lowPower = (navigator.hardwareConcurrency ?? 8) <= 4;
+  return small || lowPower ? 28000 : 80000;
+}
+
 function drawGlobe(
   g: GlobeState,
   c: HTMLCanvasElement,
@@ -172,6 +179,8 @@ function drawGlobe(
   opts: CanvasOptions,
 ) {
   if (!g.w) return;
+  const rect = c.getBoundingClientRect();
+  if (rect.bottom < 0 || rect.top > window.innerHeight) return; // off-screen
   const ctx = c.getContext("2d");
   if (!ctx) return;
   const { dpr, w, h } = g;
@@ -333,7 +342,7 @@ function drawTunnel(tn: TunnelState, c: HTMLCanvasElement, t: number, reduce: bo
   const r = c.getBoundingClientRect();
   if (r.bottom < 0 || r.top > window.innerHeight) return;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  if (c.width !== Math.round(r.width * dpr)) {
+  if (c.width !== Math.round(r.width * dpr) || c.height !== Math.round(r.height * dpr)) {
     c.width = Math.round(r.width * dpr);
     c.height = Math.round(r.height * dpr);
   }
@@ -455,10 +464,10 @@ export function startLandingCanvases(opts: CanvasOptions): () => void {
     fetch(landTopoUrl)
       .then((r) => r.json() as Promise<Topology>)
       .then((topo) => {
-        if (!stopped) g.pts = buildDots(topo);
+        if (!stopped) g.pts = buildDots(topo, dotCount());
       })
       .catch(() => {
-        if (!stopped) g.pts = buildDots(null);
+        if (!stopped) g.pts = buildDots(null, dotCount());
       });
   }
 

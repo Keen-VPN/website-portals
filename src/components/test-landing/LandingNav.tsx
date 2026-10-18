@@ -5,23 +5,6 @@ import type { LandingVals } from "./useLandingPage";
 export default function LandingNav({ v }: { v: LandingVals }) {
   return (
     <>
-      <div style={{ background: "#151515", color: "#d9d9d9", fontSize: "13px", display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "6px 18px", padding: "8px 16px" }}>
-        <span>
-          Your IP:
-          {" "}
-          <b style={{ color: "#fff" }}>154.113.177.121</b>
-        </span>
-        <span>
-          Your ISP:
-          {" "}
-          <b style={{ color: "#fff" }}>Unknown</b>
-        </span>
-        <span>
-          Your Status:
-          {" "}
-          <b style={{ color: "#ff5a3c", textDecoration: "underline" }}>Unprotected</b>
-        </span>
-      </div>
       <header style={{ position: "sticky", top: "12px", zIndex: "20", height: "60px", margin: "12px 0 -72px", padding: "0 16px", pointerEvents: "none", transform: v.navTransform, transition: "transform .35s cubic-bezier(.4,0,.2,1)" }}>
         <div style={{ position: "relative", maxWidth: "1180px", height: "60px", margin: "0 auto", pointerEvents: "auto" }}>
           <div style={{ height: "60px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "0 8px 0 18px", borderRadius: "999px", background: "rgba(250,246,238,.82)", backdropFilter: "blur(16px) saturate(1.4)", WebkitBackdropFilter: "blur(16px) saturate(1.4)", border: "1px solid rgba(15,32,64,.08)", boxShadow: "0 10px 30px -12px rgba(15,32,64,.35),inset 0 1px 0 rgba(255,255,255,.6)" }}>
@@ -232,13 +215,13 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                   <path d="m6 9 6 6 6-6" />
                 </svg>
               </summary>
-              <a href={"https://apps.microsoft.com/store/detail/9NZZ9WCFKKBG?cid=DevShareMCLPCS"} rel="noopener" onClick={v.closeMenu}>Download for Windows</a>
-              <a href={"https://apps.apple.com/ng/app/keenvpn-secure-vpn/id6751677565?mt=12"} rel="noopener" onClick={v.closeMenu}>Download for macOS</a>
-              <a href={"https://apps.apple.com/ng/app/keenvpn-secure-vpn/id6753761859"} rel="noopener" onClick={v.closeMenu}>Download for iOS</a>
-              <a href={"https://play.google.com/store/apps/details?id=com.keenvpnapp.app"} rel="noopener" onClick={v.closeMenu}>Download for Android</a>
-              <a href={"https://chromewebstore.google.com/detail/keenvpn-%E2%80%94-browser-protect/fdmiheabmohipekdgphijdboe"} rel="noopener" onClick={v.closeMenu}>Download for Chrome</a>
+              <a href={"https://apps.microsoft.com/store/detail/9NZZ9WCFKKBG?cid=DevShareMCLPCS"} rel="noopener" data-track="nav_mobile_download_windows" onClick={v.trackAndClose}>Download for Windows</a>
+              <a href={"https://apps.apple.com/ng/app/keenvpn-secure-vpn/id6751677565?mt=12"} rel="noopener" data-track="nav_mobile_download_macos" onClick={v.trackAndClose}>Download for macOS</a>
+              <a href={"https://apps.apple.com/ng/app/keenvpn-secure-vpn/id6753761859"} rel="noopener" data-track="nav_mobile_download_ios" onClick={v.trackAndClose}>Download for iOS</a>
+              <a href={"https://play.google.com/store/apps/details?id=com.keenvpnapp.app"} rel="noopener" data-track="nav_mobile_download_android" onClick={v.trackAndClose}>Download for Android</a>
+              <a href={"https://chromewebstore.google.com/detail/keenvpn-%E2%80%94-browser-protect/fdmiheabmohipekdgphijdboe"} rel="noopener" data-track="nav_mobile_download_chrome" onClick={v.trackAndClose}>Download for Chrome</a>
             </details>
-            <Link to={"/signin"} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500", borderTop: "1px solid rgba(15,32,64,.08)", marginTop: "6px" }} onClick={v.closeMenu}>Log in</Link>
+            <Link to={"/signin"} className="kvh3" data-track="nav_mobile_login" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500", borderTop: "1px solid rgba(15,32,64,.08)", marginTop: "6px" }} onClick={v.trackAndClose}>Log in</Link>
           </div>
         </div>
       </header>

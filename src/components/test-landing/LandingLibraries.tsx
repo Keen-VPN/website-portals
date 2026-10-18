@@ -10,8 +10,8 @@ export default function LandingLibraries({ v }: { v: LandingVals }) {
           <div data-reveal="" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
             <span style={{ alignSelf: "flex-start", background: "#141a2b", color: "#fff", fontSize: "12px", fontWeight: "600", letterSpacing: ".06em", textTransform: "uppercase", padding: "5px 10px", borderRadius: "4px" }}>80+ server locations</span>
             <h2 style={{ margin: "0", fontSize: "clamp(36px,4.6vw,60px)", lineHeight: "1.04", letterSpacing: "-.03em", fontWeight: "700", textWrap: "balance", color: "#fff" }}>Access online libraries across countries.</h2>
-            <p style={{ margin: "0", fontSize: "19px", lineHeight: "1.55", color: "#fff", maxWidth: "520px", textWrap: "pretty" }}>Connect to a KeenVPN server in another country and explore the content and libraries offered there. Travelling? Stay connected to the services you use at home.</p>
-            <p style={{ margin: "0", fontSize: "14px", lineHeight: "1.5", color: "rgba(255,255,255,.88)", maxWidth: "520px" }}>What's available depends on each service's catalog, terms and licensing in that region.</p>
+            <p style={{ margin: "0", fontSize: "19px", lineHeight: "1.55", color: "#141a2b", maxWidth: "520px", textWrap: "pretty" }}>Connect to a KeenVPN server in another country and explore the content and libraries offered there. Travelling? Stay connected to the services you use at home.</p>
+            <p style={{ margin: "0", fontSize: "14px", lineHeight: "1.5", color: "#141a2b", maxWidth: "520px" }}>What's available depends on each service's catalog, terms and licensing in that region.</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
               <Link to={"/servers"} data-track="libraries_locations" className="kvh2" style={{ background: "#141a2b", color: "#fff", fontWeight: "600", fontSize: "16px", padding: "14px 22px", borderRadius: "8px" }} onClick={v.track}>See server locations ›</Link>
             </div>
@@ -26,7 +26,7 @@ export default function LandingLibraries({ v }: { v: LandingVals }) {
             </div>
             <div style={{ position: "relative", height: "320px", overflow: "hidden", borderRadius: "10px", background: "#0f1424" }}>
               <div style={{ position: "absolute", left: "0", right: "0", top: "128px", height: "64px", background: "rgba(245,102,15,.16)", borderTop: "1px solid rgba(245,102,15,.6)", borderBottom: "1px solid rgba(245,102,15,.6)" }} />
-              <div style={{ position: "absolute", left: "0", right: "0", top: v.boardTop, transform: v.boardTransform, transition: v.boardTransition }}>
+              <div aria-hidden="true" style={{ position: "absolute", left: "0", right: "0", top: v.boardTop, transform: v.boardTransform, transition: v.boardTransition }}>
                 {v.boardRows.map((r, i) => (
                   <Fragment key={i}>
                     <div style={{ height: "64px", display: "grid", gridTemplateColumns: "34px 1fr auto", alignItems: "center", gap: "14px", padding: "0 20px" }}>

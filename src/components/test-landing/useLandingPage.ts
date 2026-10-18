@@ -50,6 +50,7 @@ interface SettlementRow {
 interface CookieMode {
   label: string;
   select: () => void;
+  on: boolean;
   bg: string;
   color: string;
   border: string;
@@ -69,6 +70,7 @@ export interface LandingVals {
   track: (e: MouseEvent<HTMLElement>) => void;
   toggleMenu: () => void;
   closeMenu: () => void;
+  trackAndClose: (e: MouseEvent<HTMLElement>) => void;
   navTransform: string;
   navDisplay: string;
   burgerDisplay: string;
@@ -80,7 +82,6 @@ export interface LandingVals {
   scanLabel: string;
   cookieModes: CookieMode[];
   cookieSite: string;
-  cookieCount: string;
   siteOp0: number; siteOp1: number; siteOp2: number; siteOp3: number;
   siteZ0: number; siteZ1: number; siteZ2: number; siteZ3: number;
   siteTr0: string; siteTr1: string; siteTr2: string; siteTr3: string;
@@ -115,12 +116,17 @@ export function useLandingPage(): LandingVals {
   const [sIdx, setSIdx] = useState(0);
   const [sPhase, setSPhase] = useState(0);
   const [cPhase, setCPhase] = useState(0);
-  const [cCount, setCCount] = useState(1284);
   const [cMode, setCMode] = useState(0);
   const [siteIdx, setSiteIdx] = useState(0);
   const [bIdx, setBIdx] = useState(0);
   const [bNoTrans, setBNoTrans] = useState(false);
   const [vw, setVw] = useState(() => (typeof window === "undefined" ? 1400 : window.innerWidth));
+
+  const [reduce] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches),
+  );
 
   const navHiddenRef = useRef(false);
   navHiddenRef.current = navHidden;
@@ -130,6 +136,14 @@ export function useLandingPage(): LandingVals {
   const track = useCallback((e: MouseEvent<HTMLElement>) => {
     pushDataLayer({ event: "cta_click", cta: e.currentTarget.getAttribute("data-track") });
   }, []);
+
+  const trackAndClose = useCallback(
+    (e: MouseEvent<HTMLElement>) => {
+      track(e);
+      setMenuOpen(false);
+    },
+    [track],
+  );
 
   // Settlement checker: cycles Checking -> Qualify -> next.
   useEffect(() => {
@@ -144,10 +158,12 @@ export function useLandingPage(): LandingVals {
 
   // Cookie-banner demo loop.
   useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = [];
+    let timers: ReturnType<typeof setTimeout>[] = [];
     const run = () => {
+      timers.forEach(clearTimeout);
+      timers = [];
       setCPhase(1);
-      timers.push(setTimeout(() => { setCPhase(2); setCCount((n) => n + 1); }, 1500));
+      timers.push(setTimeout(() => { setCPhase(2); }, 1500));
       timers.push(
         setTimeout(() => { setCPhase(0); setSiteIdx((i) => (i + 1) % SITES.length); }, 3400),
       );
@@ -162,7 +178,7 @@ export function useLandingPage(): LandingVals {
 
   // Server-location board scroller.
   useEffect(() => {
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) return; // keep the board static
     let idx = 0;
     let reset: ReturnType<typeof setTimeout> | undefined;
     const id = setInterval(() => {
@@ -176,12 +192,12 @@ export function useLandingPage(): LandingVals {
           setBNoTrans(true);
         }, 800);
       }
-    }, reduce ? 4000 : 2200);
+    }, 2200);
     return () => {
       clearInterval(id);
       if (reset) clearTimeout(reset);
     };
-  }, []);
+  }, [reduce]);
 
   // Viewport width (drives nav layout).
   useEffect(() => {
@@ -279,12 +295,6 @@ export function useLandingPage(): LandingVals {
     if (!root || !("IntersectionObserver" in window)) return;
     const els = root.querySelectorAll<HTMLElement>("[data-reveal]");
     const vh = window.innerHeight;
-    const showAll = () =>
-      els.forEach((el) => {
-        el.style.opacity = "1";
-        el.style.transform = "none";
-      });
-    const fallback = setTimeout(showAll, 1800);
     els.forEach((el) => {
       if (el.getBoundingClientRect().top < vh) return;
       el.style.opacity = "0";
@@ -312,20 +322,18 @@ export function useLandingPage(): LandingVals {
     els.forEach((el) => io.observe(el));
     root.querySelectorAll("[data-track-section]").forEach((el) => io.observe(el));
     return () => {
-      clearTimeout(fallback);
       io.disconnect();
     };
   }, []);
 
   // Globe + tunnel canvases.
   useEffect(() => {
-    const reduce = Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
     return startLandingCanvases({
       globe: globeRef.current,
       tunnel: tunnelRef.current,
       reduce,
     });
-  }, []);
+  }, [reduce]);
 
   const narrow = vw < BREAKPOINT;
   const settlements: SettlementRow[] = SETTLEMENTS.map((it, i) => {
@@ -349,6 +357,7 @@ export function useLandingPage(): LandingVals {
     return {
       label,
       select: () => setCMode(i),
+      on,
       bg: on ? "#0f2040" : "transparent",
       color: on ? "#fff" : "#0f2040",
       border: on ? "#0f2040" : "#cfc6b3",
@@ -364,7 +373,7 @@ export function useLandingPage(): LandingVals {
   const siteTr = (i: number) => (siteIdx === i ? "opacity .45s ease" : "opacity 0s linear .45s");
 
   return {
-    rootRef, globeRef, tunnelRef, track, toggleMenu, closeMenu,
+    rootRef, globeRef, tunnelRef, track, toggleMenu, closeMenu, trackAndClose,
     navTransform: navHidden ? "translateY(-100px)" : "translateY(0)",
     navDisplay: narrow ? "none" : "flex",
     burgerDisplay: narrow ? "flex" : "none",
@@ -373,10 +382,9 @@ export function useLandingPage(): LandingVals {
     menuExpanded: menuOpen ? "true" : "false",
     burgerPath: menuOpen ? "M6 6l12 12M18 6 6 18" : "M4 7h16M4 12h16M4 17h16",
     settlements,
-    scanLabel: "Matching against your account",
+    scanLabel: "Illustrative example",
     cookieModes,
     cookieSite: SITES[siteIdx],
-    cookieCount: cCount.toLocaleString("en-US"),
     siteOp0: siteIdx === 0 ? 1 : 0, siteOp1: siteIdx === 1 ? 1 : 0,
     siteOp2: siteIdx === 2 ? 1 : 0, siteOp3: siteIdx === 3 ? 1 : 0,
     siteZ0: siteIdx === 0 ? 2 : 1, siteZ1: siteIdx === 1 ? 2 : 1,
@@ -390,6 +398,6 @@ export function useLandingPage(): LandingVals {
     boardRows,
     boardTop: 128 - BOARD.length * 64 + "px",
     boardTransform: "translateY(" + -bIdx * 64 + "px)",
-    boardTransition: bNoTrans ? "none" : "transform .7s cubic-bezier(.6,0,.2,1)",
+    boardTransition: bNoTrans || reduce ? "none" : "transform .7s cubic-bezier(.6,0,.2,1)",
   };
 }
