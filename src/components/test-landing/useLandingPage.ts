@@ -159,17 +159,26 @@ export function useLandingPage(): LandingVals {
 
   // Settlement checker: cycles Checking -> Qualify -> next.
   useEffect(() => {
+    if (reduce) {
+      setSPhase(1); // hold the "you may qualify" state instead of cycling
+      return;
+    }
     let phase = 0;
+    setSPhase(0); // restart from "Checking…" (e.g. when reduced motion was just switched off)
     const id = setInterval(() => {
       phase = (phase + 1) % 3;
       setSPhase(phase);
       if (phase === 0) setSIdx((i) => (i + 1) % SETTLEMENTS.length);
     }, 1300);
     return () => clearInterval(id);
-  }, []);
+  }, [reduce]);
 
   // Cookie-banner demo loop.
   useEffect(() => {
+    if (reduce) {
+      setCPhase(1); // keep the banner on screen instead of cycling
+      return;
+    }
     let timers: ReturnType<typeof setTimeout>[] = [];
     const run = () => {
       timers.forEach(clearTimeout);
@@ -186,7 +195,7 @@ export function useLandingPage(): LandingVals {
       clearInterval(id);
       timers.forEach(clearTimeout);
     };
-  }, []);
+  }, [reduce]);
 
   // Server-location board scroller.
   useEffect(() => {

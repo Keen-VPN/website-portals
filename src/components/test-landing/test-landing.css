@@ -82,3 +82,6 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+/* footer links: inline colours would otherwise swallow the hover state */
+.kv-landing footer a:hover { color: #fff !important; }

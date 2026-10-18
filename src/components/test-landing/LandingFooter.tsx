@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { marketingSiteUrl } from "@/lib/site-urls";
+import { APP_STORE_URLS } from "@/constants/app-store-urls";
 import type { LandingVals } from "./useLandingPage";
 
 export default function LandingFooter({ v }: { v: LandingVals }) {
@@ -28,8 +29,8 @@ export default function LandingFooter({ v }: { v: LandingVals }) {
             <div style={{ display: "grid", gap: "10px", alignContent: "start" }}>
               <h3 style={{ margin: "0", color: "#fff", fontWeight: "600", fontSize: "inherit", lineHeight: "inherit" }}>Resources</h3>
               <a href={marketingSiteUrl("/blog/")} style={{ color: "#c3cbdc" }}>Blog</a>
-              <a href={"https://apps.apple.com/ng/app/keenvpn-secure-vpn/id6751677565?mt=12"} style={{ color: "#c3cbdc" }}>Download for macOS</a>
-              <a href={"https://apps.apple.com/ng/app/keenvpn-secure-vpn/id6753761859"} style={{ color: "#c3cbdc" }}>Download for iOS</a>
+              <a href={APP_STORE_URLS.macos} style={{ color: "#c3cbdc" }}>Download for macOS</a>
+              <a href={APP_STORE_URLS.ios} style={{ color: "#c3cbdc" }}>Download for iOS</a>
             </div>
             <div style={{ display: "grid", gap: "10px", alignContent: "start" }}>
               <h3 style={{ margin: "0", color: "#fff", fontWeight: "600", fontSize: "inherit", lineHeight: "inherit" }}>Legal</h3>

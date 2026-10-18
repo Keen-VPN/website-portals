@@ -26,7 +26,7 @@ const routes = new Set(
 );
 
 describe("TestLandingPage", () => {
-  it("is registered as a public route", () => {
+  it("is registered in the app routes", () => {
     expect(routes.has("/test-landing-page")).toBe(true);
   });
 
