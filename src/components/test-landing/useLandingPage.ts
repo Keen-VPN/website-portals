@@ -3,6 +3,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type MouseEvent,
   type RefObject,
 } from "react";
@@ -105,6 +106,21 @@ function pushDataLayer(event: Record<string, unknown>) {
 }
 
 const BREAKPOINT = 1100;
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+function subscribeReducedMotion(onChange: () => void) {
+  const mq = window.matchMedia?.(REDUCED_MOTION_QUERY);
+  mq?.addEventListener("change", onChange);
+  return () => mq?.removeEventListener("change", onChange);
+}
+function getReducedMotion() {
+  return Boolean(window.matchMedia?.(REDUCED_MOTION_QUERY).matches);
+}
+
+/** Live value of the user's reduced-motion preference. */
+function usePrefersReducedMotion() {
+  return useSyncExternalStore(subscribeReducedMotion, getReducedMotion, () => false);
+}
 
 export function useLandingPage(): LandingVals {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -122,11 +138,7 @@ export function useLandingPage(): LandingVals {
   const [bNoTrans, setBNoTrans] = useState(false);
   const [vw, setVw] = useState(() => (typeof window === "undefined" ? 1400 : window.innerWidth));
 
-  const [reduce] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches),
-  );
+  const reduce = usePrefersReducedMotion();
 
   const navHiddenRef = useRef(false);
   navHiddenRef.current = navHidden;
@@ -295,12 +307,13 @@ export function useLandingPage(): LandingVals {
     if (!root || !("IntersectionObserver" in window)) return;
     const els = root.querySelectorAll<HTMLElement>("[data-reveal]");
     const vh = window.innerHeight;
-    els.forEach((el) => {
-      if (el.getBoundingClientRect().top < vh) return;
-      el.style.opacity = "0";
-      el.style.transform = "translateY(28px)";
-      el.style.transition = "opacity .9s ease, transform .9s cubic-bezier(.2,.8,.2,1)";
-    });
+    if (!reduce) {      els.forEach((el) => {
+        if (el.getBoundingClientRect().top < vh) return;
+        el.style.opacity = "0";
+        el.style.transform = "translateY(28px)";
+        el.style.transition = "opacity .9s ease, transform .9s cubic-bezier(.2,.8,.2,1)";
+      });
+    }
     const seen = new Set<string>();
     const io = new IntersectionObserver(
       (entries) =>
@@ -323,8 +336,14 @@ export function useLandingPage(): LandingVals {
     root.querySelectorAll("[data-track-section]").forEach((el) => io.observe(el));
     return () => {
       io.disconnect();
+      // Never leave content hidden (e.g. the preference flipped to "reduce" mid-session).
+      els.forEach((el) => {
+        el.style.opacity = "1";
+        el.style.transform = "none";
+        el.style.transition = "none";
+      });
     };
-  }, []);
+  }, [reduce]);
 
   // Globe + tunnel canvases.
   useEffect(() => {

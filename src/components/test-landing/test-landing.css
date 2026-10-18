@@ -72,3 +72,13 @@
 
 /* tracking tunnel animation: taller on phones so the lower "watchers" clear the bottom labels */
 @media (max-width: 599px) { .kv-landing .kv-tunnel { height: 410px !important; } }
+
+/* Honour "reduce motion" for every CSS transition/animation on the page (nav hide, cookie banner/toast, FAQ, hovers). */
+@media (prefers-reduced-motion: reduce) {
+  .kv-landing, .kv-landing *, .kv-landing *::before, .kv-landing *::after {
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
