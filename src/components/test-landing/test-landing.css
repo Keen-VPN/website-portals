@@ -1,0 +1,84 @@
+/* Styles for the /test-landing-page design. Everything is scoped under .kv-landing. */
+.kv-landing { -webkit-text-size-adjust: 100%; }
+.kv-landing, .kv-landing * { box-sizing: border-box; }
+.kv-landing a { color: #0f2040; text-decoration: none; }
+.kv-landing a:hover { color: #f5660f; }
+
+/* header dropdowns */
+.kv-landing .kvdd { position: relative; }
+.kv-landing .kvdd > button { padding: 9px 14px; border-radius: 999px; color: #0f2040; background: none; border: 0; font: inherit; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.kv-landing .kvdd > button:hover, .kv-landing .kvdd.open > button { background: rgba(15,32,64,.07); }
+.kv-landing .kvdd > button svg { transition: transform .2s; }
+.kv-landing .kvdd.open > button svg { transform: rotate(180deg); }
+.kv-landing .kvdd-menu { position: absolute; left: 50%; top: calc(100% + 14px); transform: translate(-50%,6px); min-width: 300px; padding: 8px; border-radius: 20px; background: rgba(250,246,238,.97); backdrop-filter: blur(16px); border: 1px solid rgba(15,32,64,.08); box-shadow: 0 24px 48px -16px rgba(15,32,64,.45); opacity: 0; visibility: hidden; transition: opacity .18s, transform .18s; }
+.kv-landing .kvdd-menu::before { content: ""; position: absolute; left: -12px; right: -12px; top: -24px; height: 24px; }
+.kv-landing .kvdd.open .kvdd-menu { opacity: 1; visibility: visible; transform: translate(-50%,0); }
+.kv-landing .kvdd-menu a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; font-size: 14.5px; color: #0f2040; }
+.kv-landing .kvdd-menu a:hover { background: rgba(15,32,64,.06); color: #0f2040; }
+.kv-landing .kvdd-menu small { display: block; color: #4d5568; font-size: 12.5px; font-weight: 400; }
+.kv-landing .kvdd-menu b { font-weight: 600; }
+.kv-landing .kvico { flex: none; width: 34px; height: 34px; border-radius: 10px; background: #fdeadb; color: #f5660f; display: grid; place-items: center; }
+
+/* mobile menu accordions */
+.kv-landing .kvmd summary { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; border-radius: 12px; color: #0f2040; font-weight: 500; cursor: pointer; list-style: none; }
+.kv-landing .kvmd summary::-webkit-details-marker { display: none; }
+.kv-landing .kvmd summary:hover { background: rgba(15,32,64,.06); }
+.kv-landing .kvmd[open] summary svg { transform: rotate(180deg); }
+.kv-landing .kvmd a { display: block; padding: 11px 14px 11px 28px; border-radius: 12px; color: #4d5568; font-weight: 400; }
+.kv-landing .kvmd a:hover { background: rgba(15,32,64,.06); color: #0f2040; }
+
+/* FAQ */
+.kv-landing .kv-faq summary { list-style: none; cursor: pointer; }
+.kv-landing .kv-faq summary::-webkit-details-marker { display: none; }
+.kv-landing .kv-faq summary:hover .kv-pl { background: #fdeadb !important; }
+.kv-landing .kv-faq summary:focus-visible { outline: 2px solid #f5660f; outline-offset: 2px; }
+.kv-landing .kv-faq details[open] { border-color: rgba(245,102,15,.45) !important; box-shadow: 0 18px 36px -24px rgba(245,102,15,.45); }
+.kv-landing .kv-faq details[open] .kv-pl { transform: rotate(45deg); background: #f5660f !important; color: #fff !important; }
+.kv-landing .kv-faq details[open] .kv-a { animation: kvFaqIn .3s ease; }
+@keyframes kvFaqIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* hover states (design's style-hover attributes) */
+.kv-landing .kvh1:hover { background:rgba(15,32,64,.07) !important; color:#0f2040 !important; }
+.kv-landing .kvh2:hover { background:#0f2040 !important; color:#fff !important; }
+.kv-landing .kvh3:hover { background:rgba(15,32,64,.06) !important; color:#0f2040 !important; }
+.kv-landing .kvh4:hover { background:#ff7a2a !important; color:#fff !important; }
+.kv-landing .kvh5:hover { background:rgba(36,62,112,.9) !important; border-color:rgba(255,255,255,.5) !important; color:#fff !important; }
+.kv-landing .kvh6:hover { background:#fff3e8 !important; color:#141a2b !important; }
+.kv-landing .kvh7:hover { border-color:#0f2040 !important; color:#0f2040 !important; }
+.kv-landing .kvh8:hover { background:#0f2040 !important; color:#fff !important; border-color:#0f2040 !important; }
+.kv-landing .kvh9:hover { background:#f5660f !important; border-color:#f5660f !important; color:#fff !important; }
+
+/* quick-link strip under the hero: 4 across, 2x2 on tablets, stacked on phones (no orphan cell) */
+.kv-landing .kv-quick { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1099px) { .kv-landing .kv-quick { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 559px) { .kv-landing .kv-quick { grid-template-columns: 1fr; } }
+
+/* tracking pillars (4 items): 4 across, 2x2 below 840px, stacked on small phones */
+.kv-landing .kv-pillars { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 839px) { .kv-landing .kv-pillars { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 479px) { .kv-landing .kv-pillars { grid-template-columns: 1fr; } }
+
+/* footer link columns (4 items): 4 across, 2x2 below 700px */
+.kv-landing .kv-foot-cols { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 699px) { .kv-landing .kv-foot-cols { grid-template-columns: repeat(2, 1fr); } }
+
+/* cookie demo "mini browser": simplify the fake sites on narrow screens */
+.kv-landing .kv-mini-logo { white-space: nowrap; }
+@media (max-width: 599px) {
+  .kv-landing .kv-mini-page { padding: 14px 16px !important; }
+  .kv-landing .kv-mini-links { display: none !important; }
+  .kv-landing .kv-mini-rel > div:nth-child(2) { display: none !important; }
+}
+
+/* tracking tunnel animation: taller on phones so the lower "watchers" clear the bottom labels */
+@media (max-width: 599px) { .kv-landing .kv-tunnel { height: 410px !important; } }
+
+/* Honour "reduce motion" for every CSS transition/animation on the page (nav hide, cookie banner/toast, FAQ, hovers). */
+@media (prefers-reduced-motion: reduce) {
+  .kv-landing, .kv-landing *, .kv-landing *::before, .kv-landing *::after {
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
