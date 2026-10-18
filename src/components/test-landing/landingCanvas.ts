@@ -177,10 +177,11 @@ function drawGlobe(
   c: HTMLCanvasElement,
   t: number,
   opts: CanvasOptions,
+  force = false,
 ) {
   if (!g.w) return;
   const rect = c.getBoundingClientRect();
-  if (rect.bottom < 0 || rect.top > window.innerHeight) return; // off-screen
+  if (!force && (rect.bottom < 0 || rect.top > window.innerHeight)) return; // off-screen
   const ctx = c.getContext("2d");
   if (!ctx) return;
   const { dpr, w, h } = g;
@@ -338,9 +339,9 @@ function drawGlobe(
   });
 }
 
-function drawTunnel(tn: TunnelState, c: HTMLCanvasElement, t: number, reduce: boolean) {
+function drawTunnel(tn: TunnelState, c: HTMLCanvasElement, t: number, reduce: boolean, force = false) {
   const r = c.getBoundingClientRect();
-  if (r.bottom < 0 || r.top > window.innerHeight) return;
+  if (!force && (r.bottom < 0 || r.top > window.innerHeight)) return;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   if (c.width !== Math.round(r.width * dpr) || c.height !== Math.round(r.height * dpr)) {
     c.width = Math.round(r.width * dpr);
@@ -432,6 +433,7 @@ export function startLandingCanvases(opts: CanvasOptions): () => void {
   let stopped = false;
   let raf = 0;
   let ro: ResizeObserver | null = null;
+  let staticRender: (() => void) | null = null;
 
   let globe: GlobeState | null = null;
   const gc = opts.globe;
@@ -457,6 +459,7 @@ export function startLandingCanvases(opts: CanvasOptions): () => void {
       g.dpr = dpr;
       g.w = r.width;
       g.h = r.height;
+      staticRender?.();
     };
     resize();
     ro = new ResizeObserver(resize);
@@ -464,10 +467,16 @@ export function startLandingCanvases(opts: CanvasOptions): () => void {
     fetch(landTopoUrl)
       .then((r) => r.json() as Promise<Topology>)
       .then((topo) => {
-        if (!stopped) g.pts = buildDots(topo, dotCount());
+        if (!stopped) {
+          g.pts = buildDots(topo, dotCount());
+          staticRender?.();
+        }
       })
       .catch(() => {
-        if (!stopped) g.pts = buildDots(null, dotCount());
+        if (!stopped) {
+          g.pts = buildDots(null, dotCount());
+          staticRender?.();
+        }
       });
   }
 
@@ -482,6 +491,25 @@ export function startLandingCanvases(opts: CanvasOptions): () => void {
         sp: 0.6 + Math.random() * 0.6,
       });
     }
+  }
+
+  // Reduced motion: paint the static scene once (and again on resize / when the dots arrive) instead of animating.
+  const renderOnce = () => {
+    const t = performance.now();
+    if (globe && opts.globe) drawGlobe(globe, opts.globe, t, opts, true);
+    if (tunnel && opts.tunnel) drawTunnel(tunnel, opts.tunnel, t, true, true);
+  };
+  if (opts.reduce) {
+    staticRender = renderOnce;
+    if (opts.tunnel) {
+      ro = ro ?? new ResizeObserver(renderOnce);
+      ro.observe(opts.tunnel);
+    }
+    renderOnce();
+    return () => {
+      stopped = true;
+      ro?.disconnect();
+    };
   }
 
   const loop = (t: number) => {

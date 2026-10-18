@@ -301,42 +301,32 @@ export function useLandingPage(): LandingVals {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Scroll-reveal + section_view analytics.
+  // Scroll-reveal (skipped under reduced motion; content is never left hidden).
   useEffect(() => {
     const root = rootRef.current;
     if (!root || !("IntersectionObserver" in window)) return;
     const els = root.querySelectorAll<HTMLElement>("[data-reveal]");
+    if (reduce) return;
     const vh = window.innerHeight;
-    if (!reduce) {      els.forEach((el) => {
-        if (el.getBoundingClientRect().top < vh) return;
-        el.style.opacity = "0";
-        el.style.transform = "translateY(28px)";
-        el.style.transition = "opacity .9s ease, transform .9s cubic-bezier(.2,.8,.2,1)";
-      });
-    }
-    const seen = new Set<string>();
+    els.forEach((el) => {
+      if (el.getBoundingClientRect().top < vh) return;
+      el.style.opacity = "0";
+      el.style.transform = "translateY(28px)";
+      el.style.transition = "opacity .9s ease, transform .9s cubic-bezier(.2,.8,.2,1)";
+    });
     const io = new IntersectionObserver(
       (entries) =>
         entries.forEach((en) => {
           if (!en.isIntersecting) return;
           const t = en.target as HTMLElement;
-          if (t.hasAttribute("data-reveal")) {
-            t.style.opacity = "1";
-            t.style.transform = "none";
-          }
-          const sec = t.getAttribute("data-track-section");
-          if (sec && !seen.has(sec)) {
-            seen.add(sec);
-            pushDataLayer({ event: "section_view", section: sec });
-          }
+          t.style.opacity = "1";
+          t.style.transform = "none";
         }),
       { rootMargin: "0px 0px -8% 0px", threshold: 0.12 },
     );
     els.forEach((el) => io.observe(el));
-    root.querySelectorAll("[data-track-section]").forEach((el) => io.observe(el));
     return () => {
       io.disconnect();
-      // Never leave content hidden (e.g. the preference flipped to "reduce" mid-session).
       els.forEach((el) => {
         el.style.opacity = "1";
         el.style.transform = "none";
@@ -344,6 +334,27 @@ export function useLandingPage(): LandingVals {
       });
     };
   }, [reduce]);
+
+  // section_view analytics: independent of the motion preference, fires once per section.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !("IntersectionObserver" in window)) return;
+    const seen = new Set<string>();
+    const io = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((en) => {
+          if (!en.isIntersecting) return;
+          const sec = (en.target as HTMLElement).getAttribute("data-track-section");
+          if (sec && !seen.has(sec)) {
+            seen.add(sec);
+            pushDataLayer({ event: "section_view", section: sec });
+          }
+        }),
+      { rootMargin: "0px 0px -8% 0px", threshold: 0.12 },
+    );
+    root.querySelectorAll("[data-track-section]").forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
 
   // Globe + tunnel canvases.
   useEffect(() => {
