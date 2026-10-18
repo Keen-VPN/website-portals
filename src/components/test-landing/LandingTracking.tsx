@@ -10,7 +10,7 @@ export default function LandingTracking({ v }: { v: LandingVals }) {
             <p style={{ margin: "0", fontSize: "19px", lineHeight: "1.55", color: "#c3cbdc", textWrap: "pretty" }}>KeenVPN encrypts the traffic between your device and our servers, so your ISP, public Wi-Fi operators and network snoops can't see what you do online. It also hides your real IP address from the sites you visit.</p>
           </div>
           <div className="kv-tunnel" data-reveal="" style={{ position: "relative", border: "1px solid rgba(255,255,255,.12)", borderRadius: "16px", overflow: "hidden", height: "380px", background: "#0c1a36" }}>
-            <canvas style={{ position: "absolute", inset: "0", width: "100%", height: "100%", display: "block" }} ref={v.tunnelRef} />
+            <canvas aria-hidden="true" style={{ position: "absolute", inset: "0", width: "100%", height: "100%", display: "block" }} ref={v.tunnelRef} />
             <span style={{ position: "absolute", left: "24px", bottom: "20px", fontSize: "13px", color: "#c3cbdc" }}>Your device</span>
             {" "}
             <span style={{ position: "absolute", right: "24px", bottom: "20px", fontSize: "13px", color: "#c3cbdc" }}>KeenVPN server</span>

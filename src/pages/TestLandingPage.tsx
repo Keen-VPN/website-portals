@@ -1,4 +1,3 @@
-import { Helmet } from "react-helmet-async";
 import SEOHead from "@/components/SEOHead";
 import LandingNav from "@/components/test-landing/LandingNav";
 import LandingHero from "@/components/test-landing/LandingHero";
@@ -35,12 +34,6 @@ const TestLandingPage = () => {
         ogDescription="Class action settlements, tracking protection, automatic cookie banner handling and global VPN locations in one app."
         noIndex
       />
-      <Helmet>
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-        />
-      </Helmet>
       <LandingNav v={v} />
       <main>
         <LandingHero v={v} />

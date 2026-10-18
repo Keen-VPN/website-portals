@@ -60,8 +60,6 @@ interface BoardRow {
   code: string;
   country: string;
   city: string;
-  flag: string;
-  flag2: string;
 }
 
 export interface LandingVals {
@@ -406,8 +404,6 @@ export function useLandingPage(): LandingVals {
     code,
     country,
     city,
-    flag: "https://flagcdn.com/w40/" + code.toLowerCase() + ".png",
-    flag2: "https://flagcdn.com/w80/" + code.toLowerCase() + ".png",
   }));
   const siteTr = (i: number) => (siteIdx === i ? "opacity .45s ease" : "opacity 0s linear .45s");
 

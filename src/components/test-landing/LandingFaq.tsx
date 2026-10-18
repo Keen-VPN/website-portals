@@ -1,7 +1,8 @@
 
-import { marketingSiteUrl } from "@/lib/site-urls";
+import { useMarketingLink } from "./marketingLink";
 
 export default function LandingFaq() {
+  const mkt = useMarketingLink();
   return (
     <>
       <section id="faq" data-screen-label="FAQ" data-track-section="faq" style={{ padding: "clamp(64px,8vw,104px) 24px", borderTop: "1px solid #e7e1d4" }}>
@@ -43,7 +44,7 @@ export default function LandingFaq() {
                   </svg>
                 </span>
               </summary>
-              <p className="kv-a" style={{ margin: "0", padding: "0 70px 22px 22px", fontSize: "16px", lineHeight: "1.6", color: "#4d5568", textWrap: "pretty" }}>Every plan lets you connect up to 3 devices at the same time, across macOS, Windows, iOS and Android.</p>
+              <p className="kv-a" style={{ margin: "0", padding: "0 70px 22px 22px", fontSize: "16px", lineHeight: "1.6", color: "#4d5568", textWrap: "pretty" }}>The Individual plan connects up to 3 devices at the same time, across macOS, Windows, iOS and Android. Family plans allow up to 3 devices per person.</p>
             </details>
             <details style={{ background: "#fffdf8", border: "1px solid #e7e1d4", borderRadius: "16px", transition: "border-color .2s,box-shadow .2s" }}>
               <summary style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", padding: "20px 22px", fontSize: "17px", fontWeight: "600", letterSpacing: "-.01em", color: "#141a2b", borderRadius: "16px" }}>
@@ -54,7 +55,7 @@ export default function LandingFaq() {
                   </svg>
                 </span>
               </summary>
-              <p className="kv-a" style={{ margin: "0", padding: "0 70px 22px 22px", fontSize: "16px", lineHeight: "1.6", color: "#4d5568", textWrap: "pretty" }}>Yes. You can try KeenVPN free for 30 days, and every plan is backed by a 30-day money-back guarantee.</p>
+              <p className="kv-a" style={{ margin: "0", padding: "0 70px 22px 22px", fontSize: "16px", lineHeight: "1.6", color: "#4d5568", textWrap: "pretty" }}>Yes. You can try KeenVPN free for 1 month, and cancel any time before the trial ends without being charged.</p>
             </details>
             <details style={{ background: "#fffdf8", border: "1px solid #e7e1d4", borderRadius: "16px", transition: "border-color .2s,box-shadow .2s" }}>
               <summary style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", padding: "20px 22px", fontSize: "17px", fontWeight: "600", letterSpacing: "-.01em", color: "#141a2b", borderRadius: "16px" }}>
@@ -87,7 +88,7 @@ export default function LandingFaq() {
                   </svg>
                 </span>
               </summary>
-              <p className="kv-a" style={{ margin: "0", padding: "0 70px 22px 22px", fontSize: "16px", lineHeight: "1.6", color: "#4d5568", textWrap: "pretty" }}>Yes. KeenVPN is a product of Negative Nine Inc., a company registered in the United States with a published business address, Terms of Service and Privacy Policy. See our <a href={marketingSiteUrl("/manifesto.html")} style={{ color: "#f5660f", textDecoration: "underline" }}>Manifesto</a> for the full picture of who operates KeenVPN and why.</p>
+              <p className="kv-a" style={{ margin: "0", padding: "0 70px 22px 22px", fontSize: "16px", lineHeight: "1.6", color: "#4d5568", textWrap: "pretty" }}>Yes. KeenVPN is a product of Negative Nine Inc., a company registered in the United States with a published business address, Terms of Service and Privacy Policy. See our <a href={mkt("/manifesto.html")} style={{ color: "#f5660f", textDecoration: "underline" }}>Manifesto</a> for the full picture of who operates KeenVPN and why.</p>
             </details>
             <details style={{ background: "#fffdf8", border: "1px solid #e7e1d4", borderRadius: "16px", transition: "border-color .2s,box-shadow .2s" }}>
               <summary style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", padding: "20px 22px", fontSize: "17px", fontWeight: "600", letterSpacing: "-.01em", color: "#141a2b", borderRadius: "16px" }}>
@@ -98,7 +99,7 @@ export default function LandingFaq() {
                   </svg>
                 </span>
               </summary>
-              <p className="kv-a" style={{ margin: "0", padding: "0 70px 22px 22px", fontSize: "16px", lineHeight: "1.6", color: "#4d5568", textWrap: "pretty" }}>KeenVPN is owned and operated by Negative Nine Inc., registered in the United States. Read the <a href={marketingSiteUrl("/manifesto.html")} style={{ color: "#f5660f", textDecoration: "underline" }}>KeenVPN Manifesto</a> for the company's full position on ownership, privacy and open internet access.</p>
+              <p className="kv-a" style={{ margin: "0", padding: "0 70px 22px 22px", fontSize: "16px", lineHeight: "1.6", color: "#4d5568", textWrap: "pretty" }}>KeenVPN is owned and operated by Negative Nine Inc., registered in the United States. Read the <a href={mkt("/manifesto.html")} style={{ color: "#f5660f", textDecoration: "underline" }}>KeenVPN Manifesto</a> for the company's full position on ownership, privacy and open internet access.</p>
             </details>
           </div>
         </div>
