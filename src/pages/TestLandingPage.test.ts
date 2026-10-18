@@ -53,16 +53,44 @@ describe("TestLandingPage", () => {
     expect(anchors.filter((h) => !html.includes(`id="${h.slice(1)}"`))).toEqual([]);
   });
 
-  it("links every platform download to the canonical store URLs", () => {
-    for (const url of Object.values({
-      windows: APP_STORE_URLS.windows,
-      macos: APP_STORE_URLS.macos,
-      ios: APP_STORE_URLS.ios,
-      android: APP_STORE_URLS.android,
-      chrome: APP_STORE_URLS.chrome,
-    })) {
-      expect(hrefs).toContain(url);
+  it("links every platform download anchor to its canonical store URL", () => {
+    const platforms = ["windows", "macos", "ios", "android", "chrome"] as const;
+    const canonical = new Set<string>(platforms.map((p) => APP_STORE_URLS[p]));
+    const storeHosts = /^https:\/\/(apps\.apple\.com|play\.google\.com|apps\.microsoft\.com|chromewebstore\.google\.com)\//;
+
+    // No store link anywhere on the page (nav, mobile menu, hero, download section, footer) may be stale.
+    const storeLinks = hrefs.filter((h) => storeHosts.test(h));
+    expect(storeLinks.length).toBeGreaterThan(0);
+    expect(storeLinks.filter((h) => !canonical.has(h))).toEqual([]);
+
+    // Anchors tagged for a platform must point at that platform's URL.
+    const tagged = [...html.matchAll(/<a [^>]*>/g)]
+      .map((m) => m[0])
+      .map((tag) => ({
+        track: /data-track="([^"]*)"/.exec(tag)?.[1] ?? "",
+        href: /href="([^"]*)"/.exec(tag)?.[1] ?? "",
+      }));
+    for (const platform of platforms) {
+      const links = tagged.filter((t) => t.track.endsWith(`download_${platform}`));
+      expect(links.length).toBeGreaterThanOrEqual(3); // desktop nav, mobile menu, download section
+      for (const link of links) expect(link.href).toBe(APP_STORE_URLS[platform]);
     }
+  });
+
+  it("keeps the visitor's query string on links to the marketing site", () => {
+    const withUtm = renderToStaticMarkup(
+      createElement(
+        HelmetProvider,
+        null,
+        createElement(
+          MemoryRouter,
+          { initialEntries: ["/test-landing-page?utm_source=ad&utm_campaign=spring"] },
+          createElement(TestLandingPage),
+        ),
+      ),
+    );
+    expect(withUtm).toContain("/server-locations/?utm_source=ad&amp;utm_campaign=spring");
+    expect(withUtm).toContain("/transfer.html?utm_source=ad&amp;utm_campaign=spring");
   });
 
   it("does not request third-party images", () => {

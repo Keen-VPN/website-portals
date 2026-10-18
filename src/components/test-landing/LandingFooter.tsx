@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
-import { marketingSiteUrl } from "@/lib/site-urls";
+import { useMarketingLink } from "./marketingLink";
 import { APP_STORE_URLS } from "@/constants/app-store-urls";
 import type { LandingVals } from "./useLandingPage";
 
 export default function LandingFooter({ v }: { v: LandingVals }) {
+  const mkt = useMarketingLink();
   return (
     <>
       <footer style={{ background: "#0f2040", color: "#c3cbdc", padding: "64px 24px 32px" }}>
@@ -11,24 +12,24 @@ export default function LandingFooter({ v }: { v: LandingVals }) {
           <div className="kv-foot-cols" style={{ display: "grid", gap: "32px", fontSize: "14px" }}>
             <div style={{ display: "grid", gap: "10px", alignContent: "start" }}>
               <h3 style={{ margin: "0", color: "#fff", fontWeight: "600", fontSize: "inherit", lineHeight: "inherit" }}>Features</h3>
-              <a href={marketingSiteUrl("/settlements.html")} style={{ color: "#c3cbdc" }}>Class action settlements</a>
+              <a href={mkt("/settlements.html")} style={{ color: "#c3cbdc" }}>Class action settlements</a>
               <a href={"#cookies"} style={{ color: "#c3cbdc" }}>Cookie banner blocking</a>
-              <a href={marketingSiteUrl("/kill-switch.html")} style={{ color: "#c3cbdc" }}>Kill switch</a>
-              <a href={marketingSiteUrl("/leak-protection.html")} style={{ color: "#c3cbdc" }}>Leak & DNS protection</a>
-              <a href={marketingSiteUrl("/split-tunneling.html")} style={{ color: "#c3cbdc" }}>Split tunneling</a>
-              <a href={marketingSiteUrl("/dedicated-ip.html")} style={{ color: "#c3cbdc" }}>Dedicated IP</a>
-              <a href={marketingSiteUrl("/high-speed-vpn.html")} style={{ color: "#c3cbdc" }}>High-speed VPN</a>
+              <a href={mkt("/kill-switch.html")} style={{ color: "#c3cbdc" }}>Kill switch</a>
+              <a href={mkt("/leak-protection.html")} style={{ color: "#c3cbdc" }}>Leak & DNS protection</a>
+              <a href={mkt("/split-tunneling.html")} style={{ color: "#c3cbdc" }}>Split tunneling</a>
+              <a href={mkt("/dedicated-ip.html")} style={{ color: "#c3cbdc" }}>Dedicated IP</a>
+              <a href={mkt("/high-speed-vpn.html")} style={{ color: "#c3cbdc" }}>High-speed VPN</a>
             </div>
             <div style={{ display: "grid", gap: "10px", alignContent: "start" }}>
               <h3 style={{ margin: "0", color: "#fff", fontWeight: "600", fontSize: "inherit", lineHeight: "inherit" }}>KeenVPN</h3>
-              <a href={marketingSiteUrl("/transfer.html")} style={{ color: "#c3cbdc" }}>Transfer</a>
-              <a href={marketingSiteUrl("/settlements.html")} style={{ color: "#c3cbdc" }}>Settlements</a>
+              <a href={mkt("/transfer.html")} style={{ color: "#c3cbdc" }}>Transfer</a>
+              <a href={mkt("/settlements.html")} style={{ color: "#c3cbdc" }}>Settlements</a>
               <Link to={"/servers"} style={{ color: "#c3cbdc" }}>Server locations</Link>
               <Link to={"/pricing"} style={{ color: "#c3cbdc" }}>Pricing</Link>
             </div>
             <div style={{ display: "grid", gap: "10px", alignContent: "start" }}>
               <h3 style={{ margin: "0", color: "#fff", fontWeight: "600", fontSize: "inherit", lineHeight: "inherit" }}>Resources</h3>
-              <a href={marketingSiteUrl("/blog/")} style={{ color: "#c3cbdc" }}>Blog</a>
+              <a href={mkt("/blog/")} style={{ color: "#c3cbdc" }}>Blog</a>
               <a href={APP_STORE_URLS.macos} style={{ color: "#c3cbdc" }}>Download for macOS</a>
               <a href={APP_STORE_URLS.ios} style={{ color: "#c3cbdc" }}>Download for iOS</a>
             </div>

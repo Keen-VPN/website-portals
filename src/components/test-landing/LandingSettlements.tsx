@@ -1,9 +1,10 @@
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
-import { marketingSiteUrl } from "@/lib/site-urls";
+import { useMarketingLink } from "./marketingLink";
 import type { LandingVals } from "./useLandingPage";
 
 export default function LandingSettlements({ v }: { v: LandingVals }) {
+  const mkt = useMarketingLink();
   return (
     <>
       <section id="settlements" data-screen-label="Class actions" data-track-section="settlements" style={{ padding: "clamp(72px,9vw,128px) 24px" }}>
@@ -39,7 +40,7 @@ export default function LandingSettlements({ v }: { v: LandingVals }) {
               </li>
             </ol>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
-              <a href={marketingSiteUrl("/settlements.html")} data-track="settlements_see" className="kvh4" style={{ background: "#f5660f", color: "#fff", fontWeight: "600", fontSize: "16px", padding: "14px 22px", borderRadius: "8px" }} onClick={v.track}>See settlements ›</a>
+              <a href={mkt("/settlements.html")} data-track="settlements_see" className="kvh4" style={{ background: "#f5660f", color: "#fff", fontWeight: "600", fontSize: "16px", padding: "14px 22px", borderRadius: "8px" }} onClick={v.track}>See settlements ›</a>
               <Link to={"/signin"} data-track="settlements_trial" className="kvh7" style={{ color: "#0f2040", fontWeight: "600", fontSize: "16px", padding: "14px 22px", borderRadius: "8px", border: "1px solid #cfc6b3" }} onClick={v.track}>Start free trial</Link>
             </div>
           </div>

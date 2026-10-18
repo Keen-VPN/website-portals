@@ -1,8 +1,9 @@
 import { Fragment } from "react";
-import { marketingSiteUrl } from "@/lib/site-urls";
+import { useMarketingLink } from "./marketingLink";
 import type { LandingVals } from "./useLandingPage";
 
 export default function LandingLibraries({ v }: { v: LandingVals }) {
+  const mkt = useMarketingLink();
   return (
     <>
       <section id="libraries" data-screen-label="Libraries" data-track-section="libraries" style={{ background: "#f5660f", color: "#141a2b", padding: "clamp(72px,9vw,128px) 24px" }}>
@@ -13,7 +14,7 @@ export default function LandingLibraries({ v }: { v: LandingVals }) {
             <p style={{ margin: "0", fontSize: "19px", lineHeight: "1.55", color: "#141a2b", maxWidth: "520px", textWrap: "pretty" }}>Connect to a KeenVPN server in another country and explore the content and libraries offered there. Travelling? Stay connected to the services you use at home.</p>
             <p style={{ margin: "0", fontSize: "14px", lineHeight: "1.5", color: "#141a2b", maxWidth: "520px" }}>What's available depends on each service's catalog, terms and licensing in that region.</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
-              <a href={marketingSiteUrl("/server-locations/")} data-track="libraries_locations" className="kvh2" style={{ background: "#141a2b", color: "#fff", fontWeight: "600", fontSize: "16px", padding: "14px 22px", borderRadius: "8px" }} onClick={v.track}>See server locations ›</a>
+              <a href={mkt("/server-locations/")} data-track="libraries_locations" className="kvh2" style={{ background: "#141a2b", color: "#fff", fontWeight: "600", fontSize: "16px", padding: "14px 22px", borderRadius: "8px" }} onClick={v.track}>See server locations ›</a>
             </div>
           </div>
           <div data-reveal="" style={{ background: "#141a2b", color: "#fff", borderRadius: "16px", padding: "8px", overflow: "hidden" }}>
