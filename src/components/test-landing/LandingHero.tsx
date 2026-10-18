@@ -5,7 +5,7 @@ export default function LandingHero({ v }: { v: LandingVals }) {
   return (
     <>
       <section data-screen-label="Hero" data-track-section="hero" style={{ position: "relative", background: "#0f2040", color: "#fff", overflow: "hidden", minHeight: "820px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <canvas style={{ position: "absolute", inset: "0", width: "100%", height: "100%", display: "block" }} ref={v.globeRef} />
+        <canvas aria-hidden="true" style={{ position: "absolute", inset: "0", width: "100%", height: "100%", display: "block" }} ref={v.globeRef} />
         <div style={{ position: "absolute", inset: "0", background: "linear-gradient(180deg,#0f2040 0%,rgba(15,32,64,.85) 30%,rgba(15,32,64,0) 55%)", pointerEvents: "none" }} />
         <div style={{ position: "relative", zIndex: "2", maxWidth: "1040px", padding: "150px 24px 0", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "26px" }}>
           <h1 style={{ margin: "0", fontSize: "clamp(32px,4.8vw,64px)", lineHeight: "1.02", letterSpacing: "-.035em", fontWeight: "500", textWrap: "balance" }}>

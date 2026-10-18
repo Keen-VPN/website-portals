@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
+import { APP_STORE_URLS } from "@/constants/app-store-urls";
 import TestLandingPage from "./TestLandingPage";
 
 const html = renderToStaticMarkup(
@@ -50,5 +51,21 @@ describe("TestLandingPage", () => {
   it("points in-page anchors at existing section ids", () => {
     const anchors = hrefs.filter((h) => h.startsWith("#"));
     expect(anchors.filter((h) => !html.includes(`id="${h.slice(1)}"`))).toEqual([]);
+  });
+
+  it("links every platform download to the canonical store URLs", () => {
+    for (const url of Object.values({
+      windows: APP_STORE_URLS.windows,
+      macos: APP_STORE_URLS.macos,
+      ios: APP_STORE_URLS.ios,
+      android: APP_STORE_URLS.android,
+      chrome: APP_STORE_URLS.chrome,
+    })) {
+      expect(hrefs).toContain(url);
+    }
+  });
+
+  it("does not request third-party images", () => {
+    expect(html).not.toContain("flagcdn.com");
   });
 });

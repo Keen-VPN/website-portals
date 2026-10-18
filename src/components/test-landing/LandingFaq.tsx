@@ -43,7 +43,7 @@ export default function LandingFaq() {
                   </svg>
                 </span>
               </summary>
-              <p className="kv-a" style={{ margin: "0", padding: "0 70px 22px 22px", fontSize: "16px", lineHeight: "1.6", color: "#4d5568", textWrap: "pretty" }}>Every plan lets you connect up to 3 devices at the same time, across macOS, Windows, iOS and Android.</p>
+              <p className="kv-a" style={{ margin: "0", padding: "0 70px 22px 22px", fontSize: "16px", lineHeight: "1.6", color: "#4d5568", textWrap: "pretty" }}>The Individual plan connects up to 3 devices at the same time, across macOS, Windows, iOS and Android. Family plans allow up to 3 devices per person.</p>
             </details>
             <details style={{ background: "#fffdf8", border: "1px solid #e7e1d4", borderRadius: "16px", transition: "border-color .2s,box-shadow .2s" }}>
               <summary style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", padding: "20px 22px", fontSize: "17px", fontWeight: "600", letterSpacing: "-.01em", color: "#141a2b", borderRadius: "16px" }}>
@@ -54,7 +54,7 @@ export default function LandingFaq() {
                   </svg>
                 </span>
               </summary>
-              <p className="kv-a" style={{ margin: "0", padding: "0 70px 22px 22px", fontSize: "16px", lineHeight: "1.6", color: "#4d5568", textWrap: "pretty" }}>Yes. You can try KeenVPN free for 30 days, and every plan is backed by a 30-day money-back guarantee.</p>
+              <p className="kv-a" style={{ margin: "0", padding: "0 70px 22px 22px", fontSize: "16px", lineHeight: "1.6", color: "#4d5568", textWrap: "pretty" }}>Yes. You can try KeenVPN free for 1 month, and cancel any time before the trial ends without being charged.</p>
             </details>
             <details style={{ background: "#fffdf8", border: "1px solid #e7e1d4", borderRadius: "16px", transition: "border-color .2s,box-shadow .2s" }}>
               <summary style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", padding: "20px 22px", fontSize: "17px", fontWeight: "600", letterSpacing: "-.01em", color: "#141a2b", borderRadius: "16px" }}>

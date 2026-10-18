@@ -21,7 +21,7 @@ export default function LandingFooter({ v }: { v: LandingVals }) {
             </div>
             <div style={{ display: "grid", gap: "10px", alignContent: "start" }}>
               <h3 style={{ margin: "0", color: "#fff", fontWeight: "600", fontSize: "inherit", lineHeight: "inherit" }}>KeenVPN</h3>
-              <Link to={"/switch"} style={{ color: "#c3cbdc" }}>Transfer</Link>
+              <a href={marketingSiteUrl("/transfer.html")} style={{ color: "#c3cbdc" }}>Transfer</a>
               <a href={marketingSiteUrl("/settlements.html")} style={{ color: "#c3cbdc" }}>Settlements</a>
               <Link to={"/servers"} style={{ color: "#c3cbdc" }}>Server locations</Link>
               <Link to={"/pricing"} style={{ color: "#c3cbdc" }}>Pricing</Link>

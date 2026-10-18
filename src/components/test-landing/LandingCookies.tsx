@@ -3,9 +3,21 @@ import photo1 from "@/assets/test-landing/photo1.jpg";
 import photo2 from "@/assets/test-landing/photo2.jpg";
 import photo3 from "@/assets/test-landing/photo3.jpg";
 import photo4 from "@/assets/test-landing/photo4.jpg";
+import LandingMiniSite, { type MiniSiteData } from "./LandingMiniSite";
 import type { LandingVals } from "./useLandingPage";
 
+const U = "https://images.unsplash.com/";
+const MINI_SITES: MiniSiteData[] = [
+  { name: "News Daily", links: ["World", "Politics", "Climate"], cta: "Subscribe", accent: "#d8432f", photo: photo1, photoAlt: "City street with taxis and tall buildings", photoSource: U + "photo-1449824913935-59a10b8d2000", photoPosition: "50% 65%", tag: "WORLD", headline: "Leaders agree landmark climate deal after record talks", byline: "By Mara Ellis \u00b7 6 min read", related: [{ title: "Markets steady as rates hold", tile: "#2f5fb3" }, { title: "Ten cities rethinking transit", tile: "#d8432f" }] },
+  { name: "Pantry & Co.", links: ["Recipes", "Meal plans", "Pantry"], cta: "Save", accent: "#d9822b", photo: photo2, photoAlt: "Pesto pasta with cherry tomatoes", photoSource: U + "photo-1473093295043-cdd812d0e601", photoPosition: "50% 50%", tag: "DINNER", headline: "Weeknight pasta in fifteen minutes flat", byline: "By Jonah Park \u00b7 15 min cook time", related: [{ title: "The only tomato sauce you need", tile: "#3f9a4a" }, { title: "Five-ingredient lemon spaghetti", tile: "#f0b84a" }] },
+  { name: "STRIDE", links: ["New", "Men", "Women"], cta: "Cart (2)", accent: "#2a6fdb", photo: photo3, photoAlt: "Red running shoe on a red background", photoSource: U + "photo-1542291026-7eec264c27ff", photoPosition: "50% 55%", tag: "NEW SEASON", headline: "Cloudlight runners are back in six colours", byline: "From $89 \u00b7 Free returns", related: [{ title: "Trail pack 2.0", tile: "#2a6fdb" }, { title: "Everyday court classics", tile: "#141a2b" }] },
+  { name: "Wayfarer", links: ["Guides", "Stays", "Deals"], cta: "Plan a trip", accent: "#1f9d8a", photo: photo4, photoAlt: "Yellow tram on a Lisbon street", photoSource: U + "photo-1585208798174-6cedd86e019a", photoPosition: "50% 65%", tag: "CITY GUIDE", headline: "48 hours in Lisbon: tiles, trams and custard tarts", byline: "By Ines Duarte \u00b7 8 min read", related: [{ title: "Where to eat in Alfama", tile: "#ff9a62" }, { title: "A slow day trip to Sintra", tile: "#1f9d8a" }] },
+];
+
 export default function LandingCookies({ v }: { v: LandingVals }) {
+  const zs = [v.siteZ0, v.siteZ1, v.siteZ2, v.siteZ3];
+  const ops = [v.siteOp0, v.siteOp1, v.siteOp2, v.siteOp3];
+  const trs = [v.siteTr0, v.siteTr1, v.siteTr2, v.siteTr3];
   return (
     <>
       <section id="cookies" data-screen-label="Cookies" data-track-section="cookies" style={{ padding: "clamp(72px,9vw,128px) 24px" }}>
@@ -20,150 +32,9 @@ export default function LandingCookies({ v }: { v: LandingVals }) {
               <div style={{ flex: "1", background: "#fff", border: "1px solid #e7e1d4", borderRadius: "6px", padding: "5px 12px", fontSize: "13px", color: "#5b6273", fontFamily: "ui-monospace,Menlo,monospace" }}>{v.cookieSite}</div>
             </div>
             <div style={{ position: "relative", height: "calc(100% - 49px)" }}>
-              <div className="kv-mini-page" style={{ position: "absolute", inset: "0", padding: "16px 24px", display: "flex", flexDirection: "column", gap: "10px", background: "#fff", zIndex: v.siteZ0, opacity: v.siteOp0, transition: v.siteTr0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "14px", height: "28px" }}>
-                  <span className="kv-mini-logo" style={{ display: "flex", alignItems: "center", gap: "7px", fontWeight: "800", fontSize: "14px", color: "#141a2b", letterSpacing: "-.02em" }}>
-                    <span style={{ width: "20px", height: "20px", borderRadius: "6px", background: "#d8432f" }} />
-                    News Daily
-                  </span>
-                  <span className="kv-mini-links" style={{ marginLeft: "auto", display: "flex", gap: "12px" }}>
-                    <span style={{ fontSize: "11px", color: "#8a8372" }}>World</span>
-                    <span style={{ fontSize: "11px", color: "#8a8372" }}>Politics</span>
-                    <span style={{ fontSize: "11px", color: "#8a8372" }}>Climate</span>
-                  </span>
-                  <span style={{ fontSize: "11px", fontWeight: "600", color: "#fff", background: "#d8432f", padding: "5px 10px", borderRadius: "999px" }}>Subscribe</span>
-                </div>
-                <div style={{ height: "120px", borderRadius: "10px", overflow: "hidden", flex: "none" }}>
-                  <img src={photo1} alt="City street with taxis and tall buildings" data-photo-source="https://images.unsplash.com/photo-1449824913935-59a10b8d2000" loading="lazy" decoding="async" width="1000" height="667" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 65%" }} />
-                </div>
-                <span style={{ fontSize: "10px", fontWeight: "700", letterSpacing: ".08em", color: "#d8432f" }}>WORLD</span>
-                <span style={{ fontSize: "19px", lineHeight: "1.2", fontWeight: "800", letterSpacing: "-.025em", color: "#141a2b" }}>Leaders agree landmark climate deal after record talks</span>
-                <span style={{ fontSize: "11.5px", color: "#8a8372" }}>By Mara Ellis · 6 min read</span>
-                <div className="kv-mini-rel" style={{ display: "flex", gap: "16px", marginTop: "2px" }}>
-                  <div style={{ flex: "1", display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ flex: "none", width: "42px", height: "42px", borderRadius: "8px", background: "#2f5fb3", opacity: ".85" }} />
-                    <span style={{ display: "grid", gap: "6px", flex: "1" }}>
-                      <span style={{ fontSize: "11.5px", fontWeight: "600", color: "#2b3142", lineHeight: "1.25" }}>Markets steady as rates hold</span>
-                      <span style={{ height: "6px", width: "56%", background: "#efe9db", borderRadius: "3px" }} />
-                    </span>
-                  </div>
-                  <div style={{ flex: "1", display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ flex: "none", width: "42px", height: "42px", borderRadius: "8px", background: "#d8432f", opacity: ".85" }} />
-                    <span style={{ display: "grid", gap: "6px", flex: "1" }}>
-                      <span style={{ fontSize: "11.5px", fontWeight: "600", color: "#2b3142", lineHeight: "1.25" }}>Ten cities rethinking transit</span>
-                      <span style={{ height: "6px", width: "56%", background: "#efe9db", borderRadius: "3px" }} />
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="kv-mini-page" style={{ position: "absolute", inset: "0", padding: "16px 24px", display: "flex", flexDirection: "column", gap: "10px", background: "#fff", zIndex: v.siteZ1, opacity: v.siteOp1, transition: v.siteTr1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "14px", height: "28px" }}>
-                  <span className="kv-mini-logo" style={{ display: "flex", alignItems: "center", gap: "7px", fontWeight: "800", fontSize: "14px", color: "#141a2b", letterSpacing: "-.02em" }}>
-                    <span style={{ width: "20px", height: "20px", borderRadius: "6px", background: "#d9822b" }} />
-                    Pantry & Co.
-                  </span>
-                  <span className="kv-mini-links" style={{ marginLeft: "auto", display: "flex", gap: "12px" }}>
-                    <span style={{ fontSize: "11px", color: "#8a8372" }}>Recipes</span>
-                    <span style={{ fontSize: "11px", color: "#8a8372" }}>Meal plans</span>
-                    <span style={{ fontSize: "11px", color: "#8a8372" }}>Pantry</span>
-                  </span>
-                  <span style={{ fontSize: "11px", fontWeight: "600", color: "#fff", background: "#d9822b", padding: "5px 10px", borderRadius: "999px" }}>Save</span>
-                </div>
-                <div style={{ height: "120px", borderRadius: "10px", overflow: "hidden", flex: "none" }}>
-                  <img src={photo2} alt="Pesto pasta with cherry tomatoes" data-photo-source="https://images.unsplash.com/photo-1473093295043-cdd812d0e601" loading="lazy" decoding="async" width="1000" height="667" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 50%" }} />
-                </div>
-                <span style={{ fontSize: "10px", fontWeight: "700", letterSpacing: ".08em", color: "#d9822b" }}>DINNER</span>
-                <span style={{ fontSize: "19px", lineHeight: "1.2", fontWeight: "800", letterSpacing: "-.025em", color: "#141a2b" }}>Weeknight pasta in fifteen minutes flat</span>
-                <span style={{ fontSize: "11.5px", color: "#8a8372" }}>By Jonah Park · 15 min cook time</span>
-                <div className="kv-mini-rel" style={{ display: "flex", gap: "16px", marginTop: "2px" }}>
-                  <div style={{ flex: "1", display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ flex: "none", width: "42px", height: "42px", borderRadius: "8px", background: "#3f9a4a", opacity: ".85" }} />
-                    <span style={{ display: "grid", gap: "6px", flex: "1" }}>
-                      <span style={{ fontSize: "11.5px", fontWeight: "600", color: "#2b3142", lineHeight: "1.25" }}>The only tomato sauce you need</span>
-                      <span style={{ height: "6px", width: "56%", background: "#efe9db", borderRadius: "3px" }} />
-                    </span>
-                  </div>
-                  <div style={{ flex: "1", display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ flex: "none", width: "42px", height: "42px", borderRadius: "8px", background: "#f0b84a", opacity: ".85" }} />
-                    <span style={{ display: "grid", gap: "6px", flex: "1" }}>
-                      <span style={{ fontSize: "11.5px", fontWeight: "600", color: "#2b3142", lineHeight: "1.25" }}>Five-ingredient lemon spaghetti</span>
-                      <span style={{ height: "6px", width: "56%", background: "#efe9db", borderRadius: "3px" }} />
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="kv-mini-page" style={{ position: "absolute", inset: "0", padding: "16px 24px", display: "flex", flexDirection: "column", gap: "10px", background: "#fff", zIndex: v.siteZ2, opacity: v.siteOp2, transition: v.siteTr2 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "14px", height: "28px" }}>
-                  <span className="kv-mini-logo" style={{ display: "flex", alignItems: "center", gap: "7px", fontWeight: "800", fontSize: "14px", color: "#141a2b", letterSpacing: "-.02em" }}>
-                    <span style={{ width: "20px", height: "20px", borderRadius: "6px", background: "#2a6fdb" }} />
-                    STRIDE
-                  </span>
-                  <span className="kv-mini-links" style={{ marginLeft: "auto", display: "flex", gap: "12px" }}>
-                    <span style={{ fontSize: "11px", color: "#8a8372" }}>New</span>
-                    <span style={{ fontSize: "11px", color: "#8a8372" }}>Men</span>
-                    <span style={{ fontSize: "11px", color: "#8a8372" }}>Women</span>
-                  </span>
-                  <span style={{ fontSize: "11px", fontWeight: "600", color: "#fff", background: "#2a6fdb", padding: "5px 10px", borderRadius: "999px" }}>Cart (2)</span>
-                </div>
-                <div style={{ height: "120px", borderRadius: "10px", overflow: "hidden", flex: "none" }}>
-                  <img src={photo3} alt="Red running shoe on a red background" data-photo-source="https://images.unsplash.com/photo-1542291026-7eec264c27ff" loading="lazy" decoding="async" width="1000" height="667" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 55%" }} />
-                </div>
-                <span style={{ fontSize: "10px", fontWeight: "700", letterSpacing: ".08em", color: "#2a6fdb" }}>NEW SEASON</span>
-                <span style={{ fontSize: "19px", lineHeight: "1.2", fontWeight: "800", letterSpacing: "-.025em", color: "#141a2b" }}>Cloudlight runners are back in six colours</span>
-                <span style={{ fontSize: "11.5px", color: "#8a8372" }}>From $89 · Free returns</span>
-                <div className="kv-mini-rel" style={{ display: "flex", gap: "16px", marginTop: "2px" }}>
-                  <div style={{ flex: "1", display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ flex: "none", width: "42px", height: "42px", borderRadius: "8px", background: "#2a6fdb", opacity: ".85" }} />
-                    <span style={{ display: "grid", gap: "6px", flex: "1" }}>
-                      <span style={{ fontSize: "11.5px", fontWeight: "600", color: "#2b3142", lineHeight: "1.25" }}>Trail pack 2.0</span>
-                      <span style={{ height: "6px", width: "56%", background: "#efe9db", borderRadius: "3px" }} />
-                    </span>
-                  </div>
-                  <div style={{ flex: "1", display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ flex: "none", width: "42px", height: "42px", borderRadius: "8px", background: "#141a2b", opacity: ".85" }} />
-                    <span style={{ display: "grid", gap: "6px", flex: "1" }}>
-                      <span style={{ fontSize: "11.5px", fontWeight: "600", color: "#2b3142", lineHeight: "1.25" }}>Everyday court classics</span>
-                      <span style={{ height: "6px", width: "56%", background: "#efe9db", borderRadius: "3px" }} />
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="kv-mini-page" style={{ position: "absolute", inset: "0", padding: "16px 24px", display: "flex", flexDirection: "column", gap: "10px", background: "#fff", zIndex: v.siteZ3, opacity: v.siteOp3, transition: v.siteTr3 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "14px", height: "28px" }}>
-                  <span className="kv-mini-logo" style={{ display: "flex", alignItems: "center", gap: "7px", fontWeight: "800", fontSize: "14px", color: "#141a2b", letterSpacing: "-.02em" }}>
-                    <span style={{ width: "20px", height: "20px", borderRadius: "6px", background: "#1f9d8a" }} />
-                    Wayfarer
-                  </span>
-                  <span className="kv-mini-links" style={{ marginLeft: "auto", display: "flex", gap: "12px" }}>
-                    <span style={{ fontSize: "11px", color: "#8a8372" }}>Guides</span>
-                    <span style={{ fontSize: "11px", color: "#8a8372" }}>Stays</span>
-                    <span style={{ fontSize: "11px", color: "#8a8372" }}>Deals</span>
-                  </span>
-                  <span style={{ fontSize: "11px", fontWeight: "600", color: "#fff", background: "#1f9d8a", padding: "5px 10px", borderRadius: "999px" }}>Plan a trip</span>
-                </div>
-                <div style={{ height: "120px", borderRadius: "10px", overflow: "hidden", flex: "none" }}>
-                  <img src={photo4} alt="Yellow tram on a Lisbon street" data-photo-source="https://images.unsplash.com/photo-1585208798174-6cedd86e019a" loading="lazy" decoding="async" width="1000" height="667" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 65%" }} />
-                </div>
-                <span style={{ fontSize: "10px", fontWeight: "700", letterSpacing: ".08em", color: "#1f9d8a" }}>CITY GUIDE</span>
-                <span style={{ fontSize: "19px", lineHeight: "1.2", fontWeight: "800", letterSpacing: "-.025em", color: "#141a2b" }}>48 hours in Lisbon: tiles, trams and custard tarts</span>
-                <span style={{ fontSize: "11.5px", color: "#8a8372" }}>By Ines Duarte · 8 min read</span>
-                <div className="kv-mini-rel" style={{ display: "flex", gap: "16px", marginTop: "2px" }}>
-                  <div style={{ flex: "1", display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ flex: "none", width: "42px", height: "42px", borderRadius: "8px", background: "#ff9a62", opacity: ".85" }} />
-                    <span style={{ display: "grid", gap: "6px", flex: "1" }}>
-                      <span style={{ fontSize: "11.5px", fontWeight: "600", color: "#2b3142", lineHeight: "1.25" }}>Where to eat in Alfama</span>
-                      <span style={{ height: "6px", width: "56%", background: "#efe9db", borderRadius: "3px" }} />
-                    </span>
-                  </div>
-                  <div style={{ flex: "1", display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ flex: "none", width: "42px", height: "42px", borderRadius: "8px", background: "#1f9d8a", opacity: ".85" }} />
-                    <span style={{ display: "grid", gap: "6px", flex: "1" }}>
-                      <span style={{ fontSize: "11.5px", fontWeight: "600", color: "#2b3142", lineHeight: "1.25" }}>A slow day trip to Sintra</span>
-                      <span style={{ height: "6px", width: "56%", background: "#efe9db", borderRadius: "3px" }} />
-                    </span>
-                  </div>
-                </div>
-              </div>
+              {MINI_SITES.map((site, i) => (
+                <LandingMiniSite key={site.name} site={site} zIndex={zs[i]} opacity={ops[i]} transition={trs[i]} />
+              ))}
             </div>
             <div style={{ position: "absolute", zIndex: "5", left: "16px", right: "16px", bottom: "16px", background: "#141a2b", color: "#fff", borderRadius: "10px", padding: "16px 18px", display: "grid", gap: "12px", transform: v.bannerTransform, opacity: v.bannerOpacity, transition: "transform .55s cubic-bezier(.2,.8,.2,1),opacity .4s" }}>
               <span style={{ fontSize: "14px", lineHeight: "1.45" }}>We value your privacy. We and our 842 partners use cookies to personalise ads and content.</span>

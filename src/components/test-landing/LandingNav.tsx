@@ -97,8 +97,8 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                   </a>
                 </div>
               </div>
-              <Link to={"/servers"} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Server Locations</Link>
-              <Link to={"/switch"} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Transfer</Link>
+              <a href={marketingSiteUrl("/server-locations/")} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Server Locations</a>
+              <a href={marketingSiteUrl("/transfer.html")} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Transfer</a>
               <a href={marketingSiteUrl("/settlements.html")} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Settlements</a>
               <a href={marketingSiteUrl("/blog/")} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Blog</a>
               <div className="kvdd">
@@ -188,7 +188,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
               </button>
             </div>
           </div>
-          <nav aria-label="Mobile" style={{ display: v.menuDisplay, position: "absolute", left: "0", right: "0", top: "68px", flexDirection: "column", gap: "2px", padding: "10px", borderRadius: "24px", background: "rgba(250,246,238,.96)", backdropFilter: "blur(16px)", border: "1px solid rgba(15,32,64,.08)", boxShadow: "0 24px 48px -16px rgba(15,32,64,.45)", fontSize: "16px" }}>
+          <nav aria-label="Mobile" style={{ maxHeight: "calc(100dvh - 96px)", overflowY: "auto", display: v.menuDisplay, position: "absolute", left: "0", right: "0", top: "68px", flexDirection: "column", gap: "2px", padding: "10px", borderRadius: "24px", background: "rgba(250,246,238,.96)", backdropFilter: "blur(16px)", border: "1px solid rgba(15,32,64,.08)", boxShadow: "0 24px 48px -16px rgba(15,32,64,.45)", fontSize: "16px" }}>
             <Link to={"/pricing"} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Pricing</Link>
             <details className="kvmd">
               <summary>
@@ -204,8 +204,8 @@ export default function LandingNav({ v }: { v: LandingVals }) {
               <a href={marketingSiteUrl("/split-tunneling.html")} onClick={v.closeMenu}>Split Tunneling</a>
               <a href={marketingSiteUrl("/high-speed-vpn.html")} onClick={v.closeMenu}>High-speed VPN</a>
             </details>
-            <Link to={"/servers"} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Server Locations</Link>
-            <Link to={"/switch"} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Transfer</Link>
+            <a href={marketingSiteUrl("/server-locations/")} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Server Locations</a>
+            <a href={marketingSiteUrl("/transfer.html")} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Transfer</a>
             <a href={marketingSiteUrl("/settlements.html")} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Settlements</a>
             <a href={marketingSiteUrl("/blog/")} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Blog</a>
             <details className="kvmd">
