@@ -54,7 +54,6 @@ const OpenApp = lazy(() => import("./pages/OpenApp"));
 const DownloadApp = lazy(() => import("./pages/DownloadApp"));
 const AuthDebug = lazy(() => import("./pages/AuthDebug"));
 const AppleDebug = lazy(() => import("./pages/AppleDebug"));
-const TestLandingPage = lazy(() => import("./pages/TestLandingPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const MembershipTransferAdmin = lazy(
   () => import("./pages/admin/MembershipTransferAdmin"),
@@ -460,7 +459,6 @@ const App = () => (
                   element={<AdminClassActionDetail />}
                 />
               </Route>
-              <Route path="/test-landing-page" element={<TestLandingPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
