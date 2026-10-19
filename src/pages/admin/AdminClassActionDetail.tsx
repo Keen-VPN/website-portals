@@ -97,6 +97,7 @@ export default function AdminClassActionDetail() {
       loadSeq.current += 1;
       setDetail(res.data);
       setNotes("");
+      setLoading(false);
     } else {
       setError(res.error ?? `Failed to ${action}`);
     }
@@ -120,6 +121,7 @@ export default function AdminClassActionDetail() {
         prev ? { ...prev, teamFeedback: res.data } : prev,
       );
       setFeedbackComment("");
+      setLoading(false);
     } else {
       setError(res.error ?? "Failed to save feedback");
     }
