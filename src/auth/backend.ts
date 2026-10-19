@@ -11806,6 +11806,28 @@ export interface AdminClassActionCandidateDetail {
     notes: string | null;
     admin: { name: string | null; email: string } | null;
   }[];
+  teamFeedback?: {
+    current: {
+      id: string;
+      feedback: "useful" | "not_useful";
+      comment: string | null;
+      actorType: "slack" | "admin";
+      slackUserId: string | null;
+      admin: { id: string; email: string; name: string | null } | null;
+      updatedAt: string;
+    }[];
+    history: {
+      id: string;
+      action: string;
+      feedback: "useful" | "not_useful";
+      previousFeedback: "useful" | "not_useful" | null;
+      comment: string | null;
+      actorType: "slack" | "admin";
+      slackUserId: string | null;
+      admin: { id: string; email: string; name: string | null } | null;
+      createdAt: string;
+    }[];
+  };
 }
 
 export async function adminFetchClassActionCandidates(params?: {
@@ -11850,6 +11872,26 @@ export async function adminClassActionReviewDecision(
       body: JSON.stringify({ notes: notes ?? undefined }),
     },
     `Failed to ${action} candidate`,
+  );
+}
+
+export async function adminSubmitClassActionRecommendationFeedback(
+  id: string,
+  feedback: "useful" | "not_useful",
+  comment?: string,
+) {
+  return adminClassActionJson<
+    NonNullable<AdminClassActionCandidateDetail["teamFeedback"]>
+  >(
+    `/admin/analyst-recommendations/class-action/${encodeURIComponent(id)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        feedback,
+        comment: comment?.trim() || undefined,
+      }),
+    },
+    "Failed to save recommendation feedback",
   );
 }
 

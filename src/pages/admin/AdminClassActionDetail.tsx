@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   adminClassActionReviewDecision,
   adminFetchClassActionCandidate,
+  adminSubmitClassActionRecommendationFeedback,
   type AdminClassActionCandidateDetail,
 } from "@/auth/backend";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
@@ -26,6 +27,7 @@ export default function AdminClassActionDetail() {
     null,
   );
   const [notes, setNotes] = useState("");
+  const [feedbackComment, setFeedbackComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +98,28 @@ export default function AdminClassActionDetail() {
       setNotes("");
     } else {
       setError(res.error ?? `Failed to ${action}`);
+    }
+  };
+
+  const runFeedback = async (feedback: "useful" | "not_useful") => {
+    if (!candidateId || !canReview) return;
+    setBusy(true);
+    setError(null);
+    const requestedId = candidateId;
+    const res = await adminSubmitClassActionRecommendationFeedback(
+      requestedId,
+      feedback,
+      feedbackComment.trim() || undefined,
+    );
+    setBusy(false);
+    if (candidateIdRef.current !== requestedId) return;
+    if (res.ok && res.data) {
+      setDetail((prev) =>
+        prev ? { ...prev, teamFeedback: res.data } : prev,
+      );
+      setFeedbackComment("");
+    } else {
+      setError(res.error ?? "Failed to save feedback");
     }
   };
 
@@ -246,6 +270,65 @@ export default function AdminClassActionDetail() {
                   <li key={f.code}>{f.message}</li>
                 ))}
               </ul>
+            </section>
+          ) : null}
+
+          {canReview ? (
+            <section className="rounded-lg border border-border p-4 space-y-3">
+              <h3 className="font-semibold">Recommendation feedback</h3>
+              <p className="text-sm text-muted-foreground">
+                Useful / Not useful is stored for future analyst runs. It does
+                not create or delete Jira work.
+              </p>
+              <Textarea
+                id="class-action-feedback-comment"
+                aria-label="Optional feedback comment"
+                placeholder="Optional comment"
+                value={feedbackComment}
+                onChange={(e) => setFeedbackComment(e.target.value)}
+                rows={2}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => void runFeedback("useful")}
+                >
+                  Useful
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void runFeedback("not_useful")}
+                >
+                  Not useful
+                </Button>
+              </div>
+              {detail.teamFeedback?.current?.length ? (
+                <ul className="text-sm space-y-1 border-t border-border pt-2">
+                  {detail.teamFeedback.current.slice(0, 8).map((row) => (
+                    <li key={row.id}>
+                      <span className="font-medium">
+                        {row.feedback === "useful" ? "Useful" : "Not useful"}
+                      </span>
+                      {row.comment ? (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          — {row.comment}
+                        </span>
+                      ) : null}
+                      <span className="text-muted-foreground">
+                        {" "}
+                        ·{" "}
+                        {row.admin?.email ??
+                          (row.slackUserId
+                            ? `Slack ${row.slackUserId}`
+                            : row.actorType)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </section>
           ) : null}
 
