@@ -38,6 +38,7 @@ export default function AdminClassActionDetail() {
   useEffect(() => {
     setDetail(null);
     setNotes("");
+    setFeedbackComment("");
     setError(null);
     setLoading(true);
   }, [candidateId]);
@@ -114,6 +115,7 @@ export default function AdminClassActionDetail() {
     setBusy(false);
     if (candidateIdRef.current !== requestedId) return;
     if (res.ok && res.data) {
+      loadSeq.current += 1;
       setDetail((prev) =>
         prev ? { ...prev, teamFeedback: res.data } : prev,
       );
