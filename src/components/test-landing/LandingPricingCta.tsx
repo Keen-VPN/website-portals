@@ -16,17 +16,17 @@ export default function LandingPricingCta({ v }: { v: LandingVals }) {
           </div>
           <div style={{ background: "#fff", border: "1px solid #e7e1d4", borderRadius: "14px", padding: "28px", display: "grid", gap: "14px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <span style={{ fontWeight: "600" }}>Free trial</span>
-              <span style={{ fontSize: "12px", fontWeight: "600", background: "#efe6d2", color: "#5c4a24", padding: "3px 8px", borderRadius: "4px" }}>1 month</span>
+              <span style={{ fontWeight: "600" }}>1-year plan</span>
+              <span style={{ fontSize: "12px", fontWeight: "600", background: "#efe6d2", color: "#5c4a24", padding: "3px 8px", borderRadius: "4px" }}>Best value</span>
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "6px 12px" }}>
-              <span style={{ fontSize: "52px", fontWeight: "700", letterSpacing: "-.03em", color: "#0f2040" }}>Free</span>
-              <span style={{ color: "#5b6273" }}>for 1 month, then your chosen plan. See current prices on the pricing page.</span>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
+              <span style={{ fontSize: "52px", fontWeight: "700", letterSpacing: "-.03em", color: "#0f2040" }}>$6.67</span>
+              <span style={{ color: "#5b6273" }}>per month, billed yearly</span>
             </div>
             <div style={{ display: "grid", gap: "8px", fontSize: "15px", color: "#3a4152", borderTop: "1px solid #eee7d9", paddingTop: "14px" }}>
-              <span>Cancel any time before the trial ends</span>
-              <span>Switching from another VPN? Transfer your remaining time</span>
-              <span>Up to 3 devices at once on the Individual plan</span>
+              <span>Free trial and 30-day money-back guarantee</span>
+              <span>Transfer discount if you're switching from another VPN</span>
+              <span>Up to 3 devices at once</span>
             </div>
           </div>
         </div>

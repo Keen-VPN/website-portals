@@ -1,16 +1,15 @@
 import { Link } from "react-router-dom";
-import { useMarketingLink } from "./marketingLink";
+import { marketingSiteUrl } from "@/lib/site-urls";
 import { APP_STORE_URLS } from "@/constants/app-store-urls";
 import type { LandingVals } from "./useLandingPage";
 
 export default function LandingNav({ v }: { v: LandingVals }) {
-  const mkt = useMarketingLink();
   return (
     <>
       <header style={{ position: "sticky", top: "12px", zIndex: "20", height: "60px", margin: "12px 0 -72px", padding: "0 16px", pointerEvents: "none", transform: v.navTransform, transition: "transform .35s cubic-bezier(.4,0,.2,1)" }}>
         <div style={{ position: "relative", maxWidth: "1180px", height: "60px", margin: "0 auto", pointerEvents: "auto" }}>
           <div style={{ height: "60px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "0 8px 0 18px", borderRadius: "999px", background: "rgba(250,246,238,.82)", backdropFilter: "blur(16px) saturate(1.4)", WebkitBackdropFilter: "blur(16px) saturate(1.4)", border: "1px solid rgba(15,32,64,.08)", boxShadow: "0 10px 30px -12px rgba(15,32,64,.35),inset 0 1px 0 rgba(255,255,255,.6)" }}>
-            <a href={mkt()} style={{ display: "flex", alignItems: "center", gap: "10px", fontWeight: "800", fontSize: "18px", color: "#0f2040", letterSpacing: "-.02em", whiteSpace: "nowrap" }}>
+            <a href={marketingSiteUrl()} style={{ display: "flex", alignItems: "center", gap: "10px", fontWeight: "800", fontSize: "18px", color: "#0f2040", letterSpacing: "-.02em", whiteSpace: "nowrap" }}>
               <svg width="30" height="29" aria-hidden="true" viewBox="0 0 40 39" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: "block", flex: "none" }}>
                 <path d="M36.6269 20.9931C23.1034 14.9574 13.1307 21.4135 18.457 36.3165C18.7608 37.1652 19.1127 38.0376 19.5125 38.9339C19.5125 38.9339 19.4965 38.9339 19.4726 38.9339C4.78146 36.7528 0.0710122 19.9937 0.382909 11.2613C0.89474 10.5554 1.87042 9.50053 2.91007 8.63601C2.91007 8.63601 2.91274 8.63601 2.91807 8.63601C3.42989 8.23151 3.94973 7.88253 4.46956 7.5732C7.59652 5.70933 10.6595 5.46345 11.0834 5.43966C6.02903 5.01929 2.29428 6.209 0.0630148 7.27181C-0.0169587 5.47138 -0.024956 3.59958 0.0630148 1.64846C0.0630148 1.64846 5.31727 -0.469224 19.4565 1.80709C33.5959 4.09132 31.2446 9.15948 31.2446 9.15948C31.2446 9.15948 41.0175 13.379 36.6349 20.9852L36.6269 20.9931Z" fill="#0F2040" />
                 <path d="M39.258 7.27177C37.5545 6.46276 34.9635 5.57445 31.5805 5.3841C30.165 3.64712 26.4783 1.1408 18.8807 0.403182C30.2689 -0.984812 39.2659 1.65635 39.2659 1.65635C39.3459 3.60746 39.338 5.47927 39.2659 7.27177H39.258Z" fill="#3A7CA5" />
@@ -38,7 +37,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                   </svg>
                 </button>
                 <div className="kvdd-menu">
-                  <a href={mkt("/kill-switch.html")}>
+                  <a href={marketingSiteUrl("/kill-switch.html")}>
                     <span className="kvico">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
                         <rect x="5" y="11" width="14" height="10" rx="2" />
@@ -50,7 +49,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                       <small>Blocks traffic if the tunnel drops</small>
                     </span>
                   </a>
-                  <a href={mkt("/dedicated-ip.html")}>
+                  <a href={marketingSiteUrl("/dedicated-ip.html")}>
                     <span className="kvico">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
                         <circle cx="8" cy="15" r="4" />
@@ -62,7 +61,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                       <small>An address that's yours alone</small>
                     </span>
                   </a>
-                  <a href={mkt("/leak-protection.html")}>
+                  <a href={marketingSiteUrl("/leak-protection.html")}>
                     <span className="kvico">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
                         <path d="M12 3 4.5 6v5.5c0 4.5 3.1 8 7.5 9.5 4.4-1.5 7.5-5 7.5-9.5V6z" />
@@ -74,7 +73,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                       <small>DNS, IPv6, WebRTC and proxy leaks</small>
                     </span>
                   </a>
-                  <a href={mkt("/split-tunneling.html")}>
+                  <a href={marketingSiteUrl("/split-tunneling.html")}>
                     <span className="kvico">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
                         <path d="M12 3v6M12 9l-6 6v6M12 9l6 6v6" />
@@ -85,7 +84,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                       <small>Choose what uses the VPN</small>
                     </span>
                   </a>
-                  <a href={mkt("/high-speed-vpn.html")}>
+                  <a href={marketingSiteUrl("/high-speed-vpn.html")}>
                     <span className="kvico">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
                         <path d="M13 2 4 14h7l-1 8 9-12h-7z" />
@@ -98,10 +97,10 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                   </a>
                 </div>
               </div>
-              <a href={mkt("/server-locations/")} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Server Locations</a>
-              <a href={mkt("/transfer.html")} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Transfer</a>
-              <a href={mkt("/settlements.html")} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Settlements</a>
-              <a href={mkt("/blog/")} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Blog</a>
+              <Link to={"/servers"} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Server Locations</Link>
+              <Link to={"/switch"} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Transfer</Link>
+              <a href={marketingSiteUrl("/settlements.html")} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Settlements</a>
+              <a href={marketingSiteUrl("/blog/")} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Blog</a>
               <div className="kvdd">
                 <button type="button" aria-expanded="false">
                   Download
@@ -189,7 +188,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
               </button>
             </div>
           </div>
-          <nav aria-label="Mobile" style={{ maxHeight: "calc(100dvh - 96px)", overflowY: "auto", display: v.menuDisplay, position: "absolute", left: "0", right: "0", top: "68px", flexDirection: "column", gap: "2px", padding: "10px", borderRadius: "24px", background: "rgba(250,246,238,.96)", backdropFilter: "blur(16px)", border: "1px solid rgba(15,32,64,.08)", boxShadow: "0 24px 48px -16px rgba(15,32,64,.45)", fontSize: "16px" }}>
+          <nav aria-label="Mobile" style={{ display: v.menuDisplay, position: "absolute", left: "0", right: "0", top: "68px", flexDirection: "column", gap: "2px", padding: "10px", borderRadius: "24px", background: "rgba(250,246,238,.96)", backdropFilter: "blur(16px)", border: "1px solid rgba(15,32,64,.08)", boxShadow: "0 24px 48px -16px rgba(15,32,64,.45)", fontSize: "16px" }}>
             <Link to={"/pricing"} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Pricing</Link>
             <details className="kvmd">
               <summary>
@@ -199,16 +198,16 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                   <path d="m6 9 6 6 6-6" />
                 </svg>
               </summary>
-              <a href={mkt("/kill-switch.html")} onClick={v.closeMenu}>Kill Switch</a>
-              <a href={mkt("/dedicated-ip.html")} onClick={v.closeMenu}>Dedicated IP</a>
-              <a href={mkt("/leak-protection.html")} onClick={v.closeMenu}>Leak & DNS Protection</a>
-              <a href={mkt("/split-tunneling.html")} onClick={v.closeMenu}>Split Tunneling</a>
-              <a href={mkt("/high-speed-vpn.html")} onClick={v.closeMenu}>High-speed VPN</a>
+              <a href={marketingSiteUrl("/kill-switch.html")} onClick={v.closeMenu}>Kill Switch</a>
+              <a href={marketingSiteUrl("/dedicated-ip.html")} onClick={v.closeMenu}>Dedicated IP</a>
+              <a href={marketingSiteUrl("/leak-protection.html")} onClick={v.closeMenu}>Leak & DNS Protection</a>
+              <a href={marketingSiteUrl("/split-tunneling.html")} onClick={v.closeMenu}>Split Tunneling</a>
+              <a href={marketingSiteUrl("/high-speed-vpn.html")} onClick={v.closeMenu}>High-speed VPN</a>
             </details>
-            <a href={mkt("/server-locations/")} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Server Locations</a>
-            <a href={mkt("/transfer.html")} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Transfer</a>
-            <a href={mkt("/settlements.html")} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Settlements</a>
-            <a href={mkt("/blog/")} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Blog</a>
+            <Link to={"/servers"} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Server Locations</Link>
+            <Link to={"/switch"} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Transfer</Link>
+            <a href={marketingSiteUrl("/settlements.html")} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Settlements</a>
+            <a href={marketingSiteUrl("/blog/")} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Blog</a>
             <details className="kvmd">
               <summary>
                 Download
