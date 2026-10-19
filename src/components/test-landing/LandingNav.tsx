@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { marketingSiteUrl } from "@/lib/site-urls";
-import { APP_STORE_URLS } from "@/constants/app-store-urls";
 import type { LandingVals } from "./useLandingPage";
 
 export default function LandingNav({ v }: { v: LandingVals }) {
@@ -29,7 +28,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
             <nav aria-label="Main" style={{ display: v.navDisplay, alignItems: "center", gap: "2px", fontSize: "14.5px" }}>
               <Link to={"/pricing"} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Pricing</Link>
               <div className="kvdd">
-                <button type="button" aria-expanded="false">
+                <button type="button" aria-expanded="false" aria-haspopup="true">
                   Features
                   {" "}
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
@@ -102,7 +101,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
               <a href={marketingSiteUrl("/settlements.html")} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Settlements</a>
               <a href={marketingSiteUrl("/blog/")} className="kvh1" style={{ padding: "9px 14px", borderRadius: "999px", whiteSpace: "nowrap", color: "#0f2040", fontWeight: "500" }}>Blog</a>
               <div className="kvdd">
-                <button type="button" aria-expanded="false">
+                <button type="button" aria-expanded="false" aria-haspopup="true">
                   Download
                   {" "}
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
@@ -110,7 +109,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                   </svg>
                 </button>
                 <div className="kvdd-menu">
-                  <a href={APP_STORE_URLS.windows} rel="noopener" data-track="nav_download_windows" onClick={v.track}>
+                  <a href={"https://apps.microsoft.com/store/detail/9NZZ9WCFKKBG?cid=DevShareMCLPCS"} rel="noopener" data-track="nav_download_windows" onClick={v.track}>
                     <span className="kvico">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
                         <path d="M3 4.6 10.4 3.6v7.6H3zM11.4 3.5 21 2v9.2h-9.6zM3 12.8h7.4v7.6L3 19.4zM11.4 12.8H21V22l-9.6-1.5z" />
@@ -121,7 +120,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                       <small>Microsoft Store</small>
                     </span>
                   </a>
-                  <a href={APP_STORE_URLS.macos} rel="noopener" data-track="nav_download_macos" onClick={v.track}>
+                  <a href={"https://apps.apple.com/ng/app/keenvpn-secure-vpn/id6751677565?mt=12"} rel="noopener" data-track="nav_download_macos" onClick={v.track}>
                     <span className="kvico">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
                         <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
@@ -132,7 +131,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                       <small>Mac App Store</small>
                     </span>
                   </a>
-                  <a href={APP_STORE_URLS.ios} rel="noopener" data-track="nav_download_ios" onClick={v.track}>
+                  <a href={"https://apps.apple.com/ng/app/keenvpn-secure-vpn/id6753761859"} rel="noopener" data-track="nav_download_ios" onClick={v.track}>
                     <span className="kvico">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
                         <rect x="6.5" y="2" width="11" height="20" rx="2.6" />
@@ -144,7 +143,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                       <small>App Store</small>
                     </span>
                   </a>
-                  <a href={APP_STORE_URLS.android} rel="noopener" data-track="nav_download_android" onClick={v.track}>
+                  <a href={"https://play.google.com/store/apps/details?id=com.keenvpnapp.app"} rel="noopener" data-track="nav_download_android" onClick={v.track}>
                     <span className="kvico">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
                         <path d="M5.5 9.5h13v8a1.5 1.5 0 0 1-1.5 1.5h-1v2.5a1.25 1.25 0 0 1-2.5 0V19h-3v2.5a1.25 1.25 0 0 1-2.5 0V19h-1A1.5 1.5 0 0 1 5.5 17.5z" />
@@ -159,7 +158,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                       <small>Google Play</small>
                     </span>
                   </a>
-                  <a href={APP_STORE_URLS.chrome} rel="noopener" data-track="nav_download_chrome" onClick={v.track}>
+                  <a href={"https://chromewebstore.google.com/detail/keenvpn-%E2%80%94-browser-protect/fdmiheabmohipekdgphijdboe"} rel="noopener" data-track="nav_download_chrome" onClick={v.track}>
                     <span className="kvico">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
                         <circle cx="12" cy="12" r="9.5" />
@@ -188,7 +187,7 @@ export default function LandingNav({ v }: { v: LandingVals }) {
               </button>
             </div>
           </div>
-          <nav aria-label="Mobile" style={{ display: v.menuDisplay, position: "absolute", left: "0", right: "0", top: "68px", flexDirection: "column", gap: "2px", padding: "10px", borderRadius: "24px", background: "rgba(250,246,238,.96)", backdropFilter: "blur(16px)", border: "1px solid rgba(15,32,64,.08)", boxShadow: "0 24px 48px -16px rgba(15,32,64,.45)", fontSize: "16px" }}>
+          <div style={{ display: v.menuDisplay, position: "absolute", left: "0", right: "0", top: "68px", flexDirection: "column", gap: "2px", padding: "10px", borderRadius: "24px", background: "rgba(250,246,238,.96)", backdropFilter: "blur(16px)", border: "1px solid rgba(15,32,64,.08)", boxShadow: "0 24px 48px -16px rgba(15,32,64,.45)", fontSize: "16px" }}>
             <Link to={"/pricing"} className="kvh3" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500" }} onClick={v.closeMenu}>Pricing</Link>
             <details className="kvmd">
               <summary>
@@ -216,14 +215,14 @@ export default function LandingNav({ v }: { v: LandingVals }) {
                   <path d="m6 9 6 6 6-6" />
                 </svg>
               </summary>
-              <a href={APP_STORE_URLS.windows} rel="noopener" data-track="nav_mobile_download_windows" onClick={v.trackAndClose}>Download for Windows</a>
-              <a href={APP_STORE_URLS.macos} rel="noopener" data-track="nav_mobile_download_macos" onClick={v.trackAndClose}>Download for macOS</a>
-              <a href={APP_STORE_URLS.ios} rel="noopener" data-track="nav_mobile_download_ios" onClick={v.trackAndClose}>Download for iOS</a>
-              <a href={APP_STORE_URLS.android} rel="noopener" data-track="nav_mobile_download_android" onClick={v.trackAndClose}>Download for Android</a>
-              <a href={APP_STORE_URLS.chrome} rel="noopener" data-track="nav_mobile_download_chrome" onClick={v.trackAndClose}>Download for Chrome</a>
+              <a href={"https://apps.microsoft.com/store/detail/9NZZ9WCFKKBG?cid=DevShareMCLPCS"} rel="noopener" data-track="nav_mobile_download_windows" onClick={v.trackAndClose}>Download for Windows</a>
+              <a href={"https://apps.apple.com/ng/app/keenvpn-secure-vpn/id6751677565?mt=12"} rel="noopener" data-track="nav_mobile_download_macos" onClick={v.trackAndClose}>Download for macOS</a>
+              <a href={"https://apps.apple.com/ng/app/keenvpn-secure-vpn/id6753761859"} rel="noopener" data-track="nav_mobile_download_ios" onClick={v.trackAndClose}>Download for iOS</a>
+              <a href={"https://play.google.com/store/apps/details?id=com.keenvpnapp.app"} rel="noopener" data-track="nav_mobile_download_android" onClick={v.trackAndClose}>Download for Android</a>
+              <a href={"https://chromewebstore.google.com/detail/keenvpn-%E2%80%94-browser-protect/fdmiheabmohipekdgphijdboe"} rel="noopener" data-track="nav_mobile_download_chrome" onClick={v.trackAndClose}>Download for Chrome</a>
             </details>
             <Link to={"/signin"} className="kvh3" data-track="nav_mobile_login" style={{ padding: "13px 14px", borderRadius: "12px", color: "#0f2040", fontWeight: "500", borderTop: "1px solid rgba(15,32,64,.08)", marginTop: "6px" }} onClick={v.trackAndClose}>Log in</Link>
-          </nav>
+          </div>
         </div>
       </header>
     </>

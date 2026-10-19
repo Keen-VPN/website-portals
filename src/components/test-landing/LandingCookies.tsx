@@ -34,7 +34,7 @@ export default function LandingCookies({ v }: { v: LandingVals }) {
                   <span style={{ fontSize: "11px", fontWeight: "600", color: "#fff", background: "#d8432f", padding: "5px 10px", borderRadius: "999px" }}>Subscribe</span>
                 </div>
                 <div style={{ height: "120px", borderRadius: "10px", overflow: "hidden", flex: "none" }}>
-                  <img src={photo1} alt="City street with taxis and tall buildings" data-photo-source="https://images.unsplash.com/photo-1449824913935-59a10b8d2000" loading="lazy" decoding="async" width="1000" height="667" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 65%" }} />
+                  <img src={photo1} alt="City street with taxis and tall buildings" data-photo-source="https://images.unsplash.com/photo-1449824913935-59a10b8d2000" decoding="async" width="1000" height="667" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 65%" }} />
                 </div>
                 <span style={{ fontSize: "10px", fontWeight: "700", letterSpacing: ".08em", color: "#d8432f" }}>WORLD</span>
                 <span style={{ fontSize: "19px", lineHeight: "1.2", fontWeight: "800", letterSpacing: "-.025em", color: "#141a2b" }}>Leaders agree landmark climate deal after record talks</span>
@@ -70,7 +70,7 @@ export default function LandingCookies({ v }: { v: LandingVals }) {
                   <span style={{ fontSize: "11px", fontWeight: "600", color: "#fff", background: "#d9822b", padding: "5px 10px", borderRadius: "999px" }}>Save</span>
                 </div>
                 <div style={{ height: "120px", borderRadius: "10px", overflow: "hidden", flex: "none" }}>
-                  <img src={photo2} alt="Pesto pasta with cherry tomatoes" data-photo-source="https://images.unsplash.com/photo-1473093295043-cdd812d0e601" loading="lazy" decoding="async" width="1000" height="667" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 50%" }} />
+                  <img src={photo2} alt="Pesto pasta with cherry tomatoes" data-photo-source="https://images.unsplash.com/photo-1473093295043-cdd812d0e601" decoding="async" width="1000" height="667" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 50%" }} />
                 </div>
                 <span style={{ fontSize: "10px", fontWeight: "700", letterSpacing: ".08em", color: "#d9822b" }}>DINNER</span>
                 <span style={{ fontSize: "19px", lineHeight: "1.2", fontWeight: "800", letterSpacing: "-.025em", color: "#141a2b" }}>Weeknight pasta in fifteen minutes flat</span>
@@ -106,7 +106,7 @@ export default function LandingCookies({ v }: { v: LandingVals }) {
                   <span style={{ fontSize: "11px", fontWeight: "600", color: "#fff", background: "#2a6fdb", padding: "5px 10px", borderRadius: "999px" }}>Cart (2)</span>
                 </div>
                 <div style={{ height: "120px", borderRadius: "10px", overflow: "hidden", flex: "none" }}>
-                  <img src={photo3} alt="Red running shoe on a red background" data-photo-source="https://images.unsplash.com/photo-1542291026-7eec264c27ff" loading="lazy" decoding="async" width="1000" height="667" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 55%" }} />
+                  <img src={photo3} alt="Red running shoe on a red background" data-photo-source="https://images.unsplash.com/photo-1542291026-7eec264c27ff" decoding="async" width="1000" height="667" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 55%" }} />
                 </div>
                 <span style={{ fontSize: "10px", fontWeight: "700", letterSpacing: ".08em", color: "#2a6fdb" }}>NEW SEASON</span>
                 <span style={{ fontSize: "19px", lineHeight: "1.2", fontWeight: "800", letterSpacing: "-.025em", color: "#141a2b" }}>Cloudlight runners are back in six colours</span>
@@ -142,7 +142,7 @@ export default function LandingCookies({ v }: { v: LandingVals }) {
                   <span style={{ fontSize: "11px", fontWeight: "600", color: "#fff", background: "#1f9d8a", padding: "5px 10px", borderRadius: "999px" }}>Plan a trip</span>
                 </div>
                 <div style={{ height: "120px", borderRadius: "10px", overflow: "hidden", flex: "none" }}>
-                  <img src={photo4} alt="Yellow tram on a Lisbon street" data-photo-source="https://images.unsplash.com/photo-1585208798174-6cedd86e019a" loading="lazy" decoding="async" width="1000" height="667" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 65%" }} />
+                  <img src={photo4} alt="Yellow tram on a Lisbon street" data-photo-source="https://images.unsplash.com/photo-1585208798174-6cedd86e019a" decoding="async" width="1000" height="667" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 65%" }} />
                 </div>
                 <span style={{ fontSize: "10px", fontWeight: "700", letterSpacing: ".08em", color: "#1f9d8a" }}>CITY GUIDE</span>
                 <span style={{ fontSize: "19px", lineHeight: "1.2", fontWeight: "800", letterSpacing: "-.025em", color: "#141a2b" }}>48 hours in Lisbon: tiles, trams and custard tarts</span>
