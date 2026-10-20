@@ -67,6 +67,9 @@ const AdminDomainInsights = lazy(
   () => import("./pages/admin/AdminDomainInsights"),
 );
 const AdminPerks = lazy(() => import("./pages/admin/AdminPerks"));
+const AdminClassActionReview = lazy(
+  () => import("./pages/admin/AdminClassActionReview"),
+);
 const AdminHotLinks = lazy(() => import("./pages/admin/AdminHotLinks"));
 const AdminAffiliateLinks = lazy(
   () => import("./pages/admin/AdminAffiliateLinks"),
@@ -126,12 +129,6 @@ const AdminEmailUnsubscribes = lazy(
 );
 const AdminClassActionEmailCta = lazy(
   () => import("./pages/admin/AdminClassActionEmailCta"),
-);
-const AdminClassActions = lazy(
-  () => import("./pages/admin/AdminClassActions"),
-);
-const AdminClassActionDetail = lazy(
-  () => import("./pages/admin/AdminClassActionDetail"),
 );
 const AdminUserProfiles = lazy(
   () => import("./pages/admin/AdminUserProfiles"),
@@ -392,6 +389,14 @@ const App = () => (
                   element={<AdminDomainInsights />}
                 />
                 <Route path="perks" element={<AdminPerks />} />
+                <Route
+                  path="class-actions"
+                  element={<AdminClassActionReview />}
+                />
+                <Route
+                  path="class-actions/:id"
+                  element={<AdminClassActionReview />}
+                />
                 <Route path="hot-links" element={<AdminHotLinks />} />
                 <Route
                   path="affiliate-links"
@@ -452,11 +457,6 @@ const App = () => (
                 <Route
                   path="class-action-email-cta"
                   element={<AdminClassActionEmailCta />}
-                />
-                <Route path="class-actions" element={<AdminClassActions />} />
-                <Route
-                  path="class-actions/:candidateId"
-                  element={<AdminClassActionDetail />}
                 />
               </Route>
               <Route path="*" element={<NotFound />} />
