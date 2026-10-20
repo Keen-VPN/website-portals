@@ -68,12 +68,17 @@ export default function AdminIterationRecommendations() {
   const [newSummary, setNewSummary] = useState("");
   const [newJiraKey, setNewJiraKey] = useState("");
   const loadGeneration = useRef(0);
+  const weekStartRef = useRef(weekStart);
+  weekStartRef.current = weekStart;
 
-  const load = useCallback(async () => {
+  /** Always reads the latest week from the ref so post-mutation reloads
+   *  follow the week currently selected, not the week when the button rendered. */
+  const load = useCallback(async (weekOverride?: string) => {
+    const week = weekOverride ?? weekStartRef.current;
     const generation = ++loadGeneration.current;
     setLoading(true);
     setError(null);
-    const res = await adminFetchIterationWeeklyComparison({ weekStart });
+    const res = await adminFetchIterationWeeklyComparison({ weekStart: week });
     if (generation !== loadGeneration.current) return;
     if (!res.ok || !res.data) {
       setReport(null);
@@ -83,14 +88,14 @@ export default function AdminIterationRecommendations() {
     }
     setReport(res.data);
     setLoading(false);
-  }, [weekStart]);
+  }, []);
 
   useEffect(() => {
-    void load();
+    void load(weekStart);
     return () => {
       loadGeneration.current += 1;
     };
-  }, [load]);
+  }, [weekStart, load]);
 
   const rates = report?.rates;
   const humanRows = report?.humanOriginatedCompleted ?? [];
