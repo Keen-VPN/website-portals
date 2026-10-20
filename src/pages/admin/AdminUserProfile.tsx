@@ -471,6 +471,10 @@ export default function AdminUserProfile() {
         </div>
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : error ? (
+          <p className="text-sm text-muted-foreground">
+            Unable to load authenticated environments.
+          </p>
         ) : (profile?.loginEnvironments?.length ?? 0) === 0 ? (
           <p className="text-sm text-muted-foreground">
             No authenticated environments recorded yet.
