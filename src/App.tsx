@@ -96,6 +96,9 @@ const AdminSubscriptionAnalytics = lazy(
 const AdminJiraDelivery = lazy(
   () => import("./pages/admin/AdminJiraDelivery"),
 );
+const AdminIterationRecommendations = lazy(
+  () => import("./pages/admin/AdminIterationRecommendations"),
+);
 const AdminNetworkMesh = lazy(
   () => import("./pages/admin/AdminNetworkMesh"),
 );
@@ -427,6 +430,10 @@ const App = () => (
                   element={<AdminSubscriptionAnalytics />}
                 />
                 <Route path="jira-delivery" element={<AdminJiraDelivery />} />
+                <Route
+                  path="iteration-recommendations"
+                  element={<AdminIterationRecommendations />}
+                />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="utm-attribution" element={<AdminUtmAttribution />} />
                 <Route

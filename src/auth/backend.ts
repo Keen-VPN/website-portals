@@ -7730,6 +7730,186 @@ export async function adminFetchJiraPointsSinceReport(params: {
   }
 }
 
+export type AdminProductWorkRecommendationStatus =
+  | "RECOMMENDED"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "STARTED"
+  | "COMPLETED"
+  | "MODIFIED_REPLACED";
+
+export interface AdminProductWorkRecommendation {
+  id: string;
+  title: string;
+  summary: string | null;
+  status: AdminProductWorkRecommendationStatus;
+  source: string;
+  weekStart: string;
+  jiraIssueKey: string | null;
+  jiraIssueUrl: string | null;
+  jiraStatus: string | null;
+  jiraStatusCategory: string | null;
+  jiraSyncedAt: string | null;
+  recommendedAt: string;
+  acceptedAt: string | null;
+  rejectedAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  modifiedAt: string | null;
+  rejectionReason: string | null;
+  externalId: string | null;
+}
+
+export interface AdminIterationWeeklyComparison {
+  weekStart: string;
+  weekEndExclusive: string;
+  counts: Record<AdminProductWorkRecommendationStatus, number>;
+  rates: {
+    recommended: number;
+    acceptedIntoJira: number;
+    rejected: number;
+    started: number;
+    completed: number;
+    modifiedReplaced: number;
+    acceptanceRate: number | null;
+    completionRate: number | null;
+    rejectionRate: number | null;
+  };
+  recommendations: AdminProductWorkRecommendation[];
+  humanOriginatedCompleted: {
+    key: string;
+    summary: string;
+    points: number;
+    resolvedAt: string;
+  }[];
+  humanOriginatedCompletedCount: number;
+}
+
+async function adminIterationJson<T>(
+  path: string,
+  init?: RequestInit,
+  fallbackError = "Request failed",
+): Promise<{ ok: boolean; data?: T; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
+    }
+    const record = raw as { data?: T };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchIterationWeeklyComparison(params?: {
+  weekStart?: string;
+}) {
+  const query = new URLSearchParams();
+  if (params?.weekStart) query.set("weekStart", params.weekStart);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return adminIterationJson<AdminIterationWeeklyComparison>(
+    `/admin/iteration/recommendations/weekly${suffix}`,
+    undefined,
+    "Failed to load weekly recommendation comparison",
+  );
+}
+
+export async function adminCreateProductWorkRecommendation(body: {
+  title: string;
+  summary?: string;
+  weekStart?: string;
+  jiraIssueKey?: string;
+  source?: string;
+}) {
+  return adminIterationJson<AdminProductWorkRecommendation>(
+    "/admin/iteration/recommendations",
+    { method: "POST", body: JSON.stringify(body) },
+    "Failed to create recommendation",
+  );
+}
+
+export async function adminLinkProductWorkRecommendationJira(
+  id: string,
+  body: { jiraIssueKey: string; note?: string },
+) {
+  return adminIterationJson<AdminProductWorkRecommendation>(
+    `/admin/iteration/recommendations/${encodeURIComponent(id)}/link-jira`,
+    { method: "POST", body: JSON.stringify(body) },
+    "Failed to link Jira issue",
+  );
+}
+
+export async function adminUpdateProductWorkRecommendationStatus(
+  id: string,
+  body: {
+    status: AdminProductWorkRecommendationStatus;
+    jiraIssueKey?: string;
+    note?: string;
+    rejectionReason?: string;
+  },
+) {
+  return adminIterationJson<AdminProductWorkRecommendation>(
+    `/admin/iteration/recommendations/${encodeURIComponent(id)}/status`,
+    { method: "PATCH", body: JSON.stringify(body) },
+    "Failed to update recommendation status",
+  );
+}
+
+export async function adminSyncProductWorkRecommendationJira(params?: {
+  weekStart?: string;
+}) {
+  const query = new URLSearchParams();
+  if (params?.weekStart) query.set("weekStart", params.weekStart);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return adminIterationJson<{
+    scanned: number;
+    synced: number;
+    updated: number;
+    errors: string[];
+  }>(
+    `/admin/iteration/recommendations/sync-jira${suffix}`,
+    { method: "POST", body: "{}" },
+    "Failed to sync Jira statuses",
+  );
+}
+
+export async function adminGenerateProductWorkRecommendations(params?: {
+  weekStart?: string;
+  force?: boolean;
+}) {
+  return adminIterationJson<{
+    created: number;
+    skipped: boolean;
+    message?: string;
+    recommendations: AdminProductWorkRecommendation[];
+  }>(
+    "/admin/iteration/recommendations/generate",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        weekStart: params?.weekStart,
+        force: params?.force ?? false,
+      }),
+    },
+    "Failed to generate AI recommendations",
+  );
+}
+
 export async function adminFetchWeeklyChurnReport(params: {
   week: number;
   year: number;
