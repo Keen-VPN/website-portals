@@ -101,7 +101,7 @@ function SafeLink({
 
 export default function AdminClassActionReview() {
   const { id } = useParams<{ id: string }>();
-  return id ? <CandidateDetail id={id} /> : <CandidateList />;
+  return id ? <CandidateDetail key={id} id={id} /> : <CandidateList />;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -110,6 +110,7 @@ export default function AdminClassActionReview() {
 
 function CandidateList() {
   const { can } = useAdminAuth();
+  const canRead = can("class_actions.read");
   const [status, setStatus] = useState<ClassActionReviewStatus | "ALL">(
     "PENDING_REVIEW",
   );
@@ -121,6 +122,9 @@ function CandidateList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showIngestion, setShowIngestion] = useState(false);
+  const loadRef = useRef<(signal?: AbortSignal) => Promise<void>>(
+    async () => undefined,
+  );
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 300);
@@ -133,6 +137,10 @@ function CandidateList() {
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
+      if (!canRead) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       const res = await adminListClassActionCandidates({
@@ -148,8 +156,9 @@ function CandidateList() {
       else setError(res.error ?? "Failed to load candidates");
       setLoading(false);
     },
-    [status, debouncedQuery, page, sort],
+    [canRead, status, debouncedQuery, page, sort],
   );
+  loadRef.current = load;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -160,6 +169,20 @@ function CandidateList() {
   const totalPages = data
     ? Math.max(1, Math.ceil(data.total / data.pageSize))
     : 1;
+
+  if (!canRead) {
+    return (
+      <div className="space-y-2">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+          <Scale className="h-6 w-6 text-primary" />
+          Class Action Review
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Your admin role does not include class-action review access.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -176,7 +199,7 @@ function CandidateList() {
       </header>
 
       <DiscoveryPanel
-        onChanged={() => void load()}
+        onChanged={() => void loadRef.current()}
         canDiscover={can("class_actions.discover")}
       />
 
@@ -427,6 +450,11 @@ function DiscoveryPanel({
     const data = res.data;
     if (data?.status === "skipped") {
       toast({ title: "Run skipped", description: data.reason });
+    } else if (data?.status === "running") {
+      toast({
+        title: "Run started",
+        description: "See recent runs for progress.",
+      });
     } else if (!res.ok || !data || data.status === "failed") {
       toast({
         title: "Discovery run failed",
@@ -691,6 +719,7 @@ function Field({
 
 function CandidateDetail({ id }: { id: string }) {
   const { can } = useAdminAuth();
+  const canRead = can("class_actions.read");
   const { toast } = useToast();
   const [detail, setDetail] = useState<ClassActionCandidateDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -700,6 +729,7 @@ function CandidateDetail({ id }: { id: string }) {
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
+      if (!canRead) return;
       const res = await adminGetClassActionCandidate(id, signal);
       if (signal?.aborted) return;
       if (res.ok && res.data) {
@@ -709,7 +739,7 @@ function CandidateDetail({ id }: { id: string }) {
         setError(res.error ?? "Failed to load candidate");
       }
     },
-    [id],
+    [canRead, id],
   );
 
   useEffect(() => {
@@ -747,6 +777,17 @@ function CandidateDetail({ id }: { id: string }) {
     toast({ title: `${DECISIONS[pending].label}: done` });
     setPending(null);
   };
+
+  if (!canRead) {
+    return (
+      <div className="space-y-4">
+        <BackLink />
+        <p className="text-sm text-muted-foreground">
+          Your admin role does not include class-action review access.
+        </p>
+      </div>
+    );
+  }
 
   if (error) {
     return (

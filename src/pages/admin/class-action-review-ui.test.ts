@@ -30,8 +30,25 @@ describe("class-action review UI helpers", () => {
     expect(describeFlag("something_new")).toBe("something_new");
   });
 
-  it("formats deadlines in UTC (stored as end-of-day UTC)", () => {
-    expect(formatDate("2030-03-05T23:59:59.000Z")).toMatch(/2030/);
+  it("formats deadlines as the UTC calendar date (end-of-day must not roll forward)", () => {
+    const iso = "2030-03-05T23:59:59.000Z";
+    const d = new Date(iso);
+    expect(d.getUTCFullYear()).toBe(2030);
+    expect(d.getUTCMonth()).toBe(2);
+    expect(d.getUTCDate()).toBe(5);
+
+    const formatted = formatDate(iso);
+    expect(formatted).toBe(
+      d.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      }),
+    );
+    // Full UTC day — not merely the year (would miss Mar 5 → Mar 6 roll).
+    expect(formatted).toMatch(/5/);
+    expect(formatted).not.toMatch(/6/);
     expect(formatDate(null)).toBe("—");
   });
 });
