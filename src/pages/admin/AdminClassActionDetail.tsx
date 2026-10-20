@@ -313,7 +313,10 @@ export default function AdminClassActionDetail() {
                   {detail.teamFeedback.current.slice(0, 8).map((row) => (
                     <li key={row.id}>
                       <span className="font-medium">
-                        {row.feedback === "useful" ? "Useful" : "Not useful"}
+                        {row.feedback === "useful" ||
+                        row.feedback === "USEFUL"
+                          ? "Useful"
+                          : "Not useful"}
                       </span>
                       {row.comment ? (
                         <span className="text-muted-foreground">
