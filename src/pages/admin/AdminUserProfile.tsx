@@ -463,6 +463,44 @@ export default function AdminUserProfile() {
 
       <section className="space-y-3 rounded-lg border border-border p-4">
         <div>
+          <h3 className="text-lg font-semibold">Login environments</h3>
+          <p className="text-sm text-muted-foreground">
+            Platforms this account has authenticated on. Downloads and anonymous
+            visits are not counted.
+          </p>
+        </div>
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : (profile?.loginEnvironments?.length ?? 0) === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No authenticated environments recorded yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-border text-muted-foreground">
+                <tr>
+                  <th className="py-2 pr-3 font-medium">Environment</th>
+                  <th className="py-2 font-medium">Last authenticated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {profile?.loginEnvironments?.map((env) => (
+                  <tr key={env.id} className="border-b border-border/60">
+                    <td className="py-2 pr-3">{env.label}</td>
+                    <td className="py-2">
+                      {formatDateTime(env.lastAuthenticatedAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3 rounded-lg border border-border p-4">
+        <div>
           <h3 className="text-lg font-semibold">Subscription measures</h3>
           <p className="text-sm text-muted-foreground">
             Sign up, trial, subscription started, renewals (repeat purchase),

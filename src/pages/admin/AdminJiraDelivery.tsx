@@ -683,8 +683,8 @@ export default function AdminJiraDelivery() {
                 <CardTitle className="text-base">Points by environment</CardTitle>
                 <CardDescription>
                   Labels: backend, ios, macos, android, website, seo, design,
-                  windows, operations, chrome, infrastructure. Multi-label
-                  stories count full points in each match.
+                  windows, operations, chrome, infrastructure, geospatial.
+                  Multi-label stories count full points in each match.
                 </CardDescription>
               </CardHeader>
               <CardContent>
