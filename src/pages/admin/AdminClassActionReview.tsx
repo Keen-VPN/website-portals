@@ -726,9 +726,8 @@ function CandidateDetail({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<DecisionKind | null>(null);
   const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [mutating, setMutating] = useState(false);
   const [feedbackComment, setFeedbackComment] = useState("");
-  const [feedbackBusy, setFeedbackBusy] = useState(false);
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -759,14 +758,14 @@ function CandidateDetail({ id }: { id: string }) {
   const canReview = can("class_actions.review");
 
   const runFeedback = async (feedback: "useful" | "not_useful") => {
-    if (!canReview || feedbackBusy) return;
-    setFeedbackBusy(true);
+    if (!canReview || mutating) return;
+    setMutating(true);
     const res = await adminSubmitClassActionRecommendationFeedback(
       id,
       feedback,
       feedbackComment.trim() || undefined,
     );
-    setFeedbackBusy(false);
+    setMutating(false);
     if (!res.ok || !res.data) {
       toast({
         title: "Failed to save feedback",
@@ -783,14 +782,14 @@ function CandidateDetail({ id }: { id: string }) {
   };
 
   const confirm = async () => {
-    if (!pending || !canSubmitDecision(pending, text)) return;
-    setBusy(true);
+    if (!pending || mutating || !canSubmitDecision(pending, text)) return;
+    setMutating(true);
     const res = await adminClassActionDecision(
       id,
       pending,
       decisionBody(pending, text),
     );
-    setBusy(false);
+    setMutating(false);
     if (!res.ok || !res.data) {
       toast({
         title: `${DECISIONS[pending].label} failed`,
@@ -842,7 +841,10 @@ function CandidateDetail({ id }: { id: string }) {
   const warnings = c.validationWarnings ?? [];
   const duplicates = c.duplicateMatches ?? [];
   const decisionActions = detail.allowedActions;
-  const teamFeedback = detail.teamFeedback?.current ?? [];
+  const teamFeedback = [...(detail.teamFeedback?.current ?? [])].sort(
+    (a, b) =>
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  );
 
   return (
     <div className="space-y-6">
@@ -903,7 +905,8 @@ function CandidateDetail({ id }: { id: string }) {
                       : undefined
                   }
                   disabled={
-                    action === "approve" && !detail.publicationChecks.ok
+                    mutating ||
+                    (action === "approve" && !detail.publicationChecks.ok)
                   }
                   title={
                     action === "approve" && !detail.publicationChecks.ok
@@ -923,7 +926,11 @@ function CandidateDetail({ id }: { id: string }) {
               ))
             : null}
           {canReview ? (
-            <Button variant="outline" onClick={() => openDecision("notes")}>
+            <Button
+              variant="outline"
+              disabled={mutating}
+              onClick={() => openDecision("notes")}
+            >
               <FileText className="mr-2 h-4 w-4" />
               {DECISIONS.notes.label}
             </Button>
@@ -1140,14 +1147,14 @@ function CandidateDetail({ id }: { id: string }) {
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="secondary"
-                    disabled={feedbackBusy}
+                    disabled={mutating}
                     onClick={() => void runFeedback("useful")}
                   >
                     Useful
                   </Button>
                   <Button
                     variant="outline"
-                    disabled={feedbackBusy}
+                    disabled={mutating}
                     onClick={() => void runFeedback("not_useful")}
                   >
                     Not useful
@@ -1327,7 +1334,9 @@ function CandidateDetail({ id }: { id: string }) {
 
       <AlertDialog
         open={pending !== null}
-        onOpenChange={(open) => (!open && !busy ? setPending(null) : undefined)}
+        onOpenChange={(open) =>
+          !open && !mutating ? setPending(null) : undefined
+        }
       >
         {pending ? (
           <AlertDialogContent>
@@ -1349,15 +1358,15 @@ function CandidateDetail({ id }: { id: string }) {
               />
             </label>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={mutating}>Cancel</AlertDialogCancel>
               <Button
                 variant={
                   DECISIONS[pending].destructive ? "destructive" : "default"
                 }
-                disabled={busy || !canSubmitDecision(pending, text)}
+                disabled={mutating || !canSubmitDecision(pending, text)}
                 onClick={() => void confirm()}
               >
-                {busy ? (
+                {mutating ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : null}
                 {DECISIONS[pending].confirmLabel}
