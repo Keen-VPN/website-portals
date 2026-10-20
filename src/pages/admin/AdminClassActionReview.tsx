@@ -43,6 +43,7 @@ import {
   adminListClassActionCandidates,
   adminListClassActionIngestion,
   adminRunClassActionDiscovery,
+  adminSubmitClassActionRecommendationFeedback,
   adminSubmitClassActionUrl,
   type ClassActionCandidateDetail,
   type ClassActionCandidateList,
@@ -725,7 +726,8 @@ function CandidateDetail({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<DecisionKind | null>(null);
   const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [mutating, setMutating] = useState(false);
+  const [feedbackComment, setFeedbackComment] = useState("");
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -753,15 +755,41 @@ function CandidateDetail({ id }: { id: string }) {
     setPending(kind);
   };
 
+  const canReview = can("class_actions.review");
+
+  const runFeedback = async (feedback: "useful" | "not_useful") => {
+    if (!canReview || mutating) return;
+    setMutating(true);
+    const res = await adminSubmitClassActionRecommendationFeedback(
+      id,
+      feedback,
+      feedbackComment.trim() || undefined,
+    );
+    setMutating(false);
+    if (!res.ok || !res.data) {
+      toast({
+        title: "Failed to save feedback",
+        description: res.error,
+        variant: "destructive",
+      });
+      return;
+    }
+    setDetail((prev) => (prev ? { ...prev, teamFeedback: res.data } : prev));
+    setFeedbackComment("");
+    toast({
+      title: feedback === "useful" ? "Marked useful" : "Marked not useful",
+    });
+  };
+
   const confirm = async () => {
-    if (!pending || !canSubmitDecision(pending, text)) return;
-    setBusy(true);
+    if (!pending || mutating || !canSubmitDecision(pending, text)) return;
+    setMutating(true);
     const res = await adminClassActionDecision(
       id,
       pending,
       decisionBody(pending, text),
     );
-    setBusy(false);
+    setMutating(false);
     if (!res.ok || !res.data) {
       toast({
         title: `${DECISIONS[pending].label} failed`,
@@ -812,8 +840,11 @@ function CandidateDetail({ id }: { id: string }) {
   const flags = c.uncertaintyFlags ?? [];
   const warnings = c.validationWarnings ?? [];
   const duplicates = c.duplicateMatches ?? [];
-  const canReview = can("class_actions.review");
   const decisionActions = detail.allowedActions;
+  const teamFeedback = [...(detail.teamFeedback?.current ?? [])].sort(
+    (a, b) =>
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  );
 
   return (
     <div className="space-y-6">
@@ -874,7 +905,8 @@ function CandidateDetail({ id }: { id: string }) {
                       : undefined
                   }
                   disabled={
-                    action === "approve" && !detail.publicationChecks.ok
+                    mutating ||
+                    (action === "approve" && !detail.publicationChecks.ok)
                   }
                   title={
                     action === "approve" && !detail.publicationChecks.ok
@@ -894,7 +926,11 @@ function CandidateDetail({ id }: { id: string }) {
               ))
             : null}
           {canReview ? (
-            <Button variant="outline" onClick={() => openDecision("notes")}>
+            <Button
+              variant="outline"
+              disabled={mutating}
+              onClick={() => openDecision("notes")}
+            >
               <FileText className="mr-2 h-4 w-4" />
               {DECISIONS.notes.label}
             </Button>
@@ -1093,6 +1129,74 @@ function CandidateDetail({ id }: { id: string }) {
           </section>
 
           <section className={panel}>
+            <h2 className="mb-1 font-semibold">Recommendation feedback</h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Useful / Not useful is stored for future analyst runs. It does not
+              create or delete Jira work.
+            </p>
+            {canReview ? (
+              <div className="mb-3 space-y-2">
+                <Textarea
+                  id="class-action-feedback-comment"
+                  aria-label="Optional feedback comment"
+                  placeholder="Optional comment"
+                  value={feedbackComment}
+                  onChange={(e) => setFeedbackComment(e.target.value)}
+                  rows={2}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    disabled={mutating}
+                    onClick={() => void runFeedback("useful")}
+                  >
+                    Useful
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={mutating}
+                    onClick={() => void runFeedback("not_useful")}
+                  >
+                    Not useful
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {teamFeedback.length ? (
+              <ul className="space-y-1 border-t border-white/10 pt-2 text-sm">
+                {teamFeedback.slice(0, 8).map((row) => (
+                  <li key={row.id}>
+                    <span className="font-medium">
+                      {row.feedback === "useful" || row.feedback === "USEFUL"
+                        ? "Useful"
+                        : "Not useful"}
+                    </span>
+                    {row.comment ? (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        — {row.comment}
+                      </span>
+                    ) : null}
+                    <span className="text-muted-foreground">
+                      {" "}
+                      ·{" "}
+                      {row.admin?.email ??
+                        (row.slackUserId
+                          ? `Slack ${row.slackUserId}`
+                          : row.actorType)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No team feedback yet. Slack replies of useful / not useful appear
+                here.
+              </p>
+            )}
+          </section>
+
+          <section className={panel}>
             <h2 className="mb-3 font-semibold">Reviewer determination</h2>
             <dl className="grid gap-3 sm:grid-cols-2">
               <Field label="Status">
@@ -1230,7 +1334,9 @@ function CandidateDetail({ id }: { id: string }) {
 
       <AlertDialog
         open={pending !== null}
-        onOpenChange={(open) => (!open && !busy ? setPending(null) : undefined)}
+        onOpenChange={(open) =>
+          !open && !mutating ? setPending(null) : undefined
+        }
       >
         {pending ? (
           <AlertDialogContent>
@@ -1252,15 +1358,15 @@ function CandidateDetail({ id }: { id: string }) {
               />
             </label>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={mutating}>Cancel</AlertDialogCancel>
               <Button
                 variant={
                   DECISIONS[pending].destructive ? "destructive" : "default"
                 }
-                disabled={busy || !canSubmitDecision(pending, text)}
+                disabled={mutating || !canSubmitDecision(pending, text)}
                 onClick={() => void confirm()}
               >
-                {busy ? (
+                {mutating ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : null}
                 {DECISIONS[pending].confirmLabel}

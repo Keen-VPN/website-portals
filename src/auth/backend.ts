@@ -11550,6 +11550,37 @@ export interface ClassActionCandidateDetail {
     reason: string;
     createdAt: string;
   }[];
+  teamFeedback?: AdminClassActionTeamFeedback;
+}
+
+/** Useful / Not useful team feedback (Slack + admin). */
+export interface AdminClassActionTeamFeedback {
+  current: {
+    id: string;
+    /** Wire: useful/not_useful. Older payloads may send USEFUL/NOT_USEFUL. */
+    feedback: "useful" | "not_useful" | "USEFUL" | "NOT_USEFUL";
+    comment: string | null;
+    actorType: "slack" | "admin" | "SLACK" | "ADMIN";
+    slackUserId: string | null;
+    admin: { id: string; email: string; name: string | null } | null;
+    updatedAt: string;
+  }[];
+  history: {
+    id: string;
+    action: string;
+    feedback: "useful" | "not_useful" | "USEFUL" | "NOT_USEFUL";
+    previousFeedback:
+      | "useful"
+      | "not_useful"
+      | "USEFUL"
+      | "NOT_USEFUL"
+      | null;
+    comment: string | null;
+    actorType: "slack" | "admin" | "SLACK" | "ADMIN";
+    slackUserId: string | null;
+    admin: { id: string; email: string; name: string | null } | null;
+    createdAt: string;
+  }[];
 }
 
 export interface ClassActionDiscoveryRun {
@@ -12173,34 +12204,7 @@ export interface AdminClassActionCandidateDetail {
     notes: string | null;
     admin: { name: string | null; email: string } | null;
   }[];
-  teamFeedback?: {
-    current: {
-      id: string;
-      /** Wire: useful/not_useful. Older payloads may send USEFUL/NOT_USEFUL. */
-      feedback: "useful" | "not_useful" | "USEFUL" | "NOT_USEFUL";
-      comment: string | null;
-      actorType: "slack" | "admin" | "SLACK" | "ADMIN";
-      slackUserId: string | null;
-      admin: { id: string; email: string; name: string | null } | null;
-      updatedAt: string;
-    }[];
-    history: {
-      id: string;
-      action: string;
-      feedback: "useful" | "not_useful" | "USEFUL" | "NOT_USEFUL";
-      previousFeedback:
-        | "useful"
-        | "not_useful"
-        | "USEFUL"
-        | "NOT_USEFUL"
-        | null;
-      comment: string | null;
-      actorType: "slack" | "admin" | "SLACK" | "ADMIN";
-      slackUserId: string | null;
-      admin: { id: string; email: string; name: string | null } | null;
-      createdAt: string;
-    }[];
-  };
+  teamFeedback?: AdminClassActionTeamFeedback;
 }
 
 export async function adminFetchClassActionCandidates(params?: {
@@ -12253,9 +12257,7 @@ export async function adminSubmitClassActionRecommendationFeedback(
   feedback: "useful" | "not_useful",
   comment?: string,
 ) {
-  return adminClassActionJson<
-    NonNullable<AdminClassActionCandidateDetail["teamFeedback"]>
-  >(
+  return adminClassActionJson<AdminClassActionTeamFeedback>(
     `/admin/analyst-recommendations/class-action/${encodeURIComponent(id)}`,
     {
       method: "POST",
