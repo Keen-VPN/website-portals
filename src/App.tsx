@@ -81,6 +81,7 @@ const AdminPerkRequests = lazy(() => import("./pages/admin/AdminPerkRequests"));
 const AdminProductEvents = lazy(
   () => import("./pages/admin/AdminProductEvents"),
 );
+const AdminResearch = lazy(() => import("./pages/admin/AdminResearch"));
 const AdminConnectionEngagement = lazy(
   () => import("./pages/admin/AdminConnectionEngagement"),
 );
@@ -94,6 +95,9 @@ const AdminSubscriptionAnalytics = lazy(
 );
 const AdminJiraDelivery = lazy(
   () => import("./pages/admin/AdminJiraDelivery"),
+);
+const AdminNetworkMesh = lazy(
+  () => import("./pages/admin/AdminNetworkMesh"),
 );
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminUserProfile = lazy(
@@ -379,6 +383,7 @@ const App = () => (
                   element={<AdminUserSessions />}
                 />
                 <Route path="product-events" element={<AdminProductEvents />} />
+                <Route path="research" element={<AdminResearch />} />
                 <Route
                   path="domain-insights"
                   element={<AdminDomainInsights />}
@@ -405,6 +410,7 @@ const App = () => (
                   path="connection-engagement"
                   element={<AdminConnectionEngagement />}
                 />
+                <Route path="network-mesh" element={<AdminNetworkMesh />} />
                 <Route
                   path="membership-transfer"
                   element={<MembershipTransferAdmin />}

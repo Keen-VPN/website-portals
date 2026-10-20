@@ -18,6 +18,7 @@ import {
   UserCircle,
   Link2,
   Share2,
+  Mic2,
   Scale,
 } from "lucide-react";
 import { useFeatureFlags } from "@/lib/feature-flags";
@@ -86,6 +87,24 @@ export default function AdminSidebarLayout() {
               <BarChart3 className="h-4 w-4" />
               Product Events
             </NavLink>
+            {can("research.read") ? (
+              <NavLink
+                to="/admin/research"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                <Mic2 className="h-4 w-4" />
+                Research
+              </NavLink>
+            ) : null}
+            {can("class_actions.read") ? (
+              <NavLink
+                to="/admin/class-actions"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                <Scale className="h-4 w-4" />
+                Class Actions
+              </NavLink>
+            ) : null}
             <NavLink
               to="/admin/domain-insights"
               className={({ isActive }) => linkClass(isActive)}
@@ -127,15 +146,6 @@ export default function AdminSidebarLayout() {
               <Gift className="h-4 w-4" />
               Perks
             </NavLink>
-            {can("class_actions.read") ? (
-              <NavLink
-                to="/admin/class-actions"
-                className={({ isActive }) => linkClass(isActive)}
-              >
-                <Scale className="h-4 w-4" />
-                Class Action Review
-              </NavLink>
-            ) : null}
             <NavLink
               to="/admin/hot-links"
               className={({ isActive }) => linkClass(isActive)}
@@ -187,6 +197,15 @@ export default function AdminSidebarLayout() {
               <Activity className="h-4 w-4" />
               Connection Engagement
             </NavLink>
+            {can("nodes.mesh.read") ? (
+              <NavLink
+                to="/admin/network-mesh"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                <Activity className="h-4 w-4" />
+                Node mesh tests
+              </NavLink>
+            ) : null}
             <NavLink
               to="/admin/subscriptions"
               className={({ isActive }) => linkClass(isActive)}

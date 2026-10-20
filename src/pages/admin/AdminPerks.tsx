@@ -491,6 +491,11 @@ export default function AdminPerks() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(true);
+  const [highlightPerkId, setHighlightPerkId] = useState<string | null>(null);
+  const [perkFocusMissingId, setPerkFocusMissingId] = useState<string | null>(
+    null,
+  );
+  const lastFocusedPerkIdRef = useRef<string | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -845,6 +850,49 @@ export default function AdminPerks() {
     setSearchParams(next, { replace: true });
   }, [adminId, applyDraft, canWrite, searchParams, setSearchParams]);
 
+  useEffect(() => {
+    if (loading) return;
+    const id = searchParams.get("perkId")?.trim();
+    if (!id) {
+      setPerkFocusMissingId(null);
+      lastFocusedPerkIdRef.current = null;
+      return;
+    }
+    if (loadingExpired && !perks.some((p) => p.id === id)) return;
+    const inCatalog =
+      perks.some((p) => p.id === id) ||
+      expiredPerks.some((p) => p.id === id);
+    if (!inCatalog) {
+      setPerkFocusMissingId(id);
+      return;
+    }
+    setPerkFocusMissingId(null);
+    if (lastFocusedPerkIdRef.current === id) return;
+    lastFocusedPerkIdRef.current = id;
+    setHighlightPerkId(id);
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById(`admin-perk-${id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    const next = new URLSearchParams(searchParams);
+    next.delete("perkId");
+    setSearchParams(next, { replace: true });
+  }, [
+    expiredPerks,
+    loading,
+    loadingExpired,
+    perks,
+    searchParams,
+    setSearchParams,
+  ]);
+
+  useEffect(() => {
+    if (!highlightPerkId) return;
+    const timer = window.setTimeout(() => setHighlightPerkId(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [highlightPerkId]);
+
   const openCreate = () => {
     const existing = adminId ? readPerkFormDraft(adminId) : null;
     // Intentionally start blank — do not auto-restore an old draft into a new form.
@@ -1119,6 +1167,16 @@ export default function AdminPerks() {
       {error ? (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
+        </div>
+      ) : null}
+
+      {perkFocusMissingId ? (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-950 dark:text-amber-100">
+          No perk found for{" "}
+          <span className="font-mono">{perkFocusMissingId}</span>. The deep link
+          may be stale or the catalog failed to load —{" "}
+          <span className="font-mono">?perkId=</span> was kept in the URL so you
+          can refresh or search the list below.
         </div>
       ) : null}
 
@@ -1589,7 +1647,13 @@ export default function AdminPerks() {
                   perks.map((perk) => (
                     <tr
                       key={perk.id}
-                      className="group transition-colors hover:bg-muted/35"
+                      id={`admin-perk-${perk.id}`}
+                      className={[
+                        "group transition-colors hover:bg-muted/35",
+                        highlightPerkId === perk.id
+                          ? "bg-primary/10 ring-2 ring-inset ring-primary/40"
+                          : "",
+                      ].join(" ")}
                     >
                       <td className="px-4 py-3.5 align-top">
                         <div className="flex items-start gap-3">
@@ -1811,7 +1875,16 @@ export default function AdminPerks() {
                 </tr>
               ) : (
                 expiredPerks.map((perk) => (
-                  <tr key={perk.id} className="border-b border-border/60">
+                  <tr
+                    key={perk.id}
+                    id={`admin-perk-${perk.id}`}
+                    className={[
+                      "border-b border-border/60",
+                      highlightPerkId === perk.id
+                        ? "bg-primary/10 ring-2 ring-inset ring-primary/40"
+                        : "",
+                    ].join(" ")}
+                  >
                     <td className="px-3 py-2 font-medium">{perk.title}</td>
                     <td className="px-3 py-2">
                       {formatAdminDate(perk.endsAt ?? perk.lastExpiredAt)}

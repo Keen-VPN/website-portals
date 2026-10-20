@@ -3772,6 +3772,11 @@ export interface AdminJiraDeliveryRpRow {
   points: number;
   percentOfTotal: number;
   suspended?: boolean;
+  storyPointThreshold?: number | null;
+  percentTowardThreshold?: number | null;
+  dailyUpdatesSubmitted?: number | null;
+  dailyUpdatesExpected?: number | null;
+  dailyUpdatesMissing?: number | null;
 }
 
 export interface AdminJiraDeliveryEnvironmentRow {
@@ -3809,6 +3814,36 @@ export interface AdminJiraDeliveryReport {
   trend: AdminJiraDeliveryTrendPoint[];
   kennaCreatedEstimates?: AdminJiraKennaCreatedEstimates;
   configured: boolean;
+  geekbotDailyUpdatesConfigured?: boolean;
+  storyPointThresholdLevels?: number[];
+  storyPointThresholdsConfigured?: boolean;
+}
+
+export interface AdminJiraPointsSinceStoryRow {
+  key: string;
+  summary: string;
+  points: number;
+  assigneeDisplayName: string;
+  assigneeAccountId: string | null;
+  resolvedAt: string;
+  jiraUrl: string;
+}
+
+export interface AdminJiraPointsSinceMemberRow {
+  assigneeAccountId: string | null;
+  assigneeDisplayName: string;
+  points: number;
+  storyCount: number;
+  stories: AdminJiraPointsSinceStoryRow[];
+}
+
+export interface AdminJiraPointsSinceReport {
+  since: string;
+  reportGeneratedAt: string;
+  configured: boolean;
+  totalPoints: number;
+  completedIssueCount: number;
+  members: AdminJiraPointsSinceMemberRow[];
 }
 
 export interface AdminChurnTrendPoint {
@@ -4089,6 +4124,119 @@ export interface AdminUserEngagementProfile {
   emails: AdminUserEmailRecord[];
   reviewActivity: AdminUserReviewActivityRecord[];
   timeline: AdminUserTimelineEvent[];
+}
+
+export interface AdminInterviewInvitationPreview {
+  subject: string;
+  recipientEmail: string;
+  schedulingUrl: string;
+  incentiveLabel: string;
+  studyName: string;
+  personalMessage: string | null;
+}
+
+export interface AdminInterviewInvitationSendResult {
+  invitationId: string;
+  participantId: string;
+  resendEmailId: string | null;
+  emailSentAt: string;
+  subject: string;
+}
+
+export interface AdminInterviewInvitationComposeBody {
+  studyId: string;
+  email?: string;
+  incentiveLabel?: string;
+  schedulingUrl?: string;
+  personalMessage?: string;
+  subject?: string;
+}
+
+export interface AdminInterviewInvitationSendBody
+  extends AdminInterviewInvitationComposeBody {
+  forceResend?: boolean;
+}
+
+export async function adminPreviewUserInterviewInvitation(
+  userId: string,
+  body: AdminInterviewInvitationComposeBody,
+): Promise<{
+  ok: boolean;
+  data?: AdminInterviewInvitationPreview;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/interview-invitations/preview`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to send interview invite preview",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminInterviewInvitationPreview };
+    if (!record.data) {
+      return { ok: false, error: "Invalid response from server" };
+    }
+    return { ok: true, data: record.data };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
+export async function adminSendUserInterviewInvitation(
+  userId: string,
+  body: AdminInterviewInvitationSendBody,
+): Promise<{
+  ok: boolean;
+  data?: AdminInterviewInvitationSendResult;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/interview-invitations/send`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to send interview invitation",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminInterviewInvitationSendResult };
+    if (!record.data) {
+      return { ok: false, error: "Invalid response from server" };
+    }
+    return { ok: true, data: record.data };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
 }
 
 export async function adminFetchUserEngagementProfile(
@@ -7503,11 +7651,15 @@ export async function adminFetchChurnReport(params: {
 export async function adminFetchJiraDeliveryReport(params: {
   month: number;
   year: number;
+  rp?: string;
 }): Promise<{ ok: boolean; data?: AdminJiraDeliveryReport; error?: string }> {
   try {
     const query = new URLSearchParams();
     query.set("month", String(params.month));
     query.set("year", String(params.year));
+    if (params.rp?.trim()) {
+      query.set("rp", params.rp.trim());
+    }
     const response = await fetch(
       `${BACKEND_URL}/admin/jira-delivery?${query.toString()}`,
       { credentials: "include" },
@@ -7523,6 +7675,36 @@ export async function adminFetchJiraDeliveryReport(params: {
       };
     }
     const record = raw as { data?: AdminJiraDeliveryReport };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchJiraPointsSinceReport(params: {
+  since: string;
+}): Promise<{ ok: boolean; data?: AdminJiraPointsSinceReport; error?: string }> {
+  try {
+    const query = new URLSearchParams();
+    query.set("since", params.since);
+    const response = await fetch(
+      `${BACKEND_URL}/admin/jira-delivery/points-since?${query.toString()}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load points since last meeting",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminJiraPointsSinceReport };
     return { ok: true, data: record.data };
   } catch (e) {
     return {
@@ -7700,8 +7882,9 @@ async function adminFetchSubscriptionAnalyticsMonth<T>(
     year: number;
     source?: AdminSubscriptionAnalyticsSource;
     planType?: AdminSubscriptionPlanType;
+    signal?: AbortSignal;
   },
-): Promise<{ ok: boolean; data?: T; error?: string }> {
+): Promise<{ ok: boolean; data?: T; error?: string; aborted?: boolean }> {
   try {
     const query = new URLSearchParams();
     query.set("month", String(params.month));
@@ -7714,9 +7897,14 @@ async function adminFetchSubscriptionAnalyticsMonth<T>(
     }
     const response = await fetch(
       `${BACKEND_URL}/admin/subscription-analytics/${path}?${query.toString()}`,
-      { credentials: "include" },
+      { credentials: "include", signal: params.signal },
     );
-    const raw: unknown = await response.json().catch(() => ({}));
+    const raw: unknown = await response.json().catch((err: unknown) => {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        throw err;
+      }
+      return {};
+    });
     if (!response.ok) {
       return {
         ok: false,
@@ -7726,6 +7914,9 @@ async function adminFetchSubscriptionAnalyticsMonth<T>(
     const record = raw as { data?: T };
     return { ok: true, data: record.data };
   } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, aborted: true, error: "Request aborted" };
+    }
     return {
       ok: false,
       error: e instanceof Error ? e.message : "Network error",
@@ -7738,6 +7929,7 @@ export function adminFetchMonthlyRetentionReport(params: {
   year: number;
   source?: AdminSubscriptionAnalyticsSource;
   planType?: AdminSubscriptionPlanType;
+  signal?: AbortSignal;
 }) {
   return adminFetchSubscriptionAnalyticsMonth<AdminMonthlyRetentionReport>(
     "retention/monthly",
@@ -7750,6 +7942,7 @@ export function adminFetchFirstPaidCohortReport(params: {
   year: number;
   source?: AdminSubscriptionAnalyticsSource;
   planType?: AdminSubscriptionPlanType;
+  signal?: AbortSignal;
 }) {
   return adminFetchSubscriptionAnalyticsMonth<AdminFirstPaidCohortReport>(
     "cohorts/first-paid",
@@ -7762,6 +7955,7 @@ export function adminFetchMonthlyRevenueGrowthReport(params: {
   year: number;
   source?: AdminSubscriptionAnalyticsSource;
   planType?: AdminSubscriptionPlanType;
+  signal?: AbortSignal;
 }) {
   return adminFetchSubscriptionAnalyticsMonth<AdminMonthlyRevenueGrowthReport>(
     "revenue/monthly",
@@ -11203,7 +11397,7 @@ export async function adminRunPricingDriftAudit(): Promise<{
   }
 }
 
-// ---------------------------------------------------------------------------
+
 // Admin — class-action discovery review (human-in-the-loop)
 // ---------------------------------------------------------------------------
 
@@ -11568,4 +11762,605 @@ export function adminListClassActionIngestion(params: {
     { signal: params.signal },
     "Failed to load ingestion records",
   );
+}
+
+// --- Admin research (Fireflies transcripts + interview recruitment) ---
+
+export interface AdminMeetingTranscript {
+  id: string;
+  externalMeetingId: string;
+  title: string;
+  meetingType: string;
+  occurredAt: string;
+  attendees: unknown;
+  speakerSegments?: unknown;
+  transcriptText?: string;
+  source: string;
+  ingestedAt: string;
+  ingestionStatus: string;
+  lastError?: string | null;
+  attemptCount: number;
+  createdAt: string;
+}
+
+export interface AdminResearchStudy {
+  id: string;
+  name: string;
+  goal: string | null;
+  incentiveCents: number;
+  incentiveLabel: string;
+  schedulingUrl: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { participants: number };
+}
+
+export interface AdminInterviewParticipant {
+  id: string;
+  studyId: string;
+  email: string;
+  name: string | null;
+  recruitSource: string;
+  status: string;
+  scheduledAt: string | null;
+  completedAt: string | null;
+  transcriptId: string | null;
+  incentiveStatus: string;
+  notes: string | null;
+  transcript?: {
+    id: string;
+    title: string;
+    occurredAt: string;
+    meetingType: string;
+  } | null;
+  incentive?: { id: string; paidAt: string } | null;
+}
+
+async function adminResearchJson<T>(
+  path: string,
+  init?: RequestInit & { signal?: AbortSignal },
+  fallbackError = "Request failed",
+): Promise<{ ok: boolean; data?: T; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
+    }
+    const record = raw as { data?: T };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchResearchTranscripts(params?: {
+  meetingType?: string;
+  from?: string;
+  to?: string;
+  q?: string;
+  ingestionStatus?: string;
+  excludeFailed?: boolean;
+  limit?: number;
+  offset?: number;
+  signal?: AbortSignal;
+}) {
+  const query = new URLSearchParams();
+  if (params?.meetingType) query.set("meetingType", params.meetingType);
+  if (params?.from) query.set("from", params.from);
+  if (params?.to) query.set("to", params.to);
+  if (params?.q) query.set("q", params.q);
+  if (params?.ingestionStatus)
+    query.set("ingestionStatus", params.ingestionStatus);
+  if (params?.excludeFailed) query.set("excludeFailed", "true");
+  if (params?.limit != null) query.set("limit", String(params.limit));
+  if (params?.offset != null) query.set("offset", String(params.offset));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return adminResearchJson<{
+    items: AdminMeetingTranscript[];
+    total: number;
+    limit: number;
+    offset: number;
+  }>(
+    `/admin/research/transcripts${suffix}`,
+    { signal: params?.signal },
+    "Failed to load transcripts",
+  );
+}
+
+export async function adminFetchResearchTranscriptById(
+  id: string,
+  params?: { signal?: AbortSignal },
+) {
+  return adminResearchJson<AdminMeetingTranscript>(
+    `/admin/research/transcripts/${encodeURIComponent(id)}`,
+    { signal: params?.signal },
+    "Failed to load transcript",
+  );
+}
+
+export async function adminDeleteResearchTranscript(id: string) {
+  return adminResearchJson<{ deleted: true }>(
+    `/admin/research/transcripts/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+    "Failed to delete transcript",
+  );
+}
+
+export async function adminFetchResearchStudies(params?: {
+  signal?: AbortSignal;
+}) {
+  return adminResearchJson<AdminResearchStudy[]>(
+    "/admin/research/studies",
+    { signal: params?.signal },
+    "Failed to load studies",
+  );
+}
+
+export async function adminCreateResearchStudy(body: {
+  name: string;
+  goal?: string;
+  schedulingUrl?: string;
+  incentiveCents?: number;
+  incentiveLabel?: string;
+  status?: string;
+}) {
+  return adminResearchJson<AdminResearchStudy>(
+    "/admin/research/studies",
+    { method: "POST", body: JSON.stringify(body) },
+    "Failed to create study",
+  );
+}
+
+export async function adminFetchResearchStudy(
+  id: string,
+  params?: { signal?: AbortSignal },
+) {
+  return adminResearchJson<
+    AdminResearchStudy & { participants: AdminInterviewParticipant[] }
+  >(
+    `/admin/research/studies/${encodeURIComponent(id)}`,
+    { signal: params?.signal },
+    "Failed to load study",
+  );
+}
+
+export async function adminUpdateResearchStudy(
+  id: string,
+  body: Record<string, unknown>,
+) {
+  return adminResearchJson<AdminResearchStudy>(
+    `/admin/research/studies/${encodeURIComponent(id)}`,
+    { method: "PATCH", body: JSON.stringify(body) },
+    "Failed to update study",
+  );
+}
+
+export async function adminDeleteResearchStudy(id: string) {
+  return adminResearchJson<{ deleted: true }>(
+    `/admin/research/studies/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+    "Failed to delete study",
+  );
+}
+
+export async function adminAddInterviewParticipant(
+  studyId: string,
+  body: {
+    email: string;
+    name?: string;
+    recruitSource: string;
+    notes?: string;
+  },
+) {
+  return adminResearchJson<AdminInterviewParticipant>(
+    `/admin/research/studies/${encodeURIComponent(studyId)}/participants`,
+    { method: "POST", body: JSON.stringify(body) },
+    "Failed to add participant",
+  );
+}
+
+export async function adminUpdateInterviewParticipantStatus(
+  participantId: string,
+  body: { status: string; notes?: string },
+) {
+  return adminResearchJson<AdminInterviewParticipant>(
+    `/admin/research/participants/${encodeURIComponent(participantId)}/status`,
+    { method: "PATCH", body: JSON.stringify(body) },
+    "Failed to update participant",
+  );
+}
+
+export async function adminDeleteInterviewParticipant(participantId: string) {
+  return adminResearchJson<{ deleted: true }>(
+    `/admin/research/participants/${encodeURIComponent(participantId)}`,
+    { method: "DELETE" },
+    "Failed to delete participant",
+  );
+}
+
+export async function adminLinkInterviewTranscript(
+  participantId: string,
+  transcriptId: string,
+) {
+  return adminResearchJson<AdminInterviewParticipant>(
+    `/admin/research/participants/${encodeURIComponent(participantId)}/link-transcript`,
+    {
+      method: "POST",
+      body: JSON.stringify({ transcriptId }),
+    },
+    "Failed to link transcript",
+  );
+}
+
+export async function adminAssociateInterviewTranscript(participantId: string) {
+  return adminResearchJson<{ matched: boolean }>(
+    `/admin/research/participants/${encodeURIComponent(participantId)}/associate-transcript`,
+    { method: "POST", body: "{}" },
+    "Failed to associate transcript",
+  );
+}
+
+export async function adminMarkInterviewIncentivePaid(
+  participantId: string,
+  note?: string,
+) {
+  return adminResearchJson<unknown>(
+    `/admin/research/participants/${encodeURIComponent(participantId)}/mark-incentive-paid`,
+    {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    },
+    "Failed to mark incentive paid",
+  );
+}
+
+export async function adminReconcileFirefliesTranscripts() {
+  return adminResearchJson<{
+    scanned: number;
+    succeeded: number;
+    failed: number;
+    skipped: number;
+  }>(
+    "/admin/research/transcripts/reconcile",
+    { method: "POST", body: "{}" },
+    "Failed to reconcile transcripts",
+  );
+}
+
+/**
+ * AdminClassActionReviewController is guarded by AdminCsrfGuard: cookie-authenticated
+ * POST/PATCH/DELETE must send X-Requested-With: XMLHttpRequest (see backend
+ * admin-csrf.guard.ts). Most other admin endpoints do not use that guard yet.
+ * Same-origin portal fetches are unaffected; cross-origin VITE_BACKEND_URL must
+ * allow this header in CORS if mutations are called from another origin.
+ */
+const ADMIN_CLASS_ACTION_MUTATION_HEADERS = {
+  "Content-Type": "application/json",
+  "X-Requested-With": "XMLHttpRequest",
+} as const;
+
+async function adminClassActionJson<T>(
+  path: string,
+  init?: RequestInit & { signal?: AbortSignal },
+  fallbackError = "Request failed",
+): Promise<{ ok: boolean; data?: T; error?: string; status?: number }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        ...(init?.method && init.method !== "GET"
+          ? ADMIN_CLASS_ACTION_MUTATION_HEADERS
+          : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
+    }
+    const record = raw as { data?: T };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export type AdminClassActionCandidateStatus =
+  | "PENDING_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "EXPIRED";
+
+export type AdminClassActionReviewAction =
+  | "approve"
+  | "reject"
+  | "expire"
+  | "reopen";
+
+export interface AdminClassActionCandidateListItem {
+  id: string;
+  title: string;
+  defendant: string | null;
+  caseIdentifier: string | null;
+  status: AdminClassActionCandidateStatus;
+  sourceName: string;
+  sourceUrl: string;
+  claimDeadline: string | null;
+  marketSizeEstimate: number | null;
+  discoveredAt: string;
+  validationOutcome: string;
+  uncertaintyCount: number;
+  possibleDuplicateCount: number;
+  linkedDuplicateOfId: string | null;
+  extractionMethod: string;
+  reviewedAt: string | null;
+  reviewedVia: string | null;
+  published: boolean;
+}
+
+export interface AdminClassActionCandidateListResponse {
+  items: AdminClassActionCandidateListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: Record<AdminClassActionCandidateStatus, number>;
+}
+
+export interface AdminClassActionCandidateDetail {
+  candidate: Record<string, unknown> & {
+    id: string;
+    title: string;
+    status: AdminClassActionCandidateStatus;
+    sourceUrl: string;
+    claimUrl: string | null;
+    claimDeadline: string | null;
+    potentialPayment: string | null;
+    settlementAmount: string | null;
+    eligibilitySummary: string | null;
+    summary: string | null;
+    marketSizeEstimate: number | null;
+    marketSizeEstimateSource: string | null;
+    rationale: string;
+    reviewerNotes: string | null;
+  };
+  perk: {
+    id: string;
+    title: string;
+    isActive: boolean;
+    endsAt: string | null;
+    redemptionUrl: string | null;
+  } | null;
+  allowedActions: AdminClassActionReviewAction[];
+  publicationChecks: {
+    ok: boolean;
+    failures: { code: string; message: string }[];
+    evaluatedFor: string;
+  };
+  customerVisible: boolean;
+  history: {
+    id: string;
+    action: string;
+    createdAt: string;
+    notes: string | null;
+    admin: { name: string | null; email: string } | null;
+  }[];
+  teamFeedback?: {
+    current: {
+      id: string;
+      /** Wire: useful/not_useful. Older payloads may send USEFUL/NOT_USEFUL. */
+      feedback: "useful" | "not_useful" | "USEFUL" | "NOT_USEFUL";
+      comment: string | null;
+      actorType: "slack" | "admin" | "SLACK" | "ADMIN";
+      slackUserId: string | null;
+      admin: { id: string; email: string; name: string | null } | null;
+      updatedAt: string;
+    }[];
+    history: {
+      id: string;
+      action: string;
+      feedback: "useful" | "not_useful" | "USEFUL" | "NOT_USEFUL";
+      previousFeedback:
+        | "useful"
+        | "not_useful"
+        | "USEFUL"
+        | "NOT_USEFUL"
+        | null;
+      comment: string | null;
+      actorType: "slack" | "admin" | "SLACK" | "ADMIN";
+      slackUserId: string | null;
+      admin: { id: string; email: string; name: string | null } | null;
+      createdAt: string;
+    }[];
+  };
+}
+
+export async function adminFetchClassActionCandidates(params?: {
+  status?: AdminClassActionCandidateStatus | "ALL";
+  q?: string;
+  page?: number;
+  pageSize?: number;
+  signal?: AbortSignal;
+}) {
+  const query = new URLSearchParams();
+  if (params?.status) query.set("status", params.status);
+  if (params?.q) query.set("q", params.q);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.pageSize) query.set("pageSize", String(params.pageSize));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return adminClassActionJson<AdminClassActionCandidateListResponse>(
+    `/admin/class-action-candidates${suffix}`,
+    { signal: params?.signal },
+    "Failed to load class-action candidates",
+  );
+}
+
+export async function adminFetchClassActionCandidate(id: string, params?: {
+  signal?: AbortSignal;
+}) {
+  return adminClassActionJson<AdminClassActionCandidateDetail>(
+    `/admin/class-action-candidates/${encodeURIComponent(id)}`,
+    { signal: params?.signal },
+    "Failed to load class-action candidate",
+  );
+}
+
+export async function adminClassActionReviewDecision(
+  id: string,
+  action: "approve" | "reject",
+  notes?: string,
+) {
+  return adminClassActionJson<AdminClassActionCandidateDetail>(
+    `/admin/class-action-candidates/${encodeURIComponent(id)}/${action}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ notes: notes ?? undefined }),
+    },
+    `Failed to ${action} candidate`,
+  );
+}
+
+export async function adminSubmitClassActionRecommendationFeedback(
+  id: string,
+  feedback: "useful" | "not_useful",
+  comment?: string,
+) {
+  return adminClassActionJson<
+    NonNullable<AdminClassActionCandidateDetail["teamFeedback"]>
+  >(
+    `/admin/analyst-recommendations/class-action/${encodeURIComponent(id)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        feedback,
+        comment: comment?.trim() || undefined,
+      }),
+    },
+    "Failed to save recommendation feedback",
+  );
+}
+
+export interface AdminNodeMeshRun {
+  id: string;
+  status: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  nodeCount: number;
+  totalTests: number;
+  completedTests: number;
+  failedTests: number;
+  concurrency: number;
+  createdAt: string;
+  errorMessage: string | null;
+}
+
+export interface AdminNodeMeshResultNode {
+  id: string;
+  region: string | null;
+  city: string | null;
+  country: string | null;
+  ip: string;
+}
+
+export interface AdminNodeMeshResult {
+  id: string;
+  runId: string;
+  sourceNodeId: string;
+  destNodeId: string;
+  status: string;
+  downloadMbps: number | null;
+  uploadMbps: number | null;
+  latencyMs: number | null;
+  packetLossPercent: number | null;
+  durationMs: number | null;
+  errorReason: string | null;
+  testedAt: string | null;
+  sourceNode?: AdminNodeMeshResultNode;
+  destNode?: AdminNodeMeshResultNode;
+}
+
+export interface AdminNodeMeshRunDetail extends AdminNodeMeshRun {
+  results: AdminNodeMeshResult[];
+}
+
+async function adminNodeMeshJson<T>(
+  path: string,
+  init?: RequestInit,
+  fallbackError = "Request failed",
+): Promise<{ ok: boolean; data?: T; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
+    }
+    const record = raw as { data?: T };
+    return { ok: true, data: (record.data ?? raw) as T };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export function adminFetchNodeMeshRuns(limit = 20) {
+  return adminNodeMeshJson<AdminNodeMeshRun[]>(
+    `/admin/node-mesh/runs?limit=${encodeURIComponent(String(limit))}`,
+    undefined,
+    "Failed to load mesh runs",
+  );
+}
+
+export function adminFetchNodeMeshRun(runId: string) {
+  return adminNodeMeshJson<AdminNodeMeshRunDetail>(
+    `/admin/node-mesh/runs/${encodeURIComponent(runId)}`,
+    undefined,
+    "Failed to load mesh run",
+  );
+}
+
+export function adminStartNodeMeshRun(body?: { concurrency?: number }) {
+  return adminNodeMeshJson<AdminNodeMeshRun>(`/admin/node-mesh/runs`, {
+    method: "POST",
+    body: JSON.stringify(body ?? {}),
+  }, "Failed to start mesh run");
 }

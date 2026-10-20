@@ -17,6 +17,7 @@ import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AdminInterviewInvitationDialog } from "./AdminInterviewInvitationDialog";
 
 function formatDateTime(iso: string | null) {
   if (!iso) return "—";
@@ -206,6 +207,8 @@ export default function AdminUserProfile() {
   const { userId } = useParams<{ userId: string }>();
   const { can } = useAdminAuth();
   const canWriteAuthEmail = can("users.write");
+  const canRequestInterview = can("research.write");
+  const [interviewDialogOpen, setInterviewDialogOpen] = useState(false);
   const [profile, setProfile] = useState<AdminUserEngagementProfile | null>(
     null,
   );
@@ -260,6 +263,7 @@ export default function AdminUserProfile() {
 
     setLoading(true);
     setError(null);
+    setProfile(null);
 
     const res = await adminFetchUserEngagementProfile(userId, {
       signal: controller.signal,
@@ -292,6 +296,15 @@ export default function AdminUserProfile() {
       authEmailMutationId.current += 1;
     };
   }, [load]);
+
+  useEffect(() => {
+    setInterviewDialogOpen(false);
+  }, [userId]);
+
+  const user = profile?.user;
+  const profileMatchesRoute = Boolean(
+    userId && user && user.id === userId,
+  );
 
   async function handleAdminAuthEmailChange(event: React.FormEvent) {
     event.preventDefault();
@@ -363,8 +376,6 @@ export default function AdminUserProfile() {
     void loadAuthEmail(forUserId);
   }
 
-  const user = profile?.user;
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -392,6 +403,15 @@ export default function AdminUserProfile() {
             >
               View sessions
             </Link>
+          ) : null}
+          {canRequestInterview && profileMatchesRoute ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setInterviewDialogOpen(true)}
+            >
+              Request interview
+            </Button>
           ) : null}
           <button
             type="button"
@@ -445,8 +465,9 @@ export default function AdminUserProfile() {
         <div>
           <h3 className="text-lg font-semibold">Subscription measures</h3>
           <p className="text-sm text-muted-foreground">
-            Sign up, trial, first paid, renewals (repeat purchase), and churn
-            for this user. Cancel-with-time-left is not churn — expiration is.
+            Sign up, trial, subscription started, renewals (repeat purchase),
+            and churn for this user. Cancel-with-time-left is not churn —
+            expiration is.
           </p>
         </div>
         {loading ? (
@@ -456,7 +477,9 @@ export default function AdminUserProfile() {
             <MeasureTile
               label="Signed up"
               value={formatDateTime(
-                profile?.subscriptionMeasures?.signedUpAt ?? null,
+                profile?.subscriptionMeasures?.signedUpAt ??
+                  profile?.user.createdAt ??
+                  null,
               )}
             />
             <MeasureTile
@@ -466,7 +489,7 @@ export default function AdminUserProfile() {
               )}
             />
             <MeasureTile
-              label="First paid"
+              label="Subscription started"
               value={formatDateTime(
                 profile?.subscriptionMeasures?.firstPaidAt ?? null,
               )}
@@ -655,6 +678,16 @@ export default function AdminUserProfile() {
           <TimelineList events={profile?.timeline ?? []} />
         )}
       </section>
+
+      {profileMatchesRoute && userId && user ? (
+        <AdminInterviewInvitationDialog
+          userId={userId}
+          defaultEmail={user.email}
+          open={interviewDialogOpen}
+          onOpenChange={setInterviewDialogOpen}
+          onSent={() => void load()}
+        />
+      ) : null}
     </div>
   );
 }
