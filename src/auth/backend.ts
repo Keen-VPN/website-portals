@@ -4103,6 +4103,20 @@ export interface AdminUserSubscriptionMeasures {
   refundCount: number;
 }
 
+export type AdminUserLoginEnvironmentId =
+  | "macos"
+  | "ios"
+  | "windows"
+  | "android"
+  | "chrome_extension"
+  | "website";
+
+export interface AdminUserLoginEnvironment {
+  id: AdminUserLoginEnvironmentId;
+  label: string;
+  lastAuthenticatedAt: string;
+}
+
 export interface AdminUserEngagementProfile {
   user: {
     id: string;
@@ -4121,6 +4135,8 @@ export interface AdminUserEngagementProfile {
     subscriptionType: string;
   } | null;
   subscriptionMeasures?: AdminUserSubscriptionMeasures | null;
+  /** Environments this account has authenticated on (deduped). */
+  loginEnvironments?: AdminUserLoginEnvironment[];
   emails: AdminUserEmailRecord[];
   reviewActivity: AdminUserReviewActivityRecord[];
   timeline: AdminUserTimelineEvent[];
