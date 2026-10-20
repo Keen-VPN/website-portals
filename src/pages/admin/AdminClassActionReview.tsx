@@ -43,6 +43,7 @@ import {
   adminListClassActionCandidates,
   adminListClassActionIngestion,
   adminRunClassActionDiscovery,
+  adminSubmitClassActionRecommendationFeedback,
   adminSubmitClassActionUrl,
   type ClassActionCandidateDetail,
   type ClassActionCandidateList,
@@ -726,6 +727,8 @@ function CandidateDetail({ id }: { id: string }) {
   const [pending, setPending] = useState<DecisionKind | null>(null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -751,6 +754,32 @@ function CandidateDetail({ id }: { id: string }) {
   const openDecision = (kind: DecisionKind) => {
     setText(kind === "notes" ? (detail?.candidate.reviewerNotes ?? "") : "");
     setPending(kind);
+  };
+
+  const canReview = can("class_actions.review");
+
+  const runFeedback = async (feedback: "useful" | "not_useful") => {
+    if (!canReview || feedbackBusy) return;
+    setFeedbackBusy(true);
+    const res = await adminSubmitClassActionRecommendationFeedback(
+      id,
+      feedback,
+      feedbackComment.trim() || undefined,
+    );
+    setFeedbackBusy(false);
+    if (!res.ok || !res.data) {
+      toast({
+        title: "Failed to save feedback",
+        description: res.error,
+        variant: "destructive",
+      });
+      return;
+    }
+    setDetail((prev) => (prev ? { ...prev, teamFeedback: res.data } : prev));
+    setFeedbackComment("");
+    toast({
+      title: feedback === "useful" ? "Marked useful" : "Marked not useful",
+    });
   };
 
   const confirm = async () => {
@@ -812,8 +841,8 @@ function CandidateDetail({ id }: { id: string }) {
   const flags = c.uncertaintyFlags ?? [];
   const warnings = c.validationWarnings ?? [];
   const duplicates = c.duplicateMatches ?? [];
-  const canReview = can("class_actions.review");
   const decisionActions = detail.allowedActions;
+  const teamFeedback = detail.teamFeedback?.current ?? [];
 
   return (
     <div className="space-y-6">
@@ -1089,6 +1118,74 @@ function CandidateDetail({ id }: { id: string }) {
                   </li>
                 ))}
               </ul>
+            )}
+          </section>
+
+          <section className={panel}>
+            <h2 className="mb-1 font-semibold">Recommendation feedback</h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Useful / Not useful is stored for future analyst runs. It does not
+              create or delete Jira work.
+            </p>
+            {canReview ? (
+              <div className="mb-3 space-y-2">
+                <Textarea
+                  id="class-action-feedback-comment"
+                  aria-label="Optional feedback comment"
+                  placeholder="Optional comment"
+                  value={feedbackComment}
+                  onChange={(e) => setFeedbackComment(e.target.value)}
+                  rows={2}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    disabled={feedbackBusy}
+                    onClick={() => void runFeedback("useful")}
+                  >
+                    Useful
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={feedbackBusy}
+                    onClick={() => void runFeedback("not_useful")}
+                  >
+                    Not useful
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {teamFeedback.length ? (
+              <ul className="space-y-1 border-t border-white/10 pt-2 text-sm">
+                {teamFeedback.slice(0, 8).map((row) => (
+                  <li key={row.id}>
+                    <span className="font-medium">
+                      {row.feedback === "useful" || row.feedback === "USEFUL"
+                        ? "Useful"
+                        : "Not useful"}
+                    </span>
+                    {row.comment ? (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        — {row.comment}
+                      </span>
+                    ) : null}
+                    <span className="text-muted-foreground">
+                      {" "}
+                      ·{" "}
+                      {row.admin?.email ??
+                        (row.slackUserId
+                          ? `Slack ${row.slackUserId}`
+                          : row.actorType)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No team feedback yet. Slack replies of useful / not useful appear
+                here.
+              </p>
             )}
           </section>
 
