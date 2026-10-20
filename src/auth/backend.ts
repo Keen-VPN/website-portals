@@ -11809,9 +11809,10 @@ export interface AdminClassActionCandidateDetail {
   teamFeedback?: {
     current: {
       id: string;
-      feedback: "useful" | "not_useful";
+      /** Wire: useful/not_useful. Older payloads may send USEFUL/NOT_USEFUL. */
+      feedback: "useful" | "not_useful" | "USEFUL" | "NOT_USEFUL";
       comment: string | null;
-      actorType: "slack" | "admin";
+      actorType: "slack" | "admin" | "SLACK" | "ADMIN";
       slackUserId: string | null;
       admin: { id: string; email: string; name: string | null } | null;
       updatedAt: string;
@@ -11819,10 +11820,15 @@ export interface AdminClassActionCandidateDetail {
     history: {
       id: string;
       action: string;
-      feedback: "useful" | "not_useful";
-      previousFeedback: "useful" | "not_useful" | null;
+      feedback: "useful" | "not_useful" | "USEFUL" | "NOT_USEFUL";
+      previousFeedback:
+        | "useful"
+        | "not_useful"
+        | "USEFUL"
+        | "NOT_USEFUL"
+        | null;
       comment: string | null;
-      actorType: "slack" | "admin";
+      actorType: "slack" | "admin" | "SLACK" | "ADMIN";
       slackUserId: string | null;
       admin: { id: string; email: string; name: string | null } | null;
       createdAt: string;
