@@ -7776,12 +7776,12 @@ export interface AdminIterationWeeklyComparison {
     rejectionRate: number | null;
   };
   recommendations: AdminProductWorkRecommendation[];
-  humanOriginatedCompleted: Array<{
+  humanOriginatedCompleted: {
     key: string;
     summary: string;
     points: number;
     resolvedAt: string;
-  }>;
+  }[];
   humanOriginatedCompletedCount: number;
 }
 
@@ -7885,6 +7885,28 @@ export async function adminSyncProductWorkRecommendationJira(params?: {
     `/admin/iteration/recommendations/sync-jira${suffix}`,
     { method: "POST", body: "{}" },
     "Failed to sync Jira statuses",
+  );
+}
+
+export async function adminGenerateProductWorkRecommendations(params?: {
+  weekStart?: string;
+  force?: boolean;
+}) {
+  return adminIterationJson<{
+    created: number;
+    skipped: boolean;
+    message?: string;
+    recommendations: AdminProductWorkRecommendation[];
+  }>(
+    "/admin/iteration/recommendations/generate",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        weekStart: params?.weekStart,
+        force: params?.force ?? false,
+      }),
+    },
+    "Failed to generate AI recommendations",
   );
 }
 

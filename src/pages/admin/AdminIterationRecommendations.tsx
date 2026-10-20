@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   adminCreateProductWorkRecommendation,
   adminFetchIterationWeeklyComparison,
+  adminGenerateProductWorkRecommendations,
   adminLinkProductWorkRecommendationJira,
   adminSyncProductWorkRecommendationJira,
   adminUpdateProductWorkRecommendationStatus,
   type AdminIterationWeeklyComparison,
   type AdminProductWorkRecommendationStatus,
 } from "@/auth/backend";
+
+const WEEK_START_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function mondayUtc(d = new Date()): string {
   const date = new Date(
@@ -20,8 +23,12 @@ function mondayUtc(d = new Date()): string {
 }
 
 function shiftWeek(weekStart: string, deltaWeeks: number): string {
-  const [y, m, d] = weekStart.split("-").map(Number);
+  const base = WEEK_START_RE.test(weekStart) ? weekStart : mondayUtc();
+  const [y, m, d] = base.split("-").map(Number);
   const date = new Date(Date.UTC(y, m - 1, d));
+  if (Number.isNaN(date.getTime())) {
+    return shiftWeek(mondayUtc(), deltaWeeks);
+  }
   date.setUTCDate(date.getUTCDate() + deltaWeeks * 7);
   return date.toISOString().slice(0, 10);
 }
@@ -29,6 +36,24 @@ function shiftWeek(weekStart: string, deltaWeeks: number): string {
 function formatRate(value: number | null): string {
   if (value == null) return "—";
   return `${value.toFixed(1)}%`;
+}
+
+function displayStatus(
+  status: AdminProductWorkRecommendationStatus,
+  hasJiraKey: boolean,
+): string {
+  if (status === "RECOMMENDED" && !hasJiraKey) {
+    return "Pending / not selected";
+  }
+  const labels: Record<AdminProductWorkRecommendationStatus, string> = {
+    RECOMMENDED: "Recommended",
+    ACCEPTED: "Accepted",
+    REJECTED: "Rejected",
+    STARTED: "Started",
+    COMPLETED: "Completed",
+    MODIFIED_REPLACED: "Modified/replaced",
+  };
+  return labels[status];
 }
 
 export default function AdminIterationRecommendations() {
@@ -42,11 +67,14 @@ export default function AdminIterationRecommendations() {
   const [newTitle, setNewTitle] = useState("");
   const [newSummary, setNewSummary] = useState("");
   const [newJiraKey, setNewJiraKey] = useState("");
+  const loadGeneration = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = ++loadGeneration.current;
     setLoading(true);
     setError(null);
     const res = await adminFetchIterationWeeklyComparison({ weekStart });
+    if (generation !== loadGeneration.current) return;
     if (!res.ok || !res.data) {
       setReport(null);
       setError(res.error ?? "Failed to load weekly comparison");
@@ -59,23 +87,20 @@ export default function AdminIterationRecommendations() {
 
   useEffect(() => {
     void load();
+    return () => {
+      loadGeneration.current += 1;
+    };
   }, [load]);
 
   const rates = report?.rates;
   const humanRows = report?.humanOriginatedCompleted ?? [];
+  const statValue = (n: number | undefined) =>
+    loading ? "…" : report == null ? "—" : String(n ?? 0);
 
-  const statusLabel = useMemo(
-    () =>
-      ({
-        RECOMMENDED: "Recommended",
-        ACCEPTED: "Accepted",
-        REJECTED: "Rejected",
-        STARTED: "Started",
-        COMPLETED: "Completed",
-        MODIFIED_REPLACED: "Modified/replaced",
-      }) as Record<AdminProductWorkRecommendationStatus, string>,
-    [],
-  );
+  const rejectedCount = useMemo(() => {
+    if (!report) return null;
+    return report.rates.rejected;
+  }, [report]);
 
   return (
     <div className="space-y-6">
@@ -85,7 +110,8 @@ export default function AdminIterationRecommendations() {
           <p className="mt-1 text-sm text-muted-foreground">
             Compare AI product-work recommendations against Jira outcomes for the
             week. Human-originated Done tickets with no linked recommendation
-            are listed separately.
+            are listed separately. Unselected recommendations stay pending until
+            you explicitly reject them.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -101,7 +127,14 @@ export default function AdminIterationRecommendations() {
             type="date"
             className="rounded-md border border-border bg-background px-3 py-2 text-sm"
             value={weekStart}
-            onChange={(e) => setWeekStart(e.target.value)}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (!WEEK_START_RE.test(raw)) return;
+              const selected = new Date(`${raw}T00:00:00Z`);
+              if (!Number.isNaN(selected.getTime())) {
+                setWeekStart(mondayUtc(selected));
+              }
+            }}
           />
           <button
             type="button"
@@ -123,10 +156,45 @@ export default function AdminIterationRecommendations() {
             className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
             onClick={() => {
               setBusy(true);
+              setError(null);
+              void adminGenerateProductWorkRecommendations({ weekStart })
+                .then((res) => {
+                  if (!res.ok) {
+                    setError(res.error ?? "Generate failed");
+                    return;
+                  }
+                  void load();
+                  if (res.data?.skipped) {
+                    setError(
+                      res.data.message ??
+                        "AI recommendations already exist for this week.",
+                    );
+                  }
+                })
+                .finally(() => setBusy(false));
+            }}
+          >
+            Generate with AI
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+            onClick={() => {
+              setBusy(true);
+              setError(null);
               void adminSyncProductWorkRecommendationJira({ weekStart })
                 .then((res) => {
-                  if (!res.ok) setError(res.error ?? "Sync failed");
-                  else void load();
+                  if (!res.ok) {
+                    setError(res.error ?? "Sync failed");
+                    return;
+                  }
+                  void load();
+                  if (res.data?.errors.length) {
+                    setError(
+                      `Jira sync completed with errors: ${res.data.errors.join("; ")}`,
+                    );
+                  }
                 })
                 .finally(() => setBusy(false));
             }}
@@ -142,26 +210,32 @@ export default function AdminIterationRecommendations() {
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat
-          label="Recommended"
-          value={loading ? "…" : String(rates?.recommended ?? 0)}
-        />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <Stat label="Recommended" value={statValue(rates?.recommended)} />
         <Stat
           label="Accepted into Jira"
-          value={loading ? "…" : String(rates?.acceptedIntoJira ?? 0)}
-          hint={formatRate(rates?.acceptanceRate ?? null)}
+          value={statValue(rates?.acceptedIntoJira)}
+          hint={
+            report ? formatRate(rates?.acceptanceRate ?? null) : undefined
+          }
         />
         <Stat
           label="Completed"
-          value={loading ? "…" : String(rates?.completed ?? 0)}
-          hint={formatRate(rates?.completionRate ?? null)}
+          value={statValue(rates?.completed)}
+          hint={
+            report ? formatRate(rates?.completionRate ?? null) : undefined
+          }
+        />
+        <Stat
+          label="Rejected"
+          value={statValue(rejectedCount ?? undefined)}
+          hint={
+            report ? formatRate(rates?.rejectionRate ?? null) : undefined
+          }
         />
         <Stat
           label="Human-only Done"
-          value={
-            loading ? "…" : String(report?.humanOriginatedCompletedCount ?? 0)
-          }
+          value={statValue(report?.humanOriginatedCompletedCount)}
         />
       </div>
 
@@ -242,7 +316,9 @@ export default function AdminIterationRecommendations() {
                       </div>
                     ) : null}
                   </td>
-                  <td className="p-3">{statusLabel[row.status]}</td>
+                  <td className="p-3">
+                    {displayStatus(row.status, Boolean(row.jiraIssueKey))}
+                  </td>
                   <td className="p-3">
                     {row.jiraIssueUrl && row.jiraIssueKey ? (
                       <a
@@ -310,7 +386,7 @@ export default function AdminIterationRecommendations() {
                   </td>
                 </tr>
               ))}
-              {!loading && (report?.recommendations.length ?? 0) === 0 ? (
+              {!loading && report && report.recommendations.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-4 text-muted-foreground">
                     No recommendations for this week.
@@ -351,7 +427,7 @@ export default function AdminIterationRecommendations() {
                   </td>
                 </tr>
               ))}
-              {!loading && humanRows.length === 0 ? (
+              {!loading && report && humanRows.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-4 text-muted-foreground">
                     None this week (or Jira is not configured).
