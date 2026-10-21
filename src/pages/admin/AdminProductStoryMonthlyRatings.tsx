@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   adminFetchProductStoryMonthlyReview,
   adminUpsertProductStoryMonthlyRating,
@@ -50,28 +50,46 @@ export default function AdminProductStoryMonthlyRatings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const loadGeneration = useRef(0);
+  const yearRef = useRef(year);
+  const monthRef = useRef(month);
+  yearRef.current = year;
+  monthRef.current = month;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (override?: { year: number; month: number }) => {
+    const targetYear = override?.year ?? yearRef.current;
+    const targetMonth = override?.month ?? monthRef.current;
+    const generation = ++loadGeneration.current;
     setLoading(true);
     setError(null);
     setReport(null);
-    const res = await adminFetchProductStoryMonthlyReview({ year, month });
+    const res = await adminFetchProductStoryMonthlyReview({
+      year: targetYear,
+      month: targetMonth,
+    });
+    if (generation !== loadGeneration.current) return;
     if (!res.ok || !res.data) {
+      setReport(null);
       setError(res.error ?? "Failed to load monthly review");
       setLoading(false);
       return;
     }
     setReport(res.data);
     setLoading(false);
-  }, [year, month]);
+  }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load({ year, month });
+    return () => {
+      loadGeneration.current += 1;
+    };
+  }, [year, month, load]);
 
   const activeReport =
     report && report.year === year && report.month === month ? report : null;
   const awaiting = loading || (report != null && activeReport == null);
+  const statValue = (value: string | number | undefined) =>
+    awaiting ? "…" : activeReport == null ? "—" : String(value ?? "—");
 
   return (
     <div className="space-y-6">
@@ -129,19 +147,21 @@ export default function AdminProductStoryMonthlyRatings() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat
           label="Stories"
-          value={awaiting ? "…" : String(activeReport?.totalStories ?? 0)}
+          value={statValue(activeReport?.totalStories)}
         />
         <Stat
           label="Rated by you"
           value={
             awaiting
               ? "…"
-              : `${activeReport?.ratedByMeCount ?? 0} / ${activeReport?.totalStories ?? 0}`
+              : activeReport == null
+                ? "—"
+                : `${activeReport.ratedByMeCount} / ${activeReport.totalStories}`
           }
         />
         <Stat
           label="Weight algorithm"
-          value={awaiting ? "…" : (activeReport?.algorithmVersion ?? "—")}
+          value={statValue(activeReport?.algorithmVersion)}
         />
       </div>
 
@@ -166,7 +186,10 @@ export default function AdminProductStoryMonthlyRatings() {
             ) : null}
             {!awaiting
               ? (activeReport?.stories ?? []).map((story) => (
-                  <tr key={story.key} className="border-b border-border/60 align-top">
+                  <tr
+                    key={story.key}
+                    className="border-b border-border/60 align-top"
+                  >
                     <td className="p-3">
                       <div className="font-medium">
                         {story.jiraIssueUrl ? (
@@ -182,54 +205,61 @@ export default function AdminProductStoryMonthlyRatings() {
                           story.key
                         )}
                       </div>
-                      <div className="text-muted-foreground">{story.summary}</div>
+                      <div className="text-muted-foreground">
+                        {story.summary}
+                      </div>
                       <div className="mt-1 text-xs text-muted-foreground">
                         {story.points} pts · resolved{" "}
                         {new Date(story.resolvedAt).toLocaleString()}
                       </div>
                     </td>
                     <td className="p-3">
-                      <div className="flex flex-col gap-1">
-                        {([1, 2, 3] as AdminProductStoryMonthlyRatingValue[]).map(
-                          (value) => {
-                            const selected = story.myRating?.rating === value;
-                            const busy = busyKey === story.key;
-                            return (
-                              <button
-                                key={value}
-                                type="button"
-                                disabled={busy}
-                                className={`rounded-md border px-2 py-1 text-left text-xs disabled:opacity-50 ${
-                                  selected
-                                    ? "border-primary bg-primary/10"
-                                    : "border-border hover:bg-muted"
-                                }`}
-                                onClick={() => {
-                                  setBusyKey(story.key);
-                                  setError(null);
-                                  void adminUpsertProductStoryMonthlyRating({
-                                    jiraIssueKey: story.key,
-                                    year,
-                                    month,
-                                    rating: value,
+                      <div
+                        className="flex flex-col gap-1"
+                        role="group"
+                        aria-label={`Rate ${story.key}`}
+                      >
+                        {(
+                          [1, 2, 3] as AdminProductStoryMonthlyRatingValue[]
+                        ).map((value) => {
+                          const selected = story.myRating?.rating === value;
+                          const busy = busyKey === story.key;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              disabled={busy}
+                              aria-pressed={selected}
+                              className={`rounded-md border px-2 py-1 text-left text-xs disabled:opacity-50 ${
+                                selected
+                                  ? "border-primary bg-primary/10"
+                                  : "border-border hover:bg-muted"
+                              }`}
+                              onClick={() => {
+                                setBusyKey(story.key);
+                                setError(null);
+                                void adminUpsertProductStoryMonthlyRating({
+                                  jiraIssueKey: story.key,
+                                  year,
+                                  month,
+                                  rating: value,
+                                })
+                                  .then((res) => {
+                                    if (!res.ok) {
+                                      setError(
+                                        res.error ?? "Failed to save rating",
+                                      );
+                                      return;
+                                    }
+                                    void load();
                                   })
-                                    .then((res) => {
-                                      if (!res.ok) {
-                                        setError(
-                                          res.error ?? "Failed to save rating",
-                                        );
-                                        return;
-                                      }
-                                      void load();
-                                    })
-                                    .finally(() => setBusyKey(null));
-                                }}
-                              >
-                                {RATING_LABELS[value]}
-                              </button>
-                            );
-                          },
-                        )}
+                                  .finally(() => setBusyKey(null));
+                              }}
+                            >
+                              {RATING_LABELS[value]}
+                            </button>
+                          );
+                        })}
                       </div>
                     </td>
                     <td className="p-3 font-medium">
