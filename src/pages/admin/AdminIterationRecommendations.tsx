@@ -77,6 +77,9 @@ export default function AdminIterationRecommendations() {
     const week = weekOverride ?? weekStartRef.current;
     const generation = ++loadGeneration.current;
     setLoading(true);
+    // Drop the previous week's rows immediately so Link/Reject cannot mutate
+    // stale recommendations under the newly selected weekStart.
+    setReport(null);
     setError(null);
     const res = await adminFetchIterationWeeklyComparison({ weekStart: week });
     if (generation !== loadGeneration.current) return;
@@ -311,86 +314,98 @@ export default function AdminIterationRecommendations() {
               </tr>
             </thead>
             <tbody>
-              {(report?.recommendations ?? []).map((row) => (
-                <tr key={row.id} className="border-b border-border/60">
-                  <td className="p-3">
-                    <div className="font-medium">{row.title}</div>
-                    {row.summary ? (
-                      <div className="text-xs text-muted-foreground">
-                        {row.summary}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="p-3">
-                    {displayStatus(row.status, Boolean(row.jiraIssueKey))}
-                  </td>
-                  <td className="p-3">
-                    {row.jiraIssueUrl && row.jiraIssueKey ? (
-                      <a
-                        className="text-primary underline"
-                        href={row.jiraIssueUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {row.jiraIssueKey}
-                      </a>
-                    ) : (
-                      (row.jiraIssueKey ?? "—")
-                    )}
-                    {row.jiraStatus ? (
-                      <div className="text-xs text-muted-foreground">
-                        {row.jiraStatus}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="p-3">
-                    <div className="flex flex-col gap-1">
-                      <button
-                        type="button"
-                        className="text-left text-xs text-primary underline"
-                        onClick={() => {
-                          const key = window.prompt(
-                            "Jira issue key",
-                            row.jiraIssueKey ?? "",
-                          );
-                          if (!key?.trim()) return;
-                          setBusy(true);
-                          void adminLinkProductWorkRecommendationJira(row.id, {
-                            jiraIssueKey: key.trim(),
-                          })
-                            .then((res) => {
-                              if (!res.ok)
-                                setError(res.error ?? "Link failed");
-                              else void load();
-                            })
-                            .finally(() => setBusy(false));
-                        }}
-                      >
-                        Link / accept Jira…
-                      </button>
-                      <button
-                        type="button"
-                        className="text-left text-xs text-primary underline"
-                        onClick={() => {
-                          setBusy(true);
-                          void adminUpdateProductWorkRecommendationStatus(
-                            row.id,
-                            { status: "REJECTED" },
-                          )
-                            .then((res) => {
-                              if (!res.ok)
-                                setError(res.error ?? "Reject failed");
-                              else void load();
-                            })
-                            .finally(() => setBusy(false));
-                        }}
-                      >
-                        Reject
-                      </button>
-                    </div>
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="p-4 text-muted-foreground">
+                    Loading…
                   </td>
                 </tr>
-              ))}
+              ) : null}
+              {!loading
+                ? (report?.recommendations ?? []).map((row) => (
+                    <tr key={row.id} className="border-b border-border/60">
+                      <td className="p-3">
+                        <div className="font-medium">{row.title}</div>
+                        {row.summary ? (
+                          <div className="text-xs text-muted-foreground">
+                            {row.summary}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="p-3">
+                        {displayStatus(row.status, Boolean(row.jiraIssueKey))}
+                      </td>
+                      <td className="p-3">
+                        {row.jiraIssueUrl && row.jiraIssueKey ? (
+                          <a
+                            className="text-primary underline"
+                            href={row.jiraIssueUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {row.jiraIssueKey}
+                          </a>
+                        ) : (
+                          (row.jiraIssueKey ?? "—")
+                        )}
+                        {row.jiraStatus ? (
+                          <div className="text-xs text-muted-foreground">
+                            {row.jiraStatus}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex flex-col gap-1">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className="text-left text-xs text-primary underline disabled:opacity-50 disabled:no-underline"
+                            onClick={() => {
+                              const key = window.prompt(
+                                "Jira issue key",
+                                row.jiraIssueKey ?? "",
+                              );
+                              if (!key?.trim()) return;
+                              setBusy(true);
+                              void adminLinkProductWorkRecommendationJira(
+                                row.id,
+                                { jiraIssueKey: key.trim() },
+                              )
+                                .then((res) => {
+                                  if (!res.ok)
+                                    setError(res.error ?? "Link failed");
+                                  else void load();
+                                })
+                                .finally(() => setBusy(false));
+                            }}
+                          >
+                            Link / accept Jira…
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className="text-left text-xs text-primary underline disabled:opacity-50 disabled:no-underline"
+                            onClick={() => {
+                              setBusy(true);
+                              void adminUpdateProductWorkRecommendationStatus(
+                                row.id,
+                                { status: "REJECTED" },
+                              )
+                                .then((res) => {
+                                  if (!res.ok)
+                                    setError(res.error ?? "Reject failed");
+                                  else void load();
+                                })
+                                .finally(() => setBusy(false));
+                            }}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                : null}
               {!loading && report && report.recommendations.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-4 text-muted-foreground">
@@ -422,16 +437,25 @@ export default function AdminIterationRecommendations() {
               </tr>
             </thead>
             <tbody>
-              {humanRows.map((row) => (
-                <tr key={row.key} className="border-b border-border/60">
-                  <td className="p-3 font-mono text-xs">{row.key}</td>
-                  <td className="p-3">{row.summary}</td>
-                  <td className="p-3">{row.points}</td>
-                  <td className="p-3">
-                    {new Date(row.resolvedAt).toLocaleString()}
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="p-4 text-muted-foreground">
+                    Loading…
                   </td>
                 </tr>
-              ))}
+              ) : null}
+              {!loading
+                ? humanRows.map((row) => (
+                    <tr key={row.key} className="border-b border-border/60">
+                      <td className="p-3 font-mono text-xs">{row.key}</td>
+                      <td className="p-3">{row.summary}</td>
+                      <td className="p-3">{row.points}</td>
+                      <td className="p-3">
+                        {new Date(row.resolvedAt).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))
+                : null}
               {!loading && report && humanRows.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-4 text-muted-foreground">
