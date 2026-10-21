@@ -82,6 +82,9 @@ const AdminProductEvents = lazy(
   () => import("./pages/admin/AdminProductEvents"),
 );
 const AdminResearch = lazy(() => import("./pages/admin/AdminResearch"));
+const AdminInterviewGuide = lazy(
+  () => import("./pages/admin/AdminInterviewGuide"),
+);
 const AdminConnectionEngagement = lazy(
   () => import("./pages/admin/AdminConnectionEngagement"),
 );
@@ -390,6 +393,10 @@ const App = () => (
                 />
                 <Route path="product-events" element={<AdminProductEvents />} />
                 <Route path="research" element={<AdminResearch />} />
+                <Route
+                  path="interview-guide"
+                  element={<AdminInterviewGuide />}
+                />
                 <Route
                   path="domain-insights"
                   element={<AdminDomainInsights />}

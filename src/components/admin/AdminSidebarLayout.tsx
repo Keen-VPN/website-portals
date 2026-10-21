@@ -88,13 +88,22 @@ export default function AdminSidebarLayout() {
               Product Events
             </NavLink>
             {can("research.read") ? (
-              <NavLink
-                to="/admin/research"
-                className={({ isActive }) => linkClass(isActive)}
-              >
-                <Mic2 className="h-4 w-4" />
-                Research
-              </NavLink>
+              <>
+                <NavLink
+                  to="/admin/research"
+                  className={({ isActive }) => linkClass(isActive)}
+                >
+                  <Mic2 className="h-4 w-4" />
+                  Research
+                </NavLink>
+                <NavLink
+                  to="/admin/interview-guide"
+                  className={({ isActive }) => linkClass(isActive)}
+                >
+                  <Mic2 className="h-4 w-4" />
+                  Interview Guide
+                </NavLink>
+              </>
             ) : null}
             {can("class_actions.read") ? (
               <NavLink

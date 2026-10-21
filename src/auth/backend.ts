@@ -12353,6 +12353,104 @@ export async function adminReconcileFirefliesTranscripts() {
   );
 }
 
+export type AdminResearchQuestionKind = "STANDARD" | "AI_WEEKLY";
+
+export interface AdminResearchQuestion {
+  id: string;
+  publicId: string;
+  kind: AdminResearchQuestionKind;
+  weekStart: string | null;
+  prompt: string;
+  followUp: string | null;
+  sortOrder: number;
+  active: boolean;
+  studyId: string | null;
+  generatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminInterviewGuideWeekly {
+  weekStart: string;
+  weekEndExclusive: string;
+  introduction: string;
+  standardQuestions: AdminResearchQuestion[];
+  aiWeeklyQuestions: AdminResearchQuestion[];
+  notes: {
+    id: string;
+    body: string;
+    participantId: string | null;
+    participant: {
+      id: string;
+      email: string;
+      name: string | null;
+      status: string;
+    } | null;
+    transcriptId: string | null;
+    transcript: {
+      id: string;
+      title: string;
+      occurredAt: string;
+    } | null;
+    createdByAdminId: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }[];
+}
+
+export async function adminFetchWeeklyInterviewGuide(params?: {
+  weekStart?: string;
+}) {
+  const query = new URLSearchParams();
+  if (params?.weekStart) query.set("weekStart", params.weekStart);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return adminResearchJson<AdminInterviewGuideWeekly>(
+    `/admin/research/interview-guides/weekly${suffix}`,
+    undefined,
+    "Failed to load interview guide",
+  );
+}
+
+export async function adminGenerateWeeklyInterviewQuestions(body?: {
+  weekStart?: string;
+  studyId?: string;
+  force?: boolean;
+}) {
+  return adminResearchJson<{
+    created: number;
+    skipped: boolean;
+    message?: string;
+    source: "llm" | "heuristics" | null;
+    questions: AdminResearchQuestion[];
+  }>(
+    "/admin/research/interview-guides/generate-questions",
+    { method: "POST", body: JSON.stringify(body ?? {}) },
+    "Failed to generate weekly interview questions",
+  );
+}
+
+export async function adminCreateInterviewGuideNote(body: {
+  weekStart?: string;
+  body: string;
+  participantId?: string;
+  transcriptId?: string;
+}) {
+  return adminResearchJson<{
+    id: string;
+    weekStart: string;
+    body: string;
+    participantId: string | null;
+    transcriptId: string | null;
+    createdByAdminId: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>(
+    "/admin/research/interview-guides/notes",
+    { method: "POST", body: JSON.stringify(body) },
+    "Failed to save interview note",
+  );
+}
+
 /**
  * AdminClassActionReviewController is guarded by AdminCsrfGuard: cookie-authenticated
  * POST/PATCH/DELETE must send X-Requested-With: XMLHttpRequest (see backend
