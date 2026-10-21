@@ -76,6 +76,7 @@ export default function AdminInterviewGuide() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
   const [noteBody, setNoteBody] = useState("");
   const [transcriptId, setTranscriptId] = useState("");
   const loadGeneration = useRef(0);
@@ -173,10 +174,14 @@ export default function AdminInterviewGuide() {
               disabled={busy}
               className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
               onClick={() => {
+                const requestedWeek = weekStart;
                 setBusy(true);
                 setError(null);
-                void adminGenerateWeeklyInterviewQuestions({ weekStart })
+                void adminGenerateWeeklyInterviewQuestions({
+                  weekStart: requestedWeek,
+                })
                   .then((res) => {
+                    if (weekStartRef.current !== requestedWeek) return;
                     if (!res.ok) {
                       setError(res.error ?? "Generate failed");
                       return;
@@ -303,43 +308,55 @@ export default function AdminInterviewGuide() {
               <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
                 <textarea
                   aria-label="Interview notes"
-                  className="min-h-[100px] rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="min-h-[100px] rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
                   placeholder="Interview notes…"
                   value={noteBody}
+                  disabled={savingNote}
                   onChange={(e) => setNoteBody(e.target.value)}
                 />
                 <input
                   aria-label="Optional transcript UUID"
-                  className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
                   placeholder="Optional transcript UUID"
                   value={transcriptId}
+                  disabled={savingNote}
                   onChange={(e) => setTranscriptId(e.target.value)}
                 />
                 <button
                   type="button"
-                  disabled={busy || !noteBody.trim()}
+                  disabled={savingNote || !noteBody.trim()}
                   className="w-fit rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
                   onClick={() => {
-                    const trimmedBody = noteBody.trim();
-                    const trimmedTranscript = transcriptId.trim();
-                    setBusy(true);
+                    const requestedWeek = weekStart;
+                    const submittedBody = noteBody.trim();
+                    const submittedTranscript = transcriptId.trim();
+                    setSavingNote(true);
                     setError(null);
                     void adminCreateInterviewGuideNote({
-                      weekStart,
-                      body: trimmedBody,
-                      transcriptId: trimmedTranscript || undefined,
+                      weekStart: requestedWeek,
+                      body: submittedBody,
+                      transcriptId: submittedTranscript || undefined,
                     })
                       .then((res) => {
                         if (!res.ok || !res.data) {
-                          setError(res.error ?? "Failed to save note");
+                          if (weekStartRef.current === requestedWeek) {
+                            setError(res.error ?? "Failed to save note");
+                          }
                           return;
                         }
+                        // Always clear the submitted draft so switching weeks
+                        // mid-save cannot leave text that duplicates on re-save.
+                        setNoteBody("");
+                        setTranscriptId("");
+
+                        if (weekStartRef.current !== requestedWeek) return;
+
                         const saved = res.data;
                         // Treat the mutation as success: append locally so a
                         // failed silent refresh cannot hide the saved note or
                         // invite a duplicate retry.
                         setGuide((prev) => {
-                          if (!prev || prev.weekStart !== weekStart) {
+                          if (!prev || prev.weekStart !== requestedWeek) {
                             return prev;
                           }
                           if (prev.notes.some((n) => n.id === saved.id)) {
@@ -363,11 +380,9 @@ export default function AdminInterviewGuide() {
                             ],
                           };
                         });
-                        setNoteBody("");
-                        setTranscriptId("");
                         void load({ silent: true });
                       })
-                      .finally(() => setBusy(false));
+                      .finally(() => setSavingNote(false));
                   }}
                 >
                   Save note
