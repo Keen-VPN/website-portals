@@ -100,15 +100,21 @@ export default function AdminIterationRecommendations() {
     };
   }, [weekStart, load]);
 
-  const rates = report?.rates;
-  const humanRows = report?.humanOriginatedCompleted ?? [];
+  // Ignore a report whose weekStart does not match the selector — there is a
+  // render before useEffect calls load() where weekStart has changed but the
+  // previous report is still in state.
+  const activeReport =
+    report && report.weekStart === weekStart ? report : null;
+  const awaitingWeek = loading || (report != null && activeReport == null);
+  const rates = activeReport?.rates;
+  const humanRows = activeReport?.humanOriginatedCompleted ?? [];
   const statValue = (n: number | undefined) =>
-    loading ? "…" : report == null ? "—" : String(n ?? 0);
+    awaitingWeek ? "…" : activeReport == null ? "—" : String(n ?? 0);
 
   const rejectedCount = useMemo(() => {
-    if (!report) return null;
-    return report.rates.rejected;
-  }, [report]);
+    if (!activeReport) return null;
+    return activeReport.rates.rejected;
+  }, [activeReport]);
 
   return (
     <div className="space-y-6">
@@ -224,26 +230,32 @@ export default function AdminIterationRecommendations() {
           label="Accepted into Jira"
           value={statValue(rates?.acceptedIntoJira)}
           hint={
-            report ? formatRate(rates?.acceptanceRate ?? null) : undefined
+            activeReport
+              ? formatRate(rates?.acceptanceRate ?? null)
+              : undefined
           }
         />
         <Stat
           label="Completed"
           value={statValue(rates?.completed)}
           hint={
-            report ? formatRate(rates?.completionRate ?? null) : undefined
+            activeReport
+              ? formatRate(rates?.completionRate ?? null)
+              : undefined
           }
         />
         <Stat
           label="Rejected"
           value={statValue(rejectedCount ?? undefined)}
           hint={
-            report ? formatRate(rates?.rejectionRate ?? null) : undefined
+            activeReport
+              ? formatRate(rates?.rejectionRate ?? null)
+              : undefined
           }
         />
         <Stat
           label="Human-only Done"
-          value={statValue(report?.humanOriginatedCompletedCount)}
+          value={statValue(activeReport?.humanOriginatedCompletedCount)}
         />
       </div>
 
@@ -314,15 +326,15 @@ export default function AdminIterationRecommendations() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {awaitingWeek ? (
                 <tr>
                   <td colSpan={4} className="p-4 text-muted-foreground">
                     Loading…
                   </td>
                 </tr>
               ) : null}
-              {!loading
-                ? (report?.recommendations ?? []).map((row) => (
+              {!awaitingWeek
+                ? (activeReport?.recommendations ?? []).map((row) => (
                     <tr key={row.id} className="border-b border-border/60">
                       <td className="p-3">
                         <div className="font-medium">{row.title}</div>
@@ -406,7 +418,9 @@ export default function AdminIterationRecommendations() {
                     </tr>
                   ))
                 : null}
-              {!loading && report && report.recommendations.length === 0 ? (
+              {!awaitingWeek &&
+              activeReport &&
+              activeReport.recommendations.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-4 text-muted-foreground">
                     No recommendations for this week.
@@ -437,14 +451,14 @@ export default function AdminIterationRecommendations() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {awaitingWeek ? (
                 <tr>
                   <td colSpan={4} className="p-4 text-muted-foreground">
                     Loading…
                   </td>
                 </tr>
               ) : null}
-              {!loading
+              {!awaitingWeek
                 ? humanRows.map((row) => (
                     <tr key={row.key} className="border-b border-border/60">
                       <td className="p-3 font-mono text-xs">{row.key}</td>
@@ -456,7 +470,7 @@ export default function AdminIterationRecommendations() {
                     </tr>
                   ))
                 : null}
-              {!loading && report && humanRows.length === 0 ? (
+              {!awaitingWeek && activeReport && humanRows.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-4 text-muted-foreground">
                     None this week (or Jira is not configured).
