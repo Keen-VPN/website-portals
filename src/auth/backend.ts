@@ -7991,6 +7991,30 @@ export async function adminUpsertProductStoryMonthlyRating(body: {
   );
 }
 
+export async function adminPostProductStoryMonthlyRatingsToSlack(params: {
+  year: number;
+  month: number;
+}) {
+  return adminIterationJson<{
+    year: number;
+    month: number;
+    totalStories: number;
+    posted: number;
+    truncated: boolean;
+    channelId: string | null;
+  }>(
+    "/admin/iteration/story-ratings/slack/post",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        year: params.year,
+        month: params.month,
+      }),
+    },
+    "Failed to post story ratings to Slack",
+  );
+}
+
 export async function adminFetchWeeklyChurnReport(params: {
   week: number;
   year: number;

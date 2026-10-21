@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   adminFetchProductStoryMonthlyReview,
+  adminPostProductStoryMonthlyRatingsToSlack,
   adminUpsertProductStoryMonthlyRating,
   type AdminProductStoryMonthlyRatingValue,
   type AdminProductStoryMonthlyReview,
@@ -11,6 +12,8 @@ const RATING_LABELS: Record<AdminProductStoryMonthlyRatingValue, string> = {
   2: "2 — No meaningful value felt",
   3: "3 — Critically valuable",
 };
+
+const PAGE_SIZE = 20;
 
 function previousUtcMonth(): { year: number; month: number } {
   const now = new Date();
@@ -52,6 +55,9 @@ export default function AdminProductStoryMonthlyRatings() {
   const [pendingKeys, setPendingKeys] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [page, setPage] = useState(1);
+  const [postingSlack, setPostingSlack] = useState(false);
+  const [slackNotice, setSlackNotice] = useState<string | null>(null);
   const loadGeneration = useRef(0);
   const yearRef = useRef(year);
   const monthRef = useRef(month);
@@ -100,6 +106,9 @@ export default function AdminProductStoryMonthlyRatings() {
   );
 
   useEffect(() => {
+    setPage(1);
+    setSlackNotice(null);
+    setPostingSlack(false);
     void load({ year, month });
     return () => {
       loadGeneration.current += 1;
@@ -123,9 +132,49 @@ export default function AdminProductStoryMonthlyRatings() {
     });
   };
 
+  const postToSlack = async () => {
+    if (postingSlack) return;
+    const postedYear = year;
+    const postedMonth = month;
+    setPostingSlack(true);
+    setSlackNotice(null);
+    setError(null);
+    const res = await adminPostProductStoryMonthlyRatingsToSlack({
+      year: postedYear,
+      month: postedMonth,
+    });
+    // Ignore stale responses after the admin navigates to another month.
+    if (
+      yearRef.current !== postedYear ||
+      monthRef.current !== postedMonth
+    ) {
+      return;
+    }
+    setPostingSlack(false);
+    if (!res.ok || !res.data) {
+      setError(res.error ?? "Failed to post story ratings to Slack");
+      return;
+    }
+    const truncatedNote = res.data.truncated
+      ? ` (truncated to ${res.data.posted} of ${res.data.totalStories})`
+      : "";
+    setSlackNotice(
+      `Posted ${res.data.posted} stor${res.data.posted === 1 ? "y" : "ies"} to Slack${truncatedNote}.`,
+    );
+  };
+
   const activeReport =
     report && report.year === year && report.month === month ? report : null;
   const awaiting = loading || (report != null && activeReport == null);
+  const stories = activeReport?.stories ?? [];
+  const pageCount = Math.max(1, Math.ceil(stories.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageStories = stories.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
+  const rangeStart = stories.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(safePage * PAGE_SIZE, stories.length);
   const statValue = (value: string | number | undefined) =>
     awaiting ? "…" : activeReport == null ? "—" : String(value ?? "—");
 
@@ -173,12 +222,29 @@ export default function AdminProductStoryMonthlyRatings() {
           >
             Refresh
           </button>
+          <button
+            type="button"
+            className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+            disabled={postingSlack || awaiting || stories.length === 0}
+            onClick={() => void postToSlack()}
+          >
+            {postingSlack ? "Posting…" : "Post to Slack"}
+          </button>
         </div>
       </div>
 
       {error ? (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
+        </div>
+      ) : null}
+
+      {slackNotice ? (
+        <div
+          role="status"
+          className="rounded-md border border-border bg-muted/40 p-3 text-sm"
+        >
+          {slackNotice}
         </div>
       ) : null}
 
@@ -223,7 +289,7 @@ export default function AdminProductStoryMonthlyRatings() {
               </tr>
             ) : null}
             {!awaiting
-              ? (activeReport?.stories ?? []).map((story) => {
+              ? pageStories.map((story) => {
                   const busy = pendingKeys.has(story.key);
                   return (
                     <tr
@@ -352,7 +418,7 @@ export default function AdminProductStoryMonthlyRatings() {
                   );
                 })
               : null}
-            {!awaiting && activeReport && activeReport.stories.length === 0 ? (
+            {!awaiting && activeReport && stories.length === 0 ? (
               <tr>
                 <td colSpan={5} className="p-4 text-muted-foreground">
                   No Done Jira stories for this month (or Jira is empty).
@@ -362,6 +428,37 @@ export default function AdminProductStoryMonthlyRatings() {
           </tbody>
         </table>
       </div>
+
+      {!awaiting && stories.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm text-muted-foreground">
+            Showing {rangeStart}–{rangeEnd} of {stories.length}
+          </span>
+          {pageCount > 1 ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
+                disabled={safePage <= 1}
+                onClick={() => setPage(Math.max(1, safePage - 1))}
+              >
+                Previous
+              </button>
+              <span className="text-sm text-muted-foreground">
+                Page {safePage} of {pageCount}
+              </span>
+              <button
+                type="button"
+                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
+                disabled={safePage >= pageCount}
+                onClick={() => setPage(Math.min(pageCount, safePage + 1))}
+              >
+                Next
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
