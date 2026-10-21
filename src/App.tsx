@@ -196,6 +196,13 @@ const PricingRoute = () => {
   );
 };
 
+/** Public SEO guides live on the marketing site; preserve state slugs. */
+const UnclaimedPropertyMarketingRedirect = () => {
+  const { pathname } = useLocation();
+  const path = pathname.endsWith("/") ? pathname : `${pathname}/`;
+  return <MarketingSiteRedirect path={path} />;
+};
+
 /** Web users land on the new dashboard; keep legacy /account for ASWeb + checkout returns. */
 const AccountRoute = () => {
   const { search } = useLocation();
@@ -237,6 +244,14 @@ const App = () => (
               <Route
                 path="/servers"
                 element={<MarketingSiteRedirect path="/server-locations/" />}
+              />
+              <Route
+                path="/unclaimed-property"
+                element={<UnclaimedPropertyMarketingRedirect />}
+              />
+              <Route
+                path="/unclaimed-property/*"
+                element={<UnclaimedPropertyMarketingRedirect />}
               />
               <Route
                 path="/pricing"
