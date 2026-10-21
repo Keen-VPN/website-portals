@@ -72,8 +72,8 @@ export default function AdminProductStoryMonthlyRatings() {
       if (!silent) {
         setLoading(true);
         setReport(null);
+        setError(null);
       }
-      setError(null);
       const res = await adminFetchProductStoryMonthlyReview({
         year: targetYear,
         month: targetMonth,
@@ -258,54 +258,65 @@ export default function AdminProductStoryMonthlyRatings() {
                         </div>
                       </td>
                       <td className="p-3">
-                        <div
-                          className="flex flex-col gap-1"
-                          role="radiogroup"
-                          aria-label={`Rate ${story.key}`}
+                        <fieldset
+                          className={`flex flex-col gap-1 border-0 p-0 m-0 ${
+                            busy ? "opacity-50" : ""
+                          }`}
                         >
+                          <legend className="sr-only">
+                            Rate {story.key}
+                          </legend>
                           {(
                             [1, 2, 3] as AdminProductStoryMonthlyRatingValue[]
                           ).map((value) => {
                             const selected =
                               story.myRating?.rating === value;
                             return (
-                              <button
+                              <label
                                 key={value}
-                                type="button"
-                                role="radio"
-                                aria-checked={selected}
-                                disabled={busy}
-                                className={`rounded-md border px-2 py-1 text-left text-xs disabled:opacity-50 ${
+                                className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1 text-left text-xs ${
                                   selected
                                     ? "border-primary bg-primary/10"
                                     : "border-border hover:bg-muted"
                                 }`}
-                                onClick={() => {
-                                  markPending(story.key);
-                                  setError(null);
-                                  void adminUpsertProductStoryMonthlyRating({
-                                    jiraIssueKey: story.key,
-                                    year,
-                                    month,
-                                    rating: value,
-                                  })
-                                    .then((res) => {
-                                      if (!res.ok) {
-                                        setError(
-                                          res.error ?? "Failed to save rating",
-                                        );
-                                        return;
-                                      }
-                                      void load({ silent: true });
-                                    })
-                                    .finally(() => clearPending(story.key));
-                                }}
                               >
-                                {RATING_LABELS[value]}
-                              </button>
+                                <input
+                                  type="radio"
+                                  className="h-3.5 w-3.5 accent-primary"
+                                  name={`story-rating-${story.key}`}
+                                  value={value}
+                                  checked={selected}
+                                  aria-disabled={busy}
+                                  onChange={() => {
+                                    if (busy) return;
+                                    markPending(story.key);
+                                    setError(null);
+                                    void adminUpsertProductStoryMonthlyRating({
+                                      jiraIssueKey: story.key,
+                                      year,
+                                      month,
+                                      rating: value,
+                                    })
+                                      .then((res) => {
+                                        if (!res.ok) {
+                                          setError(
+                                            res.error ??
+                                              "Failed to save rating",
+                                          );
+                                          return;
+                                        }
+                                        void load({ silent: true });
+                                      })
+                                      .finally(() =>
+                                        clearPending(story.key),
+                                      );
+                                  }}
+                                />
+                                <span>{RATING_LABELS[value]}</span>
+                              </label>
                             );
                           })}
-                        </div>
+                        </fieldset>
                       </td>
                       <td className="p-3 font-medium">
                         {formatAvg(story.aggregates.rawAverage)}
