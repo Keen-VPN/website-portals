@@ -76,6 +76,7 @@ export default function AdminInterviewGuide() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
   const [noteBody, setNoteBody] = useState("");
   const [transcriptId, setTranscriptId] = useState("");
   const loadGeneration = useRef(0);
@@ -310,7 +311,7 @@ export default function AdminInterviewGuide() {
                   className="min-h-[100px] rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
                   placeholder="Interview notes…"
                   value={noteBody}
-                  disabled={busy}
+                  disabled={savingNote}
                   onChange={(e) => setNoteBody(e.target.value)}
                 />
                 <input
@@ -318,18 +319,18 @@ export default function AdminInterviewGuide() {
                   className="rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
                   placeholder="Optional transcript UUID"
                   value={transcriptId}
-                  disabled={busy}
+                  disabled={savingNote}
                   onChange={(e) => setTranscriptId(e.target.value)}
                 />
                 <button
                   type="button"
-                  disabled={busy || !noteBody.trim()}
+                  disabled={savingNote || !noteBody.trim()}
                   className="w-fit rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
                   onClick={() => {
                     const requestedWeek = weekStart;
                     const submittedBody = noteBody.trim();
                     const submittedTranscript = transcriptId.trim();
-                    setBusy(true);
+                    setSavingNote(true);
                     setError(null);
                     void adminCreateInterviewGuideNote({
                       weekStart: requestedWeek,
@@ -337,11 +338,19 @@ export default function AdminInterviewGuide() {
                       transcriptId: submittedTranscript || undefined,
                     })
                       .then((res) => {
-                        if (weekStartRef.current !== requestedWeek) return;
                         if (!res.ok || !res.data) {
-                          setError(res.error ?? "Failed to save note");
+                          if (weekStartRef.current === requestedWeek) {
+                            setError(res.error ?? "Failed to save note");
+                          }
                           return;
                         }
+                        // Always clear the submitted draft so switching weeks
+                        // mid-save cannot leave text that duplicates on re-save.
+                        setNoteBody("");
+                        setTranscriptId("");
+
+                        if (weekStartRef.current !== requestedWeek) return;
+
                         const saved = res.data;
                         // Treat the mutation as success: append locally so a
                         // failed silent refresh cannot hide the saved note or
@@ -371,19 +380,9 @@ export default function AdminInterviewGuide() {
                             ],
                           };
                         });
-                        // Only clear if the user has not edited since submit
-                        // (inputs are also disabled while busy).
-                        setNoteBody((current) =>
-                          current.trim() === submittedBody ? "" : current,
-                        );
-                        setTranscriptId((current) =>
-                          current.trim() === submittedTranscript
-                            ? ""
-                            : current,
-                        );
                         void load({ silent: true });
                       })
-                      .finally(() => setBusy(false));
+                      .finally(() => setSavingNote(false));
                   }}
                 >
                   Save note
