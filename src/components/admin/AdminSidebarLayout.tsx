@@ -244,6 +244,13 @@ export default function AdminSidebarLayout() {
               Jira Delivery
             </NavLink>
             <NavLink
+              to="/admin/iteration-recommendations"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <BarChart3 className="h-4 w-4" />
+              Iteration Recs
+            </NavLink>
+            <NavLink
               to="/admin/sticker-campaigns"
               className={({ isActive }) => linkClass(isActive)}
             >
