@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
   adminCreateInterviewGuideNote,
   adminFetchWeeklyInterviewGuide,
@@ -66,6 +67,10 @@ function QuestionBlock(props: {
 }
 
 export default function AdminInterviewGuide() {
+  const { can } = useAdminAuth();
+  const canRead = can("research.read");
+  const canWrite = can("research.write");
+
   const [weekStart, setWeekStart] = useState(mondayUtc);
   const [guide, setGuide] = useState<AdminInterviewGuideWeekly | null>(null);
   const [loading, setLoading] = useState(true);
@@ -100,15 +105,27 @@ export default function AdminInterviewGuide() {
   }, []);
 
   useEffect(() => {
+    if (!canRead) {
+      setLoading(false);
+      return;
+    }
     void load();
     return () => {
       loadGeneration.current += 1;
     };
-  }, [weekStart, load]);
+  }, [canRead, weekStart, load]);
 
   const activeGuide =
     guide && guide.weekStart === weekStart ? guide : null;
   const awaiting = loading || (guide != null && activeGuide == null);
+
+  if (!canRead) {
+    return (
+      <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        You do not have permission to view research tools.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -150,32 +167,34 @@ export default function AdminInterviewGuide() {
           >
             Next week
           </button>
-          <button
-            type="button"
-            disabled={busy}
-            className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
-            onClick={() => {
-              setBusy(true);
-              setError(null);
-              void adminGenerateWeeklyInterviewQuestions({ weekStart })
-                .then((res) => {
-                  if (!res.ok) {
-                    setError(res.error ?? "Generate failed");
-                    return;
-                  }
-                  void load({ silent: true });
-                  if (res.data?.skipped) {
-                    setError(
-                      res.data.message ??
-                        "AI questions already exist for this week.",
-                    );
-                  }
-                })
-                .finally(() => setBusy(false));
-            }}
-          >
-            Generate AI questions
-          </button>
+          {canWrite ? (
+            <button
+              type="button"
+              disabled={busy}
+              className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+              onClick={() => {
+                setBusy(true);
+                setError(null);
+                void adminGenerateWeeklyInterviewQuestions({ weekStart })
+                  .then((res) => {
+                    if (!res.ok) {
+                      setError(res.error ?? "Generate failed");
+                      return;
+                    }
+                    void load({ silent: true });
+                    if (res.data?.skipped) {
+                      setError(
+                        res.data.message ??
+                          "AI questions already exist for this week.",
+                      );
+                    }
+                  })
+                  .finally(() => setBusy(false));
+              }}
+            >
+              Generate AI questions
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -237,7 +256,9 @@ export default function AdminInterviewGuide() {
               ))}
               {activeGuide.aiWeeklyQuestions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  None for this week yet. Click Generate AI questions.
+                  {canWrite
+                    ? "None for this week yet. Click Generate AI questions."
+                    : "None for this week yet."}
                 </p>
               ) : null}
             </div>
@@ -265,7 +286,9 @@ export default function AdminInterviewGuide() {
                     UTC
                     {n.transcript
                       ? ` · transcript: ${n.transcript.title}`
-                      : null}
+                      : n.transcriptId
+                        ? ` · transcript: ${n.transcriptId}`
+                        : null}
                     {n.participant
                       ? ` · participant: ${n.participant.email}`
                       : null}
@@ -276,48 +299,81 @@ export default function AdminInterviewGuide() {
                 <p className="text-sm text-muted-foreground">No notes yet.</p>
               ) : null}
             </div>
-            <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
-              <textarea
-                aria-label="Interview notes"
-                className="min-h-[100px] rounded-md border border-border bg-background px-3 py-2 text-sm"
-                placeholder="Interview notes…"
-                value={noteBody}
-                onChange={(e) => setNoteBody(e.target.value)}
-              />
-              <input
-                aria-label="Optional transcript UUID"
-                className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-                placeholder="Optional transcript UUID"
-                value={transcriptId}
-                onChange={(e) => setTranscriptId(e.target.value)}
-              />
-              <button
-                type="button"
-                disabled={busy || !noteBody.trim()}
-                className="w-fit rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
-                onClick={() => {
-                  setBusy(true);
-                  setError(null);
-                  void adminCreateInterviewGuideNote({
-                    weekStart,
-                    body: noteBody.trim(),
-                    transcriptId: transcriptId.trim() || undefined,
-                  })
-                    .then((res) => {
-                      if (!res.ok) {
-                        setError(res.error ?? "Failed to save note");
-                        return;
-                      }
-                      setNoteBody("");
-                      setTranscriptId("");
-                      return load({ silent: true });
+            {canWrite ? (
+              <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
+                <textarea
+                  aria-label="Interview notes"
+                  className="min-h-[100px] rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  placeholder="Interview notes…"
+                  value={noteBody}
+                  onChange={(e) => setNoteBody(e.target.value)}
+                />
+                <input
+                  aria-label="Optional transcript UUID"
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  placeholder="Optional transcript UUID"
+                  value={transcriptId}
+                  onChange={(e) => setTranscriptId(e.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={busy || !noteBody.trim()}
+                  className="w-fit rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+                  onClick={() => {
+                    const trimmedBody = noteBody.trim();
+                    const trimmedTranscript = transcriptId.trim();
+                    setBusy(true);
+                    setError(null);
+                    void adminCreateInterviewGuideNote({
+                      weekStart,
+                      body: trimmedBody,
+                      transcriptId: trimmedTranscript || undefined,
                     })
-                    .finally(() => setBusy(false));
-                }}
-              >
-                Save note
-              </button>
-            </div>
+                      .then((res) => {
+                        if (!res.ok || !res.data) {
+                          setError(res.error ?? "Failed to save note");
+                          return;
+                        }
+                        const saved = res.data;
+                        // Treat the mutation as success: append locally so a
+                        // failed silent refresh cannot hide the saved note or
+                        // invite a duplicate retry.
+                        setGuide((prev) => {
+                          if (!prev || prev.weekStart !== weekStart) {
+                            return prev;
+                          }
+                          if (prev.notes.some((n) => n.id === saved.id)) {
+                            return prev;
+                          }
+                          return {
+                            ...prev,
+                            notes: [
+                              ...prev.notes,
+                              {
+                                id: saved.id,
+                                body: saved.body,
+                                participantId: saved.participantId,
+                                participant: null,
+                                transcriptId: saved.transcriptId,
+                                transcript: null,
+                                createdByAdminId: saved.createdByAdminId,
+                                createdAt: saved.createdAt,
+                                updatedAt: saved.updatedAt,
+                              },
+                            ],
+                          };
+                        });
+                        setNoteBody("");
+                        setTranscriptId("");
+                        void load({ silent: true });
+                      })
+                      .finally(() => setBusy(false));
+                  }}
+                >
+                  Save note
+                </button>
+              </div>
+            ) : null}
           </section>
         </div>
       ) : null}
