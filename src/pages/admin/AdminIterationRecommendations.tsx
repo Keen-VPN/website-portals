@@ -77,6 +77,9 @@ export default function AdminIterationRecommendations() {
     const week = weekOverride ?? weekStartRef.current;
     const generation = ++loadGeneration.current;
     setLoading(true);
+    // Drop the previous week's rows immediately so Link/Reject cannot mutate
+    // stale recommendations under the newly selected weekStart.
+    setReport(null);
     setError(null);
     const res = await adminFetchIterationWeeklyComparison({ weekStart: week });
     if (generation !== loadGeneration.current) return;
@@ -97,15 +100,21 @@ export default function AdminIterationRecommendations() {
     };
   }, [weekStart, load]);
 
-  const rates = report?.rates;
-  const humanRows = report?.humanOriginatedCompleted ?? [];
+  // Ignore a report whose weekStart does not match the selector — there is a
+  // render before useEffect calls load() where weekStart has changed but the
+  // previous report is still in state.
+  const activeReport =
+    report && report.weekStart === weekStart ? report : null;
+  const awaitingWeek = loading || (report != null && activeReport == null);
+  const rates = activeReport?.rates;
+  const humanRows = activeReport?.humanOriginatedCompleted ?? [];
   const statValue = (n: number | undefined) =>
-    loading ? "…" : report == null ? "—" : String(n ?? 0);
+    awaitingWeek ? "…" : activeReport == null ? "—" : String(n ?? 0);
 
   const rejectedCount = useMemo(() => {
-    if (!report) return null;
-    return report.rates.rejected;
-  }, [report]);
+    if (!activeReport) return null;
+    return activeReport.rates.rejected;
+  }, [activeReport]);
 
   return (
     <div className="space-y-6">
@@ -221,26 +230,32 @@ export default function AdminIterationRecommendations() {
           label="Accepted into Jira"
           value={statValue(rates?.acceptedIntoJira)}
           hint={
-            report ? formatRate(rates?.acceptanceRate ?? null) : undefined
+            activeReport
+              ? formatRate(rates?.acceptanceRate ?? null)
+              : undefined
           }
         />
         <Stat
           label="Completed"
           value={statValue(rates?.completed)}
           hint={
-            report ? formatRate(rates?.completionRate ?? null) : undefined
+            activeReport
+              ? formatRate(rates?.completionRate ?? null)
+              : undefined
           }
         />
         <Stat
           label="Rejected"
           value={statValue(rejectedCount ?? undefined)}
           hint={
-            report ? formatRate(rates?.rejectionRate ?? null) : undefined
+            activeReport
+              ? formatRate(rates?.rejectionRate ?? null)
+              : undefined
           }
         />
         <Stat
           label="Human-only Done"
-          value={statValue(report?.humanOriginatedCompletedCount)}
+          value={statValue(activeReport?.humanOriginatedCompletedCount)}
         />
       </div>
 
@@ -311,87 +326,101 @@ export default function AdminIterationRecommendations() {
               </tr>
             </thead>
             <tbody>
-              {(report?.recommendations ?? []).map((row) => (
-                <tr key={row.id} className="border-b border-border/60">
-                  <td className="p-3">
-                    <div className="font-medium">{row.title}</div>
-                    {row.summary ? (
-                      <div className="text-xs text-muted-foreground">
-                        {row.summary}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="p-3">
-                    {displayStatus(row.status, Boolean(row.jiraIssueKey))}
-                  </td>
-                  <td className="p-3">
-                    {row.jiraIssueUrl && row.jiraIssueKey ? (
-                      <a
-                        className="text-primary underline"
-                        href={row.jiraIssueUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {row.jiraIssueKey}
-                      </a>
-                    ) : (
-                      (row.jiraIssueKey ?? "—")
-                    )}
-                    {row.jiraStatus ? (
-                      <div className="text-xs text-muted-foreground">
-                        {row.jiraStatus}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="p-3">
-                    <div className="flex flex-col gap-1">
-                      <button
-                        type="button"
-                        className="text-left text-xs text-primary underline"
-                        onClick={() => {
-                          const key = window.prompt(
-                            "Jira issue key",
-                            row.jiraIssueKey ?? "",
-                          );
-                          if (!key?.trim()) return;
-                          setBusy(true);
-                          void adminLinkProductWorkRecommendationJira(row.id, {
-                            jiraIssueKey: key.trim(),
-                          })
-                            .then((res) => {
-                              if (!res.ok)
-                                setError(res.error ?? "Link failed");
-                              else void load();
-                            })
-                            .finally(() => setBusy(false));
-                        }}
-                      >
-                        Link / accept Jira…
-                      </button>
-                      <button
-                        type="button"
-                        className="text-left text-xs text-primary underline"
-                        onClick={() => {
-                          setBusy(true);
-                          void adminUpdateProductWorkRecommendationStatus(
-                            row.id,
-                            { status: "REJECTED" },
-                          )
-                            .then((res) => {
-                              if (!res.ok)
-                                setError(res.error ?? "Reject failed");
-                              else void load();
-                            })
-                            .finally(() => setBusy(false));
-                        }}
-                      >
-                        Reject
-                      </button>
-                    </div>
+              {awaitingWeek ? (
+                <tr>
+                  <td colSpan={4} className="p-4 text-muted-foreground">
+                    Loading…
                   </td>
                 </tr>
-              ))}
-              {!loading && report && report.recommendations.length === 0 ? (
+              ) : null}
+              {!awaitingWeek
+                ? (activeReport?.recommendations ?? []).map((row) => (
+                    <tr key={row.id} className="border-b border-border/60">
+                      <td className="p-3">
+                        <div className="font-medium">{row.title}</div>
+                        {row.summary ? (
+                          <div className="text-xs text-muted-foreground">
+                            {row.summary}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="p-3">
+                        {displayStatus(row.status, Boolean(row.jiraIssueKey))}
+                      </td>
+                      <td className="p-3">
+                        {row.jiraIssueUrl && row.jiraIssueKey ? (
+                          <a
+                            className="text-primary underline"
+                            href={row.jiraIssueUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {row.jiraIssueKey}
+                          </a>
+                        ) : (
+                          (row.jiraIssueKey ?? "—")
+                        )}
+                        {row.jiraStatus ? (
+                          <div className="text-xs text-muted-foreground">
+                            {row.jiraStatus}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex flex-col gap-1">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className="text-left text-xs text-primary underline disabled:opacity-50 disabled:no-underline"
+                            onClick={() => {
+                              const key = window.prompt(
+                                "Jira issue key",
+                                row.jiraIssueKey ?? "",
+                              );
+                              if (!key?.trim()) return;
+                              setBusy(true);
+                              void adminLinkProductWorkRecommendationJira(
+                                row.id,
+                                { jiraIssueKey: key.trim() },
+                              )
+                                .then((res) => {
+                                  if (!res.ok)
+                                    setError(res.error ?? "Link failed");
+                                  else void load();
+                                })
+                                .finally(() => setBusy(false));
+                            }}
+                          >
+                            Link / accept Jira…
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className="text-left text-xs text-primary underline disabled:opacity-50 disabled:no-underline"
+                            onClick={() => {
+                              setBusy(true);
+                              void adminUpdateProductWorkRecommendationStatus(
+                                row.id,
+                                { status: "REJECTED" },
+                              )
+                                .then((res) => {
+                                  if (!res.ok)
+                                    setError(res.error ?? "Reject failed");
+                                  else void load();
+                                })
+                                .finally(() => setBusy(false));
+                            }}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                : null}
+              {!awaitingWeek &&
+              activeReport &&
+              activeReport.recommendations.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-4 text-muted-foreground">
                     No recommendations for this week.
@@ -422,17 +451,26 @@ export default function AdminIterationRecommendations() {
               </tr>
             </thead>
             <tbody>
-              {humanRows.map((row) => (
-                <tr key={row.key} className="border-b border-border/60">
-                  <td className="p-3 font-mono text-xs">{row.key}</td>
-                  <td className="p-3">{row.summary}</td>
-                  <td className="p-3">{row.points}</td>
-                  <td className="p-3">
-                    {new Date(row.resolvedAt).toLocaleString()}
+              {awaitingWeek ? (
+                <tr>
+                  <td colSpan={4} className="p-4 text-muted-foreground">
+                    Loading…
                   </td>
                 </tr>
-              ))}
-              {!loading && report && humanRows.length === 0 ? (
+              ) : null}
+              {!awaitingWeek
+                ? humanRows.map((row) => (
+                    <tr key={row.key} className="border-b border-border/60">
+                      <td className="p-3 font-mono text-xs">{row.key}</td>
+                      <td className="p-3">{row.summary}</td>
+                      <td className="p-3">{row.points}</td>
+                      <td className="p-3">
+                        {new Date(row.resolvedAt).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))
+                : null}
+              {!awaitingWeek && activeReport && humanRows.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-4 text-muted-foreground">
                     None this week (or Jira is not configured).
