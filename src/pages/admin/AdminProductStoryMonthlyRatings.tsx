@@ -49,34 +49,55 @@ export default function AdminProductStoryMonthlyRatings() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [pendingKeys, setPendingKeys] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const loadGeneration = useRef(0);
   const yearRef = useRef(year);
   const monthRef = useRef(month);
   yearRef.current = year;
   monthRef.current = month;
 
-  const load = useCallback(async (override?: { year: number; month: number }) => {
-    const targetYear = override?.year ?? yearRef.current;
-    const targetMonth = override?.month ?? monthRef.current;
-    const generation = ++loadGeneration.current;
-    setLoading(true);
-    setError(null);
-    setReport(null);
-    const res = await adminFetchProductStoryMonthlyReview({
-      year: targetYear,
-      month: targetMonth,
-    });
-    if (generation !== loadGeneration.current) return;
-    if (!res.ok || !res.data) {
-      setReport(null);
-      setError(res.error ?? "Failed to load monthly review");
+  const load = useCallback(
+    async (options?: {
+      year?: number;
+      month?: number;
+      /** Keep current rows visible; used after saving a rating. */
+      silent?: boolean;
+    }) => {
+      const targetYear = options?.year ?? yearRef.current;
+      const targetMonth = options?.month ?? monthRef.current;
+      const silent = options?.silent === true;
+      const generation = ++loadGeneration.current;
+      if (!silent) {
+        setLoading(true);
+        setReport(null);
+        setError(null);
+      }
+      const res = await adminFetchProductStoryMonthlyReview({
+        year: targetYear,
+        month: targetMonth,
+      });
+      if (generation !== loadGeneration.current) return;
+      if (!res.ok || !res.data) {
+        if (!silent) setReport(null);
+        setError(res.error ?? "Failed to load monthly review");
+        setLoading(false);
+        return;
+      }
+      // Drop responses that no longer match the selected month (e.g. silent
+      // refresh finishing after the user already navigated away).
+      if (
+        res.data.year !== yearRef.current ||
+        res.data.month !== monthRef.current
+      ) {
+        return;
+      }
+      setReport(res.data);
       setLoading(false);
-      return;
-    }
-    setReport(res.data);
-    setLoading(false);
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     void load({ year, month });
@@ -84,6 +105,23 @@ export default function AdminProductStoryMonthlyRatings() {
       loadGeneration.current += 1;
     };
   }, [year, month, load]);
+
+  const markPending = (key: string) => {
+    setPendingKeys((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  };
+
+  const clearPending = (key: string) => {
+    setPendingKeys((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  };
 
   const activeReport =
     report && report.year === year && report.month === month ? report : null;
@@ -185,108 +223,134 @@ export default function AdminProductStoryMonthlyRatings() {
               </tr>
             ) : null}
             {!awaiting
-              ? (activeReport?.stories ?? []).map((story) => (
-                  <tr
-                    key={story.key}
-                    className="border-b border-border/60 align-top"
-                  >
-                    <td className="p-3">
-                      <div className="font-medium">
-                        {story.jiraIssueUrl ? (
-                          <a
-                            className="text-primary underline"
-                            href={story.jiraIssueUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {story.key}
-                          </a>
-                        ) : (
-                          story.key
-                        )}
-                      </div>
-                      <div className="text-muted-foreground">
-                        {story.summary}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {story.points} pts · resolved{" "}
-                        {new Date(story.resolvedAt).toLocaleString()}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <div
-                        className="flex flex-col gap-1"
-                        role="group"
-                        aria-label={`Rate ${story.key}`}
-                      >
-                        {(
-                          [1, 2, 3] as AdminProductStoryMonthlyRatingValue[]
-                        ).map((value) => {
-                          const selected = story.myRating?.rating === value;
-                          const busy = busyKey === story.key;
-                          return (
-                            <button
-                              key={value}
-                              type="button"
-                              disabled={busy}
-                              aria-pressed={selected}
-                              className={`rounded-md border px-2 py-1 text-left text-xs disabled:opacity-50 ${
-                                selected
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border hover:bg-muted"
-                              }`}
-                              onClick={() => {
-                                setBusyKey(story.key);
-                                setError(null);
-                                void adminUpsertProductStoryMonthlyRating({
-                                  jiraIssueKey: story.key,
-                                  year,
-                                  month,
-                                  rating: value,
-                                })
-                                  .then((res) => {
-                                    if (!res.ok) {
-                                      setError(
-                                        res.error ?? "Failed to save rating",
-                                      );
-                                      return;
-                                    }
-                                    void load();
-                                  })
-                                  .finally(() => setBusyKey(null));
-                              }}
+              ? (activeReport?.stories ?? []).map((story) => {
+                  const busy = pendingKeys.has(story.key);
+                  return (
+                    <tr
+                      key={story.key}
+                      className="border-b border-border/60 align-top"
+                    >
+                      <td className="p-3">
+                        <div className="font-medium">
+                          {story.jiraIssueUrl ? (
+                            <a
+                              className="text-primary underline"
+                              href={story.jiraIssueUrl}
+                              target="_blank"
+                              rel="noreferrer"
                             >
-                              {RATING_LABELS[value]}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </td>
-                    <td className="p-3 font-medium">
-                      {formatAvg(story.aggregates.rawAverage)}
-                    </td>
-                    <td className="p-3 font-medium">
-                      {formatAvg(story.aggregates.weightedAverage)}
-                    </td>
-                    <td className="p-3">
-                      {story.ratings.length === 0 ? (
-                        <span className="text-muted-foreground">None yet</span>
-                      ) : (
-                        <ul className="space-y-1 text-xs">
-                          {story.ratings.map((r) => (
-                            <li key={r.raterAdminId}>
-                              <span className="font-medium">{r.raterName}</span>
-                              : {r.rating}{" "}
-                              <span className="text-muted-foreground">
-                                (w={r.weight})
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                              {story.key}
+                            </a>
+                          ) : (
+                            story.key
+                          )}
+                        </div>
+                        <div className="text-muted-foreground">
+                          {story.summary}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {story.points} pts · resolved{" "}
+                          {new Date(story.resolvedAt).toLocaleString(
+                            undefined,
+                            { timeZone: "UTC" },
+                          )}{" "}
+                          UTC
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <fieldset
+                          className={`flex flex-col gap-1 border-0 p-0 m-0 ${
+                            busy ? "opacity-50" : ""
+                          }`}
+                        >
+                          <legend className="sr-only">
+                            Rate {story.key}
+                          </legend>
+                          {(
+                            [1, 2, 3] as AdminProductStoryMonthlyRatingValue[]
+                          ).map((value) => {
+                            const selected =
+                              story.myRating?.rating === value;
+                            return (
+                              <label
+                                key={value}
+                                className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1 text-left text-xs ${
+                                  selected
+                                    ? "border-primary bg-primary/10"
+                                    : "border-border hover:bg-muted"
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  className="h-3.5 w-3.5 accent-primary"
+                                  name={`story-rating-${story.key}`}
+                                  value={value}
+                                  checked={selected}
+                                  aria-disabled={busy}
+                                  onChange={() => {
+                                    if (busy) return;
+                                    markPending(story.key);
+                                    setError(null);
+                                    void adminUpsertProductStoryMonthlyRating({
+                                      jiraIssueKey: story.key,
+                                      year,
+                                      month,
+                                      rating: value,
+                                    })
+                                      .then((res) => {
+                                        if (!res.ok) {
+                                          setError(
+                                            res.error ??
+                                              "Failed to save rating",
+                                          );
+                                          return;
+                                        }
+                                        // Keep the row busy until the silent
+                                        // refresh lands so radios don't show
+                                        // the previous rating while clickable.
+                                        return load({ silent: true });
+                                      })
+                                      .finally(() =>
+                                        clearPending(story.key),
+                                      );
+                                  }}
+                                />
+                                <span>{RATING_LABELS[value]}</span>
+                              </label>
+                            );
+                          })}
+                        </fieldset>
+                      </td>
+                      <td className="p-3 font-medium">
+                        {formatAvg(story.aggregates.rawAverage)}
+                      </td>
+                      <td className="p-3 font-medium">
+                        {formatAvg(story.aggregates.weightedAverage)}
+                      </td>
+                      <td className="p-3">
+                        {story.ratings.length === 0 ? (
+                          <span className="text-muted-foreground">
+                            None yet
+                          </span>
+                        ) : (
+                          <ul className="space-y-1 text-xs">
+                            {story.ratings.map((r) => (
+                              <li key={r.raterAdminId}>
+                                <span className="font-medium">
+                                  {r.raterName}
+                                </span>
+                                : {r.rating}{" "}
+                                <span className="text-muted-foreground">
+                                  (w={r.weight})
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               : null}
             {!awaiting && activeReport && activeReport.stories.length === 0 ? (
               <tr>
