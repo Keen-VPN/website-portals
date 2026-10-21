@@ -59,6 +59,8 @@ export default function AdminProductStoryMonthlyRatings() {
   const [postingSlack, setPostingSlack] = useState(false);
   const [slackNotice, setSlackNotice] = useState<string | null>(null);
   const loadGeneration = useRef(0);
+  /** Bumped on each Slack post and on every month change so A→B→A can't apply a stale result. */
+  const slackPostGeneration = useRef(0);
   const yearRef = useRef(year);
   const monthRef = useRef(month);
   yearRef.current = year;
@@ -109,6 +111,9 @@ export default function AdminProductStoryMonthlyRatings() {
     setPage(1);
     setSlackNotice(null);
     setPostingSlack(false);
+    // Invalidate any in-flight Slack post when the selected month changes
+    // (including A→B→A), so an older response cannot overwrite a newer one.
+    slackPostGeneration.current += 1;
     void load({ year, month });
     return () => {
       loadGeneration.current += 1;
@@ -136,6 +141,7 @@ export default function AdminProductStoryMonthlyRatings() {
     if (postingSlack) return;
     const postedYear = year;
     const postedMonth = month;
+    const generation = ++slackPostGeneration.current;
     setPostingSlack(true);
     setSlackNotice(null);
     setError(null);
@@ -143,11 +149,7 @@ export default function AdminProductStoryMonthlyRatings() {
       year: postedYear,
       month: postedMonth,
     });
-    // Ignore stale responses after the admin navigates to another month.
-    if (
-      yearRef.current !== postedYear ||
-      monthRef.current !== postedMonth
-    ) {
+    if (generation !== slackPostGeneration.current) {
       return;
     }
     setPostingSlack(false);
