@@ -7910,6 +7910,87 @@ export async function adminGenerateProductWorkRecommendations(params?: {
   );
 }
 
+export type AdminProductStoryMonthlyRatingValue = 1 | 2 | 3;
+
+export interface AdminProductStoryMonthlyReview {
+  year: number;
+  month: number;
+  monthStart: string;
+  monthEndExclusive: string;
+  algorithmVersion: string;
+  defaultWeight: number;
+  totalStories: number;
+  ratedByMeCount: number;
+  stories: {
+    key: string;
+    summary: string;
+    points: number;
+    resolvedAt: string;
+    jiraIssueUrl: string | null;
+    myRating: {
+      rating: number;
+      comment: string | null;
+      updatedAt: string;
+    } | null;
+    ratings: {
+      raterAdminId: string;
+      raterName: string;
+      raterEmail: string;
+      rating: number;
+      comment: string | null;
+      weight: number;
+      algorithmVersion: string;
+      updatedAt: string;
+    }[];
+    aggregates: {
+      count: number;
+      rawAverage: number | null;
+      weightedAverage: number | null;
+      algorithmVersion: string;
+    };
+  }[];
+}
+
+export async function adminFetchProductStoryMonthlyReview(params?: {
+  month?: number;
+  year?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params?.month != null) query.set("month", String(params.month));
+  if (params?.year != null) query.set("year", String(params.year));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return adminIterationJson<AdminProductStoryMonthlyReview>(
+    `/admin/iteration/story-ratings/monthly${suffix}`,
+    undefined,
+    "Failed to load monthly story ratings",
+  );
+}
+
+export async function adminUpsertProductStoryMonthlyRating(body: {
+  jiraIssueKey: string;
+  year: number;
+  month: number;
+  rating: AdminProductStoryMonthlyRatingValue;
+  comment?: string;
+}) {
+  return adminIterationJson<{
+    id: string;
+    jiraIssueKey: string;
+    monthStart: string;
+    rating: number;
+    comment: string | null;
+    raterAdminId: string;
+    weightSnapshot: number;
+    algorithmVersion: string;
+    createdAt: string;
+    updatedAt: string;
+  }>(
+    "/admin/iteration/story-ratings",
+    { method: "POST", body: JSON.stringify(body) },
+    "Failed to save story rating",
+  );
+}
+
 export async function adminFetchWeeklyChurnReport(params: {
   week: number;
   year: number;

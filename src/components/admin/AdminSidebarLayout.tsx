@@ -251,6 +251,13 @@ export default function AdminSidebarLayout() {
               Iteration Recs
             </NavLink>
             <NavLink
+              to="/admin/story-ratings"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <BarChart3 className="h-4 w-4" />
+              Story Ratings
+            </NavLink>
+            <NavLink
               to="/admin/sticker-campaigns"
               className={({ isActive }) => linkClass(isActive)}
             >
