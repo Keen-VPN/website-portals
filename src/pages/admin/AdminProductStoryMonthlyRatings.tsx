@@ -305,7 +305,10 @@ export default function AdminProductStoryMonthlyRatings() {
                                           );
                                           return;
                                         }
-                                        void load({ silent: true });
+                                        // Keep the row busy until the silent
+                                        // refresh lands so radios don't show
+                                        // the previous rating while clickable.
+                                        return load({ silent: true });
                                       })
                                       .finally(() =>
                                         clearPending(story.key),
