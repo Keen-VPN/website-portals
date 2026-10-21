@@ -108,6 +108,7 @@ export default function AdminProductStoryMonthlyRatings() {
   useEffect(() => {
     setPage(1);
     setSlackNotice(null);
+    setPostingSlack(false);
     void load({ year, month });
     return () => {
       loadGeneration.current += 1;
@@ -133,13 +134,22 @@ export default function AdminProductStoryMonthlyRatings() {
 
   const postToSlack = async () => {
     if (postingSlack) return;
+    const postedYear = year;
+    const postedMonth = month;
     setPostingSlack(true);
     setSlackNotice(null);
     setError(null);
     const res = await adminPostProductStoryMonthlyRatingsToSlack({
-      year,
-      month,
+      year: postedYear,
+      month: postedMonth,
     });
+    // Ignore stale responses after the admin navigates to another month.
+    if (
+      yearRef.current !== postedYear ||
+      monthRef.current !== postedMonth
+    ) {
+      return;
+    }
     setPostingSlack(false);
     if (!res.ok || !res.data) {
       setError(res.error ?? "Failed to post story ratings to Slack");
@@ -230,7 +240,10 @@ export default function AdminProductStoryMonthlyRatings() {
       ) : null}
 
       {slackNotice ? (
-        <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+        <div
+          role="status"
+          className="rounded-md border border-border bg-muted/40 p-3 text-sm"
+        >
           {slackNotice}
         </div>
       ) : null}
