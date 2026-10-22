@@ -85,6 +85,19 @@ function draftFromRow(row: AdminProductWorkRecommendation): AdminProductWorkStor
   };
 }
 
+/** Full 1–8 scale; retain any out-of-range current value so it stays selectable. */
+function storyPointOptions(current: number | null | undefined): number[] {
+  const base = [1, 2, 3, 4, 5, 6, 7, 8];
+  if (
+    current != null &&
+    Number.isFinite(current) &&
+    !base.includes(current)
+  ) {
+    return [...base, current].sort((a, b) => a - b);
+  }
+  return base;
+}
+
 export default function AdminIterationRecommendations() {
   const [weekStart, setWeekStart] = useState(mondayUtc);
   const [report, setReport] = useState<AdminIterationWeeklyComparison | null>(
@@ -184,6 +197,20 @@ export default function AdminIterationRecommendations() {
       (opt) => opt.value === draft.environment,
     );
   }, [draft, createOptions]);
+
+  /** Empty RP is fine; a set value must match a Jira assignee option. */
+  const hasValidRecommendedRp = useMemo(() => {
+    const rp = draft?.recommendedRp?.trim();
+    if (!rp) return true;
+    const people = createOptions?.responsiblePersons ?? [];
+    if (!people.length) return false;
+    return people.some(
+      (p) => p.displayName === rp || p.accountId === rp,
+    );
+  }, [draft, createOptions]);
+
+  const canApprove =
+    hasValidJiraEnvironment && hasValidRecommendedRp;
 
   return (
     <div className="space-y-6">
@@ -593,11 +620,13 @@ export default function AdminIterationRecommendations() {
                     </button>
                     <button
                       type="button"
-                      disabled={busy || !hasValidJiraEnvironment}
+                      disabled={busy || !canApprove}
                       title={
-                        hasValidJiraEnvironment
-                          ? undefined
-                          : "Select a valid Jira Environment before approving"
+                        !hasValidJiraEnvironment
+                          ? "Select a valid Jira Environment before approving"
+                          : !hasValidRecommendedRp
+                            ? "Pick a Jira RP from the list, or clear the unmatched suggestion"
+                            : undefined
                       }
                       className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:opacity-90 disabled:opacity-50"
                       onClick={() => {
@@ -608,10 +637,26 @@ export default function AdminIterationRecommendations() {
                           );
                           return;
                         }
+                        if (!hasValidRecommendedRp) {
+                          setError(
+                            "Pick a Jira RP from the list, or clear the unmatched suggestion before approving",
+                          );
+                          return;
+                        }
+                        const people = createOptions?.responsiblePersons ?? [];
+                        const rp = draft.recommendedRp?.trim() || null;
+                        const matchedRp =
+                          rp &&
+                          people.some(
+                            (p) =>
+                              p.displayName === rp || p.accountId === rp,
+                          )
+                            ? rp
+                            : null;
                         setBusy(true);
                         setError(null);
                         void adminApproveProductWorkRecommendation(selected.id, {
-                          draft,
+                          draft: { ...draft, recommendedRp: matchedRp },
                         })
                           .then((res) => {
                             if (!res.ok)
@@ -812,12 +857,17 @@ function DraftFields(props: {
             disabled={disabled}
             value={draft.storyPoints ?? ""}
             onChange={(e) => {
-              const n = Number.parseInt(e.target.value, 10);
+              const raw = e.target.value;
+              if (!raw) {
+                set("storyPoints", null);
+                return;
+              }
+              const n = Number(raw);
               set("storyPoints", Number.isFinite(n) ? n : null);
             }}
           >
             <option value="">Select points…</option>
-            {[1, 2, 3, 5, 8].map((n) => (
+            {storyPointOptions(draft.storyPoints).map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>
@@ -851,8 +901,17 @@ function DraftFields(props: {
           </select>
           {!rpSelectValue && draft.recommendedRp ? (
             <p className="text-xs text-amber-600 dark:text-amber-400">
-              AI suggested “{draft.recommendedRp}” — pick a Jira assignee above
-              (or clear to leave unassigned).
+              AI suggested “{draft.recommendedRp}” — pick a Jira assignee above,
+              or{" "}
+              <button
+                type="button"
+                disabled={disabled}
+                className="underline underline-offset-2 hover:no-underline disabled:opacity-50"
+                onClick={() => set("recommendedRp", null)}
+              >
+                clear to leave unassigned
+              </button>{" "}
+              (required before approve).
             </p>
           ) : null}
         </Field>
