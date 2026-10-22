@@ -468,9 +468,27 @@ export default function AdminIterationRecommendations() {
                         </td>
                         <td className="p-3">
                           {row.storyPoints ?? row.aiStoryPoints ?? "—"}
-                          {row.estimateAccuracyScore != null ? (
+                          {row.evaluationTotalScore != null ? (
                             <div className="text-xs text-muted-foreground">
-                              est {row.estimateAccuracyScore}/2
+                              eval {row.evaluationTotalScore}/7
+                            </div>
+                          ) : row.estimateAccuracyScore != null ||
+                            row.scopeChangeScore != null ||
+                            row.timeToDoneScore != null ? (
+                            <div className="text-xs text-muted-foreground">
+                              {[
+                                row.scopeChangeScore != null
+                                  ? `s${row.scopeChangeScore}/3`
+                                  : null,
+                                row.estimateAccuracyScore != null
+                                  ? `e${row.estimateAccuracyScore}/2`
+                                  : null,
+                                row.timeToDoneScore != null
+                                  ? `t${row.timeToDoneScore}/2`
+                                  : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
                             </div>
                           ) : null}
                         </td>
@@ -535,18 +553,46 @@ export default function AdminIterationRecommendations() {
                 environments={createOptions?.environments ?? []}
                 responsiblePersons={createOptions?.responsiblePersons ?? []}
               />
-              {selected.estimateDirection ||
+              {selected.evaluationTotalScore != null ||
+              selected.scopeChangeScore != null ||
               selected.estimateAccuracyScore != null ||
+              selected.timeToDoneScore != null ||
+              selected.estimateDirection ||
+              selected.scopeChangeDirection ||
+              selected.scopeUnavailableReason ||
               selected.estimateUnavailableReason ||
+              selected.timeUnavailableReason ||
               selected.aiStoryPoints != null ||
               selected.finalJiraStoryPoints != null ? (
-                <div className="rounded-md border border-border bg-muted/30 p-3 text-xs">
-                  <p className="font-medium">Estimate accuracy (when Done)</p>
-                  <p className="mt-1 text-muted-foreground">
-                    AI {selected.aiStoryPoints ?? "—"} → final{" "}
+                <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3 text-xs">
+                  <p className="font-medium">
+                    Evaluation when Done
+                    {selected.evaluationTotalScore != null
+                      ? ` · ${selected.evaluationTotalScore}/7`
+                      : ""}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Scope{" "}
+                    {selected.scopeChangeScore != null
+                      ? `${selected.scopeChangeScore}/3`
+                      : "—"}
+                    {selected.scopeChangeDirection
+                      ? ` · ${selected.scopeChangeDirection}`
+                      : ""}
+                    {selected.scopeUnavailableReason
+                      ? ` · ${selected.scopeUnavailableReason}`
+                      : ""}
+                  </p>
+                  {selected.scopeChangeSummary ? (
+                    <p className="text-muted-foreground">
+                      {selected.scopeChangeSummary}
+                    </p>
+                  ) : null}
+                  <p className="text-muted-foreground">
+                    Estimate AI {selected.aiStoryPoints ?? "—"} → final{" "}
                     {selected.finalJiraStoryPoints ?? "—"}
                     {selected.estimateAccuracyScore != null
-                      ? ` · score ${selected.estimateAccuracyScore}/2`
+                      ? ` · ${selected.estimateAccuracyScore}/2`
                       : ""}
                     {selected.estimateDirection
                       ? ` · ${selected.estimateDirection}`
@@ -555,6 +601,26 @@ export default function AdminIterationRecommendations() {
                       ? ` · ${selected.estimateUnavailableReason}`
                       : ""}
                   </p>
+                  <p className="text-muted-foreground">
+                    Time to Done{" "}
+                    {selected.timeToDoneScore != null
+                      ? `${selected.timeToDoneScore}/2`
+                      : "—"}
+                    {selected.aiTimeToDoneMs != null
+                      ? ` · AI ${(selected.aiTimeToDoneMs / 86_400_000).toFixed(1)}d`
+                      : ""}
+                    {selected.humanMedianTimeToDoneMs != null
+                      ? ` vs human median ${(selected.humanMedianTimeToDoneMs / 86_400_000).toFixed(1)}d`
+                      : ""}
+                    {selected.timeUnavailableReason
+                      ? ` · ${selected.timeUnavailableReason}`
+                      : ""}
+                  </p>
+                  {selected.evaluationErrorSummary ? (
+                    <p className="text-muted-foreground">
+                      {selected.evaluationErrorSummary}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
               <div className="flex flex-wrap gap-2 pt-2">
