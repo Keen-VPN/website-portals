@@ -857,7 +857,12 @@ function DraftFields(props: {
             disabled={disabled}
             value={draft.storyPoints ?? ""}
             onChange={(e) => {
-              const n = Number.parseInt(e.target.value, 10);
+              const raw = e.target.value;
+              if (!raw) {
+                set("storyPoints", null);
+                return;
+              }
+              const n = Number(raw);
               set("storyPoints", Number.isFinite(n) ? n : null);
             }}
           >
