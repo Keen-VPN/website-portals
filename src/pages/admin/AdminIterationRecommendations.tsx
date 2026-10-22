@@ -77,7 +77,7 @@ function draftFromRow(row: AdminProductWorkRecommendation): AdminProductWorkStor
     acceptanceCriteria: row.acceptanceCriteria ?? "",
     definitionOfDone: row.definitionOfDone ?? "",
     environment: row.environment ?? "Multi",
-    storyPoints: row.storyPoints,
+    storyPoints: row.storyPoints ?? row.aiStoryPoints,
     recommendedRp: row.recommendedRp,
   };
 }
@@ -220,8 +220,11 @@ export default function AdminIterationRecommendations() {
                     return;
                   }
                   void load();
-                  if (res.data?.skipped && res.data.message) {
-                    setError(res.data.message);
+                  if (res.data?.skipped) {
+                    setError(
+                      res.data.message ??
+                        "AI recommendations already exist for this week.",
+                    );
                   }
                 })
                 .finally(() => setBusy(false));
@@ -378,10 +381,22 @@ export default function AdminIterationRecommendations() {
                   ? (activeReport?.recommendations ?? []).map((row) => (
                       <tr
                         key={row.id}
-                        className={`cursor-pointer border-b border-border/60 ${
-                          selectedId === row.id ? "bg-muted/50" : "hover:bg-muted/30"
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={selectedId === row.id}
+                        aria-label={`Select recommendation ${row.title}`}
+                        className={`cursor-pointer border-b border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                          selectedId === row.id
+                            ? "bg-muted/50"
+                            : "hover:bg-muted/30"
                         }`}
                         onClick={() => setSelectedId(row.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setSelectedId(row.id);
+                          }
+                        }}
                       >
                         <td className="p-3">
                           <div className="font-medium">{row.title}</div>
@@ -464,7 +479,11 @@ export default function AdminIterationRecommendations() {
                 disabled={!canEditDraft || busy}
                 onChange={setDraft}
               />
-              {selected.estimateDirection ? (
+              {selected.estimateDirection ||
+              selected.estimateAccuracyScore != null ||
+              selected.estimateUnavailableReason ||
+              selected.aiStoryPoints != null ||
+              selected.finalJiraStoryPoints != null ? (
                 <div className="rounded-md border border-border bg-muted/30 p-3 text-xs">
                   <p className="font-medium">Estimate accuracy (when Done)</p>
                   <p className="mt-1 text-muted-foreground">
