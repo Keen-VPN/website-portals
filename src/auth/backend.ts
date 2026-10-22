@@ -7738,10 +7738,39 @@ export type AdminProductWorkRecommendationStatus =
   | "COMPLETED"
   | "MODIFIED_REPLACED";
 
+export interface AdminProductWorkStoryDraft {
+  title: string;
+  summary: string;
+  background: string;
+  description: string;
+  requirements: string;
+  acceptanceCriteria: string;
+  definitionOfDone: string;
+  environment: string;
+  storyPoints: number | null;
+  recommendedRp: string | null;
+}
+
 export interface AdminProductWorkRecommendation {
   id: string;
   title: string;
   summary: string | null;
+  background: string | null;
+  description: string | null;
+  requirements: string | null;
+  acceptanceCriteria: string | null;
+  definitionOfDone: string | null;
+  environment: string | null;
+  storyPoints: number | null;
+  aiStoryPoints: number | null;
+  finalJiraStoryPoints: number | null;
+  estimateAccuracyScore: number | null;
+  estimateVariance: number | null;
+  estimateDirection: string | null;
+  estimateScoredAt: string | null;
+  estimateUnavailableReason: string | null;
+  recommendedRp: string | null;
+  originalAiDraft: AdminProductWorkStoryDraft | Record<string, unknown> | null;
   status: AdminProductWorkRecommendationStatus;
   source: string;
   weekStart: string;
@@ -7851,6 +7880,31 @@ export async function adminLinkProductWorkRecommendationJira(
     `/admin/iteration/recommendations/${encodeURIComponent(id)}/link-jira`,
     { method: "POST", body: JSON.stringify(body) },
     "Failed to link Jira issue",
+  );
+}
+
+export async function adminUpdateProductWorkRecommendationDraft(
+  id: string,
+  body: Partial<AdminProductWorkStoryDraft>,
+) {
+  return adminIterationJson<AdminProductWorkRecommendation>(
+    `/admin/iteration/recommendations/${encodeURIComponent(id)}/draft`,
+    { method: "PATCH", body: JSON.stringify(body) },
+    "Failed to update recommendation draft",
+  );
+}
+
+export async function adminApproveProductWorkRecommendation(
+  id: string,
+  body?: {
+    draft?: Partial<AdminProductWorkStoryDraft>;
+    note?: string;
+  },
+) {
+  return adminIterationJson<AdminProductWorkRecommendation>(
+    `/admin/iteration/recommendations/${encodeURIComponent(id)}/approve`,
+    { method: "POST", body: JSON.stringify(body ?? {}) },
+    "Failed to approve recommendation into Jira",
   );
 }
 
