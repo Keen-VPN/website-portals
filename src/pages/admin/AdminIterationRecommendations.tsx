@@ -567,6 +567,7 @@ export default function AdminIterationRecommendations() {
               selected.finalJiraStoryPoints != null ||
               selected.aiTimeToDoneMs != null ||
               selected.humanMedianTimeToDoneMs != null ||
+              selected.timeToDoneDeltaMs != null ||
               selected.evaluationErrorSummary ? (
                 <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3 text-xs">
                   <p className="font-medium">
@@ -615,6 +616,11 @@ export default function AdminIterationRecommendations() {
                       : ""}
                     {selected.humanMedianTimeToDoneMs != null
                       ? ` vs human median ${(selected.humanMedianTimeToDoneMs / 86_400_000).toFixed(1)}d`
+                      : ""}
+                    {selected.timeToDoneDeltaMs != null
+                      ? ` · Δ ${
+                          selected.timeToDoneDeltaMs >= 0 ? "+" : ""
+                        }${(selected.timeToDoneDeltaMs / 86_400_000).toFixed(1)}d vs median`
                       : ""}
                     {selected.timeUnavailableReason
                       ? ` · ${selected.timeUnavailableReason}`
