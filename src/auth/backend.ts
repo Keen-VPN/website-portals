@@ -7858,6 +7858,19 @@ export async function adminFetchIterationWeeklyComparison(params?: {
   );
 }
 
+export interface AdminIterationCreateOptions {
+  environments: { id: string; value: string }[];
+  responsiblePersons: { accountId: string; displayName: string }[];
+}
+
+export async function adminFetchIterationCreateOptions() {
+  return adminIterationJson<AdminIterationCreateOptions>(
+    "/admin/iteration/recommendations/create-options",
+    undefined,
+    "Failed to load Jira Environment / RP options",
+  );
+}
+
 export async function adminCreateProductWorkRecommendation(body: {
   title: string;
   summary?: string;

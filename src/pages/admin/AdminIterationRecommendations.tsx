@@ -9,12 +9,14 @@ import {
 import {
   adminApproveProductWorkRecommendation,
   adminCreateProductWorkRecommendation,
+  adminFetchIterationCreateOptions,
   adminFetchIterationWeeklyComparison,
   adminGenerateProductWorkRecommendations,
   adminLinkProductWorkRecommendationJira,
   adminSyncProductWorkRecommendationJira,
   adminUpdateProductWorkRecommendationDraft,
   adminUpdateProductWorkRecommendationStatus,
+  type AdminIterationCreateOptions,
   type AdminIterationWeeklyComparison,
   type AdminProductWorkRecommendation,
   type AdminProductWorkRecommendationStatus,
@@ -96,6 +98,8 @@ export default function AdminIterationRecommendations() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<AdminProductWorkStoryDraft | null>(null);
   const [showOriginal, setShowOriginal] = useState(false);
+  const [createOptions, setCreateOptions] =
+    useState<AdminIterationCreateOptions | null>(null);
   const loadGeneration = useRef(0);
   const weekStartRef = useRef(weekStart);
   weekStartRef.current = weekStart;
@@ -124,6 +128,18 @@ export default function AdminIterationRecommendations() {
       loadGeneration.current += 1;
     };
   }, [weekStart, load]);
+
+  useEffect(() => {
+    void adminFetchIterationCreateOptions().then((res) => {
+      if (res.ok && res.data) {
+        setCreateOptions(res.data);
+      } else {
+        setError(
+          res.error ?? "Failed to load Jira Environment / RP options",
+        );
+      }
+    });
+  }, []);
 
   const activeReport =
     report && report.weekStart === weekStart ? report : null;
@@ -158,6 +174,15 @@ export default function AdminIterationRecommendations() {
     selected != null &&
     !selected.jiraIssueKey &&
     (selected.status === "RECOMMENDED" || selected.status === "REJECTED");
+
+  const hasValidJiraEnvironment = useMemo(() => {
+    if (!draft?.environment.trim() || !createOptions?.environments.length) {
+      return false;
+    }
+    return createOptions.environments.some(
+      (opt) => opt.value === draft.environment,
+    );
+  }, [draft, createOptions]);
 
   return (
     <div className="space-y-6">
@@ -478,6 +503,8 @@ export default function AdminIterationRecommendations() {
                 draft={draft}
                 disabled={!canEditDraft || busy}
                 onChange={setDraft}
+                environments={createOptions?.environments ?? []}
+                responsiblePersons={createOptions?.responsiblePersons ?? []}
               />
               {selected.estimateDirection ||
               selected.estimateAccuracyScore != null ||
@@ -528,10 +555,21 @@ export default function AdminIterationRecommendations() {
                     </button>
                     <button
                       type="button"
-                      disabled={busy}
+                      disabled={busy || !hasValidJiraEnvironment}
+                      title={
+                        hasValidJiraEnvironment
+                          ? undefined
+                          : "Select a valid Jira Environment before approving"
+                      }
                       className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:opacity-90 disabled:opacity-50"
                       onClick={() => {
                         if (!draft || !selected) return;
+                        if (!hasValidJiraEnvironment) {
+                          setError(
+                            "Select a valid Jira Environment before approving",
+                          );
+                          return;
+                        }
                         setBusy(true);
                         setError(null);
                         void adminApproveProductWorkRecommendation(selected.id, {
@@ -673,12 +711,28 @@ function DraftFields(props: {
   draft: AdminProductWorkStoryDraft;
   disabled: boolean;
   onChange: (next: AdminProductWorkStoryDraft) => void;
+  environments: { id: string; value: string }[];
+  responsiblePersons: { accountId: string; displayName: string }[];
 }) {
-  const { draft, disabled, onChange } = props;
+  const { draft, disabled, onChange, environments, responsiblePersons } =
+    props;
   const set = <K extends keyof AdminProductWorkStoryDraft>(
     key: K,
     value: AdminProductWorkStoryDraft[K],
   ) => onChange({ ...draft, [key]: value });
+
+  const envSelectValue = environments.some(
+    (opt) => opt.value === draft.environment,
+  )
+    ? draft.environment
+    : "";
+
+  const rpSelectValue =
+    responsiblePersons.find(
+      (p) =>
+        p.displayName === draft.recommendedRp ||
+        p.accountId === draft.recommendedRp,
+    )?.accountId ?? "";
 
   return (
     <div className="space-y-3">
@@ -692,18 +746,30 @@ function DraftFields(props: {
       </Field>
       <div className="grid gap-3 sm:grid-cols-3">
         <Field label="Environment">
-          <input
+          <select
+            aria-label="Environment"
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
             disabled={disabled}
-            value={draft.environment}
+            value={envSelectValue}
             onChange={(e) => set("environment", e.target.value)}
-          />
+          >
+            <option value="">Select environment…</option>
+            {environments.map((opt) => (
+              <option key={opt.id || opt.value} value={opt.value}>
+                {opt.value}
+              </option>
+            ))}
+          </select>
+          {!envSelectValue && draft.environment ? (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              AI suggested “{draft.environment}” — pick a Jira Environment
+              option above (required to approve).
+            </p>
+          ) : null}
         </Field>
         <Field label="Story points">
-          <input
-            type="number"
-            min={1}
-            max={8}
+          <select
+            aria-label="Story points"
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
             disabled={disabled}
             value={draft.storyPoints ?? ""}
@@ -711,15 +777,46 @@ function DraftFields(props: {
               const n = Number.parseInt(e.target.value, 10);
               set("storyPoints", Number.isFinite(n) ? n : null);
             }}
-          />
+          >
+            <option value="">Select points…</option>
+            {[1, 2, 3, 5, 8].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="Recommended RP">
-          <input
+          <select
+            aria-label="Recommended RP"
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
             disabled={disabled}
-            value={draft.recommendedRp ?? ""}
-            onChange={(e) => set("recommendedRp", e.target.value || null)}
-          />
+            value={rpSelectValue}
+            onChange={(e) => {
+              const accountId = e.target.value;
+              if (!accountId) {
+                set("recommendedRp", null);
+                return;
+              }
+              const person = responsiblePersons.find(
+                (p) => p.accountId === accountId,
+              );
+              set("recommendedRp", person?.displayName ?? accountId);
+            }}
+          >
+            <option value="">Unassigned / none</option>
+            {responsiblePersons.map((p) => (
+              <option key={p.accountId} value={p.accountId}>
+                {p.displayName}
+              </option>
+            ))}
+          </select>
+          {!rpSelectValue && draft.recommendedRp ? (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              AI suggested “{draft.recommendedRp}” — pick a Jira assignee above
+              (or clear to leave unassigned).
+            </p>
+          ) : null}
         </Field>
       </div>
       <Field label="Summary">
