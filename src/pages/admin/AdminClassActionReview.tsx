@@ -37,6 +37,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { isSafeHttpUrl } from "@/lib/safe-url";
 import {
+  buildPublicClassActionUrl,
+  resolvePublicClassActionSlug,
+} from "@/lib/class-action-public";
+import {
   adminClassActionDecision,
   adminFetchClassActionDiscoveryStatus,
   adminGetClassActionCandidate,
@@ -841,6 +845,13 @@ function CandidateDetail({ id }: { id: string }) {
   const warnings = c.validationWarnings ?? [];
   const duplicates = c.duplicateMatches ?? [];
   const decisionActions = detail.allowedActions;
+  // The public page only serves live records, so the link is enabled only when
+  // the candidate is customer-visible.
+  const publicSlug = resolvePublicClassActionSlug({
+    sourceSlug: c.sourceSlug,
+    perkId: detail.perk?.id,
+  });
+  const publicPageAvailable = detail.customerVisible && publicSlug !== null;
   const teamFeedback = [...(detail.teamFeedback?.current ?? [])].sort(
     (a, b) =>
       new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
@@ -892,6 +903,27 @@ function CandidateDetail({ id }: { id: string }) {
               </a>
             </Button>
           ) : null}
+          {publicPageAvailable ? (
+            <Button variant="outline" asChild>
+              <a
+                href={buildPublicClassActionUrl(publicSlug)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                View public page
+              </a>
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              disabled
+              title="The public page is available once this settlement is live to customers"
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              View public page
+            </Button>
+          )}
           {canReview
             ? decisionActions.map((action) => (
                 <Button

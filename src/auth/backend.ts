@@ -11770,6 +11770,8 @@ export interface ClassActionCandidateDetail {
     status: ClassActionReviewStatus;
     sourceUrl: string;
     canonicalSourceUrl: string | null;
+    /** Public Class Action URL slug (`/class-actions/:slug`). */
+    sourceSlug: string;
     sourceName: string | null;
     partnerName: string | null;
     caseIdentifier: string | null;

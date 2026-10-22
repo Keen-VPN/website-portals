@@ -2,6 +2,8 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from "@/contexts/AuthContext";
 import { buildSignInUrl } from "@/auth";
 import { Loader2 } from 'lucide-react';
+import ClassActionPublicRedirect from "@/components/ClassActionPublicRedirect";
+import { getClassActionPublicLookupKey } from "@/lib/class-action-public";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -35,6 +37,15 @@ const ProtectedRoute = ({ children, requireSubscription = false }: ProtectedRout
   }
 
   if (!user) {
+    // Logged-out Class Action links belong on the public, indexable page.
+    // Authenticated visitors never reach this branch.
+    const publicLookupKey = isASWeb
+      ? null
+      : getClassActionPublicLookupKey(location.pathname);
+    if (publicLookupKey) {
+      return <ClassActionPublicRedirect lookupKey={publicLookupKey} />;
+    }
+
     const redirectTarget = `${location.pathname}${location.search}${location.hash}`;
     return (
       <Navigate
