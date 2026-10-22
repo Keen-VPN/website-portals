@@ -9,6 +9,8 @@ import {
   type PerkDetail,
 } from "@/auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import SEOHead from "@/components/SEOHead";
+import { buildPublicClassActionUrl } from "@/lib/class-action-public";
 import {
   EyebrowLabel,
   SettlementCard,
@@ -460,8 +462,18 @@ export default function DashboardClassActionDetail() {
   }
 
   if (state.kind === "ready") {
+    const publicUrl = buildPublicClassActionUrl(
+      resolveClassActionPageSlug(state.perk),
+    );
     return (
       <div className={PAGE_PADDING}>
+        {/* Signed-in copy stays private; the public page is the indexable one. */}
+        <SEOHead
+          title={`${state.perk.title} | KeenVPN`}
+          description="Settlement details, deadline and eligibility for KeenVPN members."
+          canonical={publicUrl}
+          noIndex
+        />
         <SettlementDetailView perk={state.perk} visitorType={visitorType} />
       </div>
     );
