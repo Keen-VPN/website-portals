@@ -559,11 +559,15 @@ export default function AdminIterationRecommendations() {
               selected.timeToDoneScore != null ||
               selected.estimateDirection ||
               selected.scopeChangeDirection ||
+              selected.scopeChangeSummary ||
               selected.scopeUnavailableReason ||
               selected.estimateUnavailableReason ||
               selected.timeUnavailableReason ||
               selected.aiStoryPoints != null ||
-              selected.finalJiraStoryPoints != null ? (
+              selected.finalJiraStoryPoints != null ||
+              selected.aiTimeToDoneMs != null ||
+              selected.humanMedianTimeToDoneMs != null ||
+              selected.evaluationErrorSummary ? (
                 <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3 text-xs">
                   <p className="font-medium">
                     Evaluation when Done
