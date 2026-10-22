@@ -617,6 +617,11 @@ export default function AdminIterationRecommendations() {
                     {selected.humanMedianTimeToDoneMs != null
                       ? ` vs human median ${(selected.humanMedianTimeToDoneMs / 86_400_000).toFixed(1)}d`
                       : ""}
+                    {selected.timeToDoneDeltaMs != null
+                      ? ` · Δ ${
+                          selected.timeToDoneDeltaMs >= 0 ? "+" : ""
+                        }${(selected.timeToDoneDeltaMs / 86_400_000).toFixed(1)}d vs median`
+                      : ""}
                     {selected.timeUnavailableReason
                       ? ` · ${selected.timeUnavailableReason}`
                       : ""}
