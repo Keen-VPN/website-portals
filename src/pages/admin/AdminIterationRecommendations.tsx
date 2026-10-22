@@ -13,6 +13,7 @@ import {
   adminFetchIterationWeeklyComparison,
   adminGenerateProductWorkRecommendations,
   adminLinkProductWorkRecommendationJira,
+  adminRegenerateProductWorkRecommendation,
   adminSyncProductWorkRecommendationJira,
   adminUpdateProductWorkRecommendationDraft,
   adminUpdateProductWorkRecommendationStatus,
@@ -190,9 +191,10 @@ export default function AdminIterationRecommendations() {
         <div>
           <h2 className="text-2xl font-bold">Iteration recommendations</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            AI drafts arrive as full Jira-ready stories. Review and edit in the
-            portal, then approve to create a KVPN story in Needs Refinement — or
-            reject. No Jira issue is created until approve.
+            Generate with AI creates the week&apos;s draft batch. Open one
+            draft, optionally leave feedback, then Regenerate this draft to
+            rewrite only that story. Edit, then Approve → create Jira (Needs
+            Refinement). No Jira issue until approve.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -552,6 +554,42 @@ export default function AdminIterationRecommendations() {
                       }}
                     >
                       Save draft
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      title="Rewrite only this draft. Optional feedback steers the AI; other week drafts stay untouched."
+                      className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+                      onClick={() => {
+                        if (!draft || !selected) return;
+                        const feedback = window.prompt(
+                          "Feedback for this draft (optional). Leave blank to regenerate from the current fields.",
+                          "",
+                        );
+                        if (feedback === null) return;
+                        setBusy(true);
+                        setError(null);
+                        void adminRegenerateProductWorkRecommendation(
+                          selected.id,
+                          {
+                            feedback: feedback.trim() || undefined,
+                            draft,
+                          },
+                        )
+                          .then((res) => {
+                            if (!res.ok) {
+                              setError(res.error ?? "Regenerate failed");
+                              return;
+                            }
+                            if (res.data) {
+                              setDraft(draftFromRow(res.data));
+                            }
+                            void load();
+                          })
+                          .finally(() => setBusy(false));
+                      }}
+                    >
+                      Regenerate this draft
                     </button>
                     <button
                       type="button"
