@@ -7921,6 +7921,20 @@ export async function adminApproveProductWorkRecommendation(
   );
 }
 
+export async function adminRegenerateProductWorkRecommendation(
+  id: string,
+  body?: {
+    feedback?: string;
+    draft?: Partial<AdminProductWorkStoryDraft>;
+  },
+) {
+  return adminIterationJson<AdminProductWorkRecommendation>(
+    `/admin/iteration/recommendations/${encodeURIComponent(id)}/regenerate`,
+    { method: "POST", body: JSON.stringify(body ?? {}) },
+    "Failed to regenerate recommendation draft",
+  );
+}
+
 export async function adminUpdateProductWorkRecommendationStatus(
   id: string,
   body: {
