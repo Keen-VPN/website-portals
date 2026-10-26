@@ -139,6 +139,7 @@ export default function AdminIterationRecommendations() {
   }, []);
 
   useEffect(() => {
+    setSlackNotice(null);
     void load(weekStart);
     return () => {
       loadGeneration.current += 1;
@@ -296,6 +297,7 @@ export default function AdminIterationRecommendations() {
             onClick={() => {
               setBusy(true);
               setError(null);
+              setSlackNotice(null);
               void adminPostProductWorkRecommendationsToSlack({ weekStart })
                 .then((res) => {
                   if (!res.ok) {
@@ -305,14 +307,14 @@ export default function AdminIterationRecommendations() {
                   const n = res.data?.posted ?? 0;
                   const total = res.data?.totalPending ?? 0;
                   if (n === 0) {
-                    setError(
+                    setSlackNotice(
                       total === 0
                         ? "No pending drafts to post for this week."
                         : "Nothing posted to Slack.",
                     );
                     return;
                   }
-                  setError(
+                  setSlackNotice(
                     res.data?.truncated
                       ? `Posted ${n} of ${total} pending drafts to Slack (truncated).`
                       : `Posted ${n} pending draft${n === 1 ? "" : "s"} to Slack.`,
@@ -352,6 +354,15 @@ export default function AdminIterationRecommendations() {
       {error ? (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
+        </div>
+      ) : null}
+
+      {slackNotice ? (
+        <div
+          role="status"
+          className="rounded-md border border-border bg-muted/40 p-3 text-sm"
+        >
+          {slackNotice}
         </div>
       ) : null}
 
