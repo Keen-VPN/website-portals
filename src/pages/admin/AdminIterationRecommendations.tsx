@@ -13,6 +13,7 @@ import {
   adminFetchIterationWeeklyComparison,
   adminGenerateProductWorkRecommendations,
   adminLinkProductWorkRecommendationJira,
+  adminPostProductWorkRecommendationsToSlack,
   adminRegenerateProductWorkRecommendation,
   adminSyncProductWorkRecommendationJira,
   adminUpdateProductWorkRecommendationDraft,
@@ -105,6 +106,8 @@ export default function AdminIterationRecommendations() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [slackNotice, setSlackNotice] = useState<string | null>(null);
+  const [postingSlack, setPostingSlack] = useState(false);
   const [busy, setBusy] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newSummary, setNewSummary] = useState("");
@@ -115,6 +118,8 @@ export default function AdminIterationRecommendations() {
   const [createOptions, setCreateOptions] =
     useState<AdminIterationCreateOptions | null>(null);
   const loadGeneration = useRef(0);
+  /** Bumped on each Slack post and on every week change so A→B→A can't apply a stale result. */
+  const slackPostGeneration = useRef(0);
   const weekStartRef = useRef(weekStart);
   weekStartRef.current = weekStart;
 
@@ -137,6 +142,11 @@ export default function AdminIterationRecommendations() {
   }, []);
 
   useEffect(() => {
+    setSlackNotice(null);
+    setPostingSlack(false);
+    // Invalidate any in-flight Slack post when the selected week changes
+    // (including A→B→A), so an older response cannot overwrite a newer one.
+    slackPostGeneration.current += 1;
     void load(weekStart);
     return () => {
       loadGeneration.current += 1;
@@ -218,9 +228,9 @@ export default function AdminIterationRecommendations() {
         <div>
           <h2 className="text-2xl font-bold">Iteration recommendations</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Generate with AI creates the week&apos;s draft batch. Open one
-            draft, optionally leave feedback, then Regenerate this draft to
-            rewrite only that story. Edit, then Approve → create Jira (Needs
+            Generate with AI creates the week&apos;s draft batch. Review in
+            Admin or Post to Slack (Approve / Reject / Regenerate). Edit
+            Environment/RP here if needed before Approve → create Jira (Needs
             Refinement). No Jira issue until approve.
           </p>
         </div>
@@ -288,6 +298,62 @@ export default function AdminIterationRecommendations() {
           </button>
           <button
             type="button"
+            disabled={busy || postingSlack}
+            title="Post pending drafts for this week to Slack (Approve / Reject / Regenerate)"
+            className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+            onClick={() => {
+              if (busy || postingSlack) return;
+              const postedWeek = weekStart;
+              const generation = ++slackPostGeneration.current;
+              setPostingSlack(true);
+              setError(null);
+              setSlackNotice(null);
+              void adminPostProductWorkRecommendationsToSlack({
+                weekStart: postedWeek,
+              })
+                .then((res) => {
+                  if (generation !== slackPostGeneration.current) return;
+                  if (
+                    !res.ok ||
+                    !res.data ||
+                    !Number.isFinite(res.data.posted) ||
+                    !Number.isFinite(res.data.totalPending) ||
+                    typeof res.data.truncated !== "boolean"
+                  ) {
+                    setError(res.error ?? "Slack post failed");
+                    return;
+                  }
+                  const n = res.data.posted;
+                  const total = res.data.totalPending;
+                  if (n === 0) {
+                    if (total === 0) {
+                      setSlackNotice(
+                        "No pending drafts to post for this week.",
+                      );
+                    } else {
+                      // Backend should fail this case with a reason; keep a fallback.
+                      setError(
+                        "Nothing posted to Slack despite pending drafts. Check Slack bot token, channel, and permissions.",
+                      );
+                    }
+                    return;
+                  }
+                  setSlackNotice(
+                    res.data.truncated
+                      ? `Posted ${n} of ${total} pending drafts to Slack (truncated).`
+                      : `Posted ${n} pending draft${n === 1 ? "" : "s"} to Slack.`,
+                  );
+                })
+                .finally(() => {
+                  if (generation !== slackPostGeneration.current) return;
+                  setPostingSlack(false);
+                });
+            }}
+          >
+            {postingSlack ? "Posting…" : "Post to Slack"}
+          </button>
+          <button
+            type="button"
             disabled={busy}
             className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
             onClick={() => {
@@ -315,6 +381,15 @@ export default function AdminIterationRecommendations() {
       {error ? (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
+        </div>
+      ) : null}
+
+      {slackNotice ? (
+        <div
+          role="status"
+          className="rounded-md border border-border bg-muted/40 p-3 text-sm"
+        >
+          {slackNotice}
         </div>
       ) : null}
 
