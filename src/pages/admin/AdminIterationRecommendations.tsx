@@ -117,6 +117,8 @@ export default function AdminIterationRecommendations() {
   const [createOptions, setCreateOptions] =
     useState<AdminIterationCreateOptions | null>(null);
   const loadGeneration = useRef(0);
+  /** Bumped on each Slack post and on every week change so A→B→A can't apply a stale result. */
+  const slackPostGeneration = useRef(0);
   const weekStartRef = useRef(weekStart);
   weekStartRef.current = weekStart;
 
@@ -140,6 +142,10 @@ export default function AdminIterationRecommendations() {
 
   useEffect(() => {
     setSlackNotice(null);
+    setBusy(false);
+    // Invalidate any in-flight Slack post when the selected week changes
+    // (including A→B→A), so an older response cannot overwrite a newer one.
+    slackPostGeneration.current += 1;
     void load(weekStart);
     return () => {
       loadGeneration.current += 1;
@@ -295,17 +301,23 @@ export default function AdminIterationRecommendations() {
             title="Post pending drafts for this week to Slack (Approve / Reject / Regenerate)"
             className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
             onClick={() => {
+              if (busy) return;
+              const postedWeek = weekStart;
+              const generation = ++slackPostGeneration.current;
               setBusy(true);
               setError(null);
               setSlackNotice(null);
-              void adminPostProductWorkRecommendationsToSlack({ weekStart })
+              void adminPostProductWorkRecommendationsToSlack({
+                weekStart: postedWeek,
+              })
                 .then((res) => {
-                  if (!res.ok) {
+                  if (generation !== slackPostGeneration.current) return;
+                  if (!res.ok || !res.data) {
                     setError(res.error ?? "Slack post failed");
                     return;
                   }
-                  const n = res.data?.posted ?? 0;
-                  const total = res.data?.totalPending ?? 0;
+                  const n = res.data.posted;
+                  const total = res.data.totalPending;
                   if (n === 0) {
                     if (total === 0) {
                       setSlackNotice(
@@ -320,12 +332,15 @@ export default function AdminIterationRecommendations() {
                     return;
                   }
                   setSlackNotice(
-                    res.data?.truncated
+                    res.data.truncated
                       ? `Posted ${n} of ${total} pending drafts to Slack (truncated).`
                       : `Posted ${n} pending draft${n === 1 ? "" : "s"} to Slack.`,
                   );
                 })
-                .finally(() => setBusy(false));
+                .finally(() => {
+                  if (generation !== slackPostGeneration.current) return;
+                  setBusy(false);
+                });
             }}
           >
             Post to Slack
