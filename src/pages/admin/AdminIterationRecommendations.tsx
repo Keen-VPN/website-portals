@@ -106,6 +106,7 @@ export default function AdminIterationRecommendations() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [slackNotice, setSlackNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newSummary, setNewSummary] = useState("");
