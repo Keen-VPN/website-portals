@@ -8012,6 +8012,25 @@ export async function adminGenerateProductWorkRecommendations(params?: {
   );
 }
 
+export async function adminPostProductWorkRecommendationsToSlack(params?: {
+  weekStart?: string;
+}) {
+  return adminIterationJson<{
+    weekStart: string;
+    totalPending: number;
+    posted: number;
+    truncated: boolean;
+    channelId: string | null;
+  }>(
+    "/admin/iteration/recommendations/slack/post",
+    {
+      method: "POST",
+      body: JSON.stringify({ weekStart: params?.weekStart }),
+    },
+    "Failed to post recommendations to Slack",
+  );
+}
+
 export type AdminProductStoryMonthlyRatingValue = 1 | 2 | 3;
 
 export interface AdminProductStoryMonthlyReview {

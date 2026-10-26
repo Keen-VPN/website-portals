@@ -13,6 +13,7 @@ import {
   adminFetchIterationWeeklyComparison,
   adminGenerateProductWorkRecommendations,
   adminLinkProductWorkRecommendationJira,
+  adminPostProductWorkRecommendationsToSlack,
   adminRegenerateProductWorkRecommendation,
   adminSyncProductWorkRecommendationJira,
   adminUpdateProductWorkRecommendationDraft,
@@ -218,9 +219,9 @@ export default function AdminIterationRecommendations() {
         <div>
           <h2 className="text-2xl font-bold">Iteration recommendations</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Generate with AI creates the week&apos;s draft batch. Open one
-            draft, optionally leave feedback, then Regenerate this draft to
-            rewrite only that story. Edit, then Approve → create Jira (Needs
+            Generate with AI creates the week&apos;s draft batch. Review in
+            Admin or Post to Slack (Approve / Reject / Regenerate). Edit
+            Environment/RP here if needed before Approve → create Jira (Needs
             Refinement). No Jira issue until approve.
           </p>
         </div>
@@ -285,6 +286,41 @@ export default function AdminIterationRecommendations() {
             }}
           >
             Generate with AI
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            title="Post pending drafts for this week to Slack (Approve / Reject / Regenerate)"
+            className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+            onClick={() => {
+              setBusy(true);
+              setError(null);
+              void adminPostProductWorkRecommendationsToSlack({ weekStart })
+                .then((res) => {
+                  if (!res.ok) {
+                    setError(res.error ?? "Slack post failed");
+                    return;
+                  }
+                  const n = res.data?.posted ?? 0;
+                  const total = res.data?.totalPending ?? 0;
+                  if (n === 0) {
+                    setError(
+                      total === 0
+                        ? "No pending drafts to post for this week."
+                        : "Nothing posted to Slack.",
+                    );
+                    return;
+                  }
+                  setError(
+                    res.data?.truncated
+                      ? `Posted ${n} of ${total} pending drafts to Slack (truncated).`
+                      : `Posted ${n} pending draft${n === 1 ? "" : "s"} to Slack.`,
+                  );
+                })
+                .finally(() => setBusy(false));
+            }}
+          >
+            Post to Slack
           </button>
           <button
             type="button"
