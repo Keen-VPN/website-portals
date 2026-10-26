@@ -307,11 +307,13 @@ export default function AdminIterationRecommendations() {
                   const n = res.data?.posted ?? 0;
                   const total = res.data?.totalPending ?? 0;
                   if (n === 0) {
-                    setSlackNotice(
-                      total === 0
-                        ? "No pending drafts to post for this week."
-                        : "Nothing posted to Slack.",
-                    );
+                    if (total === 0) {
+                      setSlackNotice(
+                        "No pending drafts to post for this week.",
+                      );
+                    } else {
+                      setError("Nothing posted to Slack.");
+                    }
                     return;
                   }
                   setSlackNotice(
