@@ -312,7 +312,10 @@ export default function AdminIterationRecommendations() {
                         "No pending drafts to post for this week.",
                       );
                     } else {
-                      setError("Nothing posted to Slack.");
+                      // Backend should fail this case with a reason; keep a fallback.
+                      setError(
+                        "Nothing posted to Slack despite pending drafts. Check Slack bot token, channel, and permissions.",
+                      );
                     }
                     return;
                   }
