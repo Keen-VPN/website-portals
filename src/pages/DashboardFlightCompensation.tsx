@@ -35,6 +35,8 @@ const dangerBtn =
 
 /** After "Scan now", poll this long so results appear without a manual refresh. */
 const POLL_INTERVAL_MS = 10_000;
+/** setTimeout overflows above 2^31-1 ms (~24.8 days). */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 const POLL_DURATION_MS = 3 * 60_000;
 
 const OAUTH_ERROR_COPY: Record<string, string> = {
@@ -484,6 +486,19 @@ function FlightCard({
   const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [, rerender] = useState(0);
+  const nextCheckAt =
+    flight.status.state === "pending" ? flight.status.nextCheckAt : null;
+
+  // Swap "scheduled for …" to "due shortly" once the check time passes.
+  useEffect(() => {
+    if (!nextCheckAt) return;
+    const delay = new Date(nextCheckAt).getTime() - Date.now();
+    if (delay <= 0 || delay > MAX_TIMEOUT_MS) return;
+    const timer = window.setTimeout(() => rerender((n) => n + 1), delay + 1000);
+    return () => window.clearTimeout(timer);
+  }, [nextCheckAt]);
+
   const badge = ELIGIBILITY_BADGE[flight.eligibility.status] ??
     ELIGIBILITY_BADGE.not_evaluated;
   const primary = flight.eligibility.primary;
