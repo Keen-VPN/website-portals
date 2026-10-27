@@ -800,15 +800,16 @@ export default function DashboardFlightCompensation() {
   const latestLoad = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++latestLoad.current;
     const token = getSessionToken();
     if (!token) {
+      setRefreshing(false);
       setError({
         message: "Your session has expired. Sign in again to continue.",
         status: 401,
       });
       return;
     }
-    const requestId = ++latestLoad.current;
     setRefreshing(true);
     const [providers, connections, flights, settings, alerts] =
       await Promise.all([
