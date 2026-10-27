@@ -163,7 +163,7 @@ function Toggle({
     >
       <span
         className={cn(
-          "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+          "absolute left-0 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
           checked ? "translate-x-[22px]" : "translate-x-0.5",
         )}
       />
@@ -447,9 +447,10 @@ function flightStatusLine(flight: TrackedFlight): string {
   const { status } = flight;
   switch (status.state) {
     case "pending":
-      return status.nextCheckAt
+      return status.nextCheckAt &&
+        new Date(status.nextCheckAt).getTime() > Date.now()
         ? `Flight status check scheduled for ${formatDate(status.nextCheckAt, true)}`
-        : "Flight status check pending";
+        : "Flight status check due shortly";
     case "not_covered":
       return "No supported passenger-rights rules cover this route";
     case "unavailable":
@@ -486,6 +487,19 @@ function FlightCard({
   const badge = ELIGIBILITY_BADGE[flight.eligibility.status] ??
     ELIGIBILITY_BADGE.not_evaluated;
   const primary = flight.eligibility.primary;
+  const hasFlightTimes = [
+    flight.status.scheduledDepartureAt,
+    flight.status.actualDepartureAt,
+    flight.status.scheduledArrivalAt,
+    flight.status.actualArrivalAt,
+  ].some(Boolean);
+  const notes = flight.eligibility.notes.filter(
+    (note) =>
+      !(
+        note === "cancellation_reported_by_airline_email" &&
+        flight.status.source === "airline_email"
+      ),
+  );
 
   const remove = async () => {
     const token = getSessionToken();
@@ -581,10 +595,14 @@ function FlightCard({
         <div className="mt-4 space-y-4 border-t border-[#eef2f7] pt-4 text-[13px] text-[#43516a]">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
             {[
-              ["Scheduled departure", formatDate(flight.status.scheduledDepartureAt, true)],
-              ["Actual departure", formatDate(flight.status.actualDepartureAt, true)],
-              ["Scheduled arrival", formatDate(flight.status.scheduledArrivalAt, true)],
-              ["Actual arrival", formatDate(flight.status.actualArrivalAt, true)],
+              ...(hasFlightTimes
+                ? [
+                    ["Scheduled departure", formatDate(flight.status.scheduledDepartureAt, true)],
+                    ["Actual departure", formatDate(flight.status.actualDepartureAt, true)],
+                    ["Scheduled arrival", formatDate(flight.status.scheduledArrivalAt, true)],
+                    ["Actual arrival", formatDate(flight.status.actualArrivalAt, true)],
+                  ]
+                : []),
               ["Detected via", humanize(flight.detectionMethod)],
               ["Seen in emails", String(flight.confirmationCount)],
               ["Check state", humanize(flight.status.state)],
@@ -631,9 +649,9 @@ function FlightCard({
             </div>
           ))}
 
-          {flight.eligibility.notes.length > 0 ? (
+          {notes.length > 0 ? (
             <p className="text-[12px] text-[#8390a5]">
-              Notes: {flight.eligibility.notes.map(humanize).join(", ")}
+              Notes: {notes.map(humanize).join(", ")}
             </p>
           ) : null}
         </div>
