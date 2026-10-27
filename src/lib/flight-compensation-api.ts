@@ -198,19 +198,19 @@ export const flightCompensationApi = {
   revoke: (token: string, id: string, deleteFlights: boolean) =>
     call<unknown>(
       token,
-      `/connections/${id}?deleteFlights=${deleteFlights ? "true" : "false"}`,
+      `/connections/${encodeURIComponent(id)}?deleteFlights=${deleteFlights ? "true" : "false"}`,
       { method: "DELETE" },
     ),
 
   scan: (token: string, id: string) =>
-    call<{ queued: boolean }>(token, `/connections/${id}/scan`, {
+    call<{ queued: boolean }>(token, `/connections/${encodeURIComponent(id)}/scan`, {
       method: "POST",
     }),
 
   flights: (token: string) => call<TrackedFlight[]>(token, "/flights"),
 
   deleteFlight: (token: string, id: string) =>
-    call<{ deleted: boolean }>(token, `/flights/${id}`, { method: "DELETE" }),
+    call<{ deleted: boolean }>(token, `/flights/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   settings: (token: string) => call<AlertSettings>(token, "/settings"),
 

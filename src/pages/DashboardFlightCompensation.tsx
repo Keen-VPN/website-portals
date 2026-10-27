@@ -665,6 +665,11 @@ function SettingsCard({ initial }: { initial: AlertSettings }) {
   const [settings, setSettings] = useState(initial);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (!saving) setSettings(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-sync on refreshed server values only
+  }, [initial]);
+
   const update = async (changes: Partial<AlertSettings>) => {
     const token = getSessionToken();
     if (!token) return;
@@ -777,10 +782,18 @@ export default function DashboardFlightCompensation() {
   const [refreshing, setRefreshing] = useState(false);
   const [pollUntil, setPollUntil] = useState<number>(0);
   const loadedOnce = useRef(false);
+  const latestLoad = useRef(0);
 
   const load = useCallback(async () => {
     const token = getSessionToken();
-    if (!token) return;
+    if (!token) {
+      setError({
+        message: "Your session has expired. Sign in again to continue.",
+        status: 401,
+      });
+      return;
+    }
+    const requestId = ++latestLoad.current;
     setRefreshing(true);
     const [providers, connections, flights, settings, alerts] =
       await Promise.all([
@@ -790,6 +803,7 @@ export default function DashboardFlightCompensation() {
         api.settings(token),
         api.alerts(token),
       ]);
+    if (requestId !== latestLoad.current) return;
     setRefreshing(false);
     const failed = [providers, connections, flights, settings, alerts].find(
       (res) => !res.success,
@@ -897,16 +911,41 @@ export default function DashboardFlightCompensation() {
                 ? "Set FF_FLIGHT_COMPENSATION_ENABLED=true on the backend to turn it on."
                 : error.message}
             </p>
-            <button
-              type="button"
-              onClick={() => void load()}
-              className={cn(primaryBtn, "mt-4")}
-            >
-              Try again
-            </button>
+            {error.status === 401 ? (
+              <a href="/signin" className={cn(primaryBtn, "mt-4")}>
+                Sign in
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void load()}
+                className={cn(primaryBtn, "mt-4")}
+              >
+                Try again
+              </button>
+            )}
           </Card>
         ) : data ? (
           <div className="mt-6 space-y-5">
+            {error ? (
+              <div
+                role="alert"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-[#f3d2bd] bg-[#fff7f1] px-4 py-3 text-[14px] text-[#9a4a16]"
+              >
+                <span>
+                  Couldn't refresh, so what you see may be out of date.{" "}
+                  {error.message}
+                </span>
+                <button
+                  type="button"
+                  className="font-semibold underline"
+                  disabled={refreshing}
+                  onClick={() => void load()}
+                >
+                  Try again
+                </button>
+              </div>
+            ) : null}
             {activeConnections.length > 0 ? (
               <Card>
                 <SectionTitle>Connected mailboxes</SectionTitle>
