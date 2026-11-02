@@ -253,6 +253,13 @@ export default function AdminSidebarLayout() {
               Jira Delivery
             </NavLink>
             <NavLink
+              to="/admin/geekbot-updates"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Activity className="h-4 w-4" />
+              Geekbot Updates
+            </NavLink>
+            <NavLink
               to="/admin/iteration-recommendations"
               className={({ isActive }) => linkClass(isActive)}
             >
