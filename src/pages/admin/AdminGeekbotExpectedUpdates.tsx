@@ -33,6 +33,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
 function currentMonthYear(): { month: number; year: number; label: string } {
   const now = new Date();
   const month = now.getUTCMonth() + 1;
@@ -65,17 +67,38 @@ function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
+/** Monday-first offset for day 1 (0 = Monday). */
+function mondayFirstOffset(year: number, month: number): number {
+  const sundayFirst = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  return (sundayFirst + 6) % 7;
+}
+
 function sourceLabel(source: AdminGeekbotExpectedMember["source"]): string {
   switch (source) {
     case "db":
       return "Dashboard";
     case "env":
-      return "Env fallback";
+      return "Env";
     case "default":
       return "Default";
     default:
       return "—";
   }
+}
+
+function formatShortTimestamp(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString(undefined, {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
+
+function progressPercent(submitted: number, expected: number | null): number {
+  if (expected == null || expected <= 0) return 0;
+  return Math.min(100, Math.round((submitted / expected) * 100));
 }
 
 export default function AdminGeekbotExpectedUpdates() {
@@ -180,11 +203,24 @@ export default function AdminGeekbotExpectedUpdates() {
   const monthDays = useMemo(() => {
     const total = daysInMonth(year, month);
     const withUpdate = new Set(selectedMember?.daysWithUpdate ?? []);
-    return Array.from({ length: total }, (_, i) => {
-      const day = i + 1;
+    const leading = mondayFirstOffset(year, month);
+    const cells: Array<
+      | { kind: "pad"; key: string }
+      | { kind: "day"; day: number; key: string; hasUpdate: boolean }
+    > = [];
+    for (let i = 0; i < leading; i += 1) {
+      cells.push({ kind: "pad", key: `pad-${i}` });
+    }
+    for (let day = 1; day <= total; day += 1) {
       const key = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-      return { day, key, hasUpdate: withUpdate.has(key) };
-    });
+      cells.push({
+        kind: "day",
+        day,
+        key,
+        hasUpdate: withUpdate.has(key),
+      });
+    }
+    return cells;
   }, [year, month, selectedMember]);
 
   const openEdit = (member?: AdminGeekbotExpectedMember | null) => {
@@ -265,24 +301,31 @@ export default function AdminGeekbotExpectedUpdates() {
     await load({ silent: true });
   };
 
+  const selectedProgress = selectedMember
+    ? progressPercent(
+        selectedMember.submittedDays,
+        selectedMember.expectedCount,
+      )
+    : 0;
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="space-y-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             Geekbot expected updates
           </h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
             Assign monthly expected update counts per team member. Submitted
-            days come from Slack/Geekbot automatically; calendar chips below
-            show which dates already have an update.
+            days are read from Slack/Geekbot; the calendar shows which dates
+            already have an update.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3">
           <Button variant="outline" size="sm" onClick={goPrev}>
             Previous
           </Button>
-          <div className="min-w-[9rem] text-center text-sm font-medium">
+          <div className="min-w-[10rem] px-2 text-center text-sm font-semibold">
             {formatMonthLabel(year, month)}
           </div>
           <Button
@@ -298,7 +341,7 @@ export default function AdminGeekbotExpectedUpdates() {
           </Button>
           <Input
             type="month"
-            className="w-[10.5rem]"
+            className="h-9 w-[10.5rem]"
             max={maxMonth.label}
             value={`${year}-${String(month).padStart(2, "0")}`}
             onChange={(e) => {
@@ -315,9 +358,10 @@ export default function AdminGeekbotExpectedUpdates() {
               setMonth(m);
             }}
           />
+          <div className="flex-1" />
           {canWrite ? (
             <Button size="sm" onClick={() => openEdit(null)}>
-              Add / edit target
+              Add target
             </Button>
           ) : null}
         </div>
@@ -355,142 +399,160 @@ export default function AdminGeekbotExpectedUpdates() {
 
       {report ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>People with target</CardDescription>
-                <CardTitle className="text-2xl">
-                  {report.summary.peopleWithTarget}
-                </CardTitle>
-              </CardHeader>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Total expected</CardDescription>
-                <CardTitle className="text-2xl">
-                  {report.summary.totalExpected}
-                </CardTitle>
-              </CardHeader>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Total submitted</CardDescription>
-                <CardTitle className="text-2xl">
-                  {report.summary.totalSubmitted}
-                </CardTitle>
-              </CardHeader>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Total missing</CardDescription>
-                <CardTitle className="text-2xl">
-                  {report.summary.totalMissing}
-                </CardTitle>
-              </CardHeader>
-            </Card>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {(
+              [
+                ["People with target", report.summary.peopleWithTarget],
+                ["Total expected", report.summary.totalExpected],
+                ["Total submitted", report.summary.totalSubmitted],
+                ["Total missing", report.summary.totalMissing],
+              ] as const
+            ).map(([label, value]) => (
+              <Card key={label}>
+                <CardHeader className="space-y-1 py-4">
+                  <CardDescription>{label}</CardDescription>
+                  <CardTitle className="text-3xl tabular-nums">{value}</CardTitle>
+                </CardHeader>
+              </Card>
+            ))}
           </div>
 
           {!report.geekbotDailyUpdatesConfigured ? (
-            <Card className="border-amber-500/30">
+            <Card className="border-amber-500/30 bg-amber-500/5">
               <CardContent className="py-4 text-sm text-muted-foreground">
-                Slack/Geekbot daily updates are not configured, so submitted
-                days may show as zero. Targets can still be assigned.
+                Slack/Geekbot daily updates are not configured, so submitted days
+                may show as zero. Targets can still be assigned.
               </CardContent>
             </Card>
           ) : null}
 
-          <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-            <Card>
-              <CardHeader>
+          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(18rem,0.9fr)]">
+            <Card className="min-w-0 overflow-hidden">
+              <CardHeader className="border-b border-white/5 pb-4">
                 <CardTitle className="text-base">Team members</CardTitle>
                 <CardDescription>
                   Expected counts for {formatMonthLabel(year, month)}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="overflow-x-auto">
-                <table className="w-full min-w-[640px] text-left text-sm">
-                  <thead className="border-b text-muted-foreground">
-                    <tr>
-                      <th className="pb-2 pr-3 font-medium">Name</th>
-                      <th className="pb-2 pr-3 font-medium">Expected</th>
-                      <th className="pb-2 pr-3 font-medium">Submitted</th>
-                      <th className="pb-2 pr-3 font-medium">Missing</th>
-                      <th className="pb-2 pr-3 font-medium">Source</th>
-                      <th className="pb-2 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.members.map((member) => {
-                      const selected = member.personName === selectedName;
-                      const pending = pendingNames.has(member.personName);
-                      return (
-                        <tr
-                          key={member.personName}
-                          className={[
-                            "border-b border-white/5",
-                            selected ? "bg-primary/10" : "",
-                          ].join(" ")}
-                        >
-                          <td className="py-2.5 pr-3">
-                            <button
-                              type="button"
-                              className="text-left font-medium hover:underline"
-                              onClick={() => setSelectedName(member.personName)}
-                            >
-                              {member.personName}
-                            </button>
-                            {member.updatedByAdminName ? (
-                              <div className="text-xs text-muted-foreground">
-                                by {member.updatedByAdminName}
-                                {member.updatedAt
-                                  ? ` · ${new Date(member.updatedAt).toLocaleString()}`
-                                  : ""}
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-white/[0.02] text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <th className="px-4 py-3 font-medium">Name</th>
+                        <th className="px-3 py-3 text-right font-medium">
+                          Expected
+                        </th>
+                        <th className="px-3 py-3 text-right font-medium">
+                          Submitted
+                        </th>
+                        <th className="px-3 py-3 text-right font-medium">
+                          Missing
+                        </th>
+                        <th className="px-3 py-3 font-medium">Progress</th>
+                        <th className="px-3 py-3 font-medium">Source</th>
+                        <th className="px-4 py-3 text-right font-medium">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.members.map((member) => {
+                        const selected = member.personName === selectedName;
+                        const pending = pendingNames.has(member.personName);
+                        const pct = progressPercent(
+                          member.submittedDays,
+                          member.expectedCount,
+                        );
+                        const updated = formatShortTimestamp(member.updatedAt);
+                        return (
+                          <tr
+                            key={member.personName}
+                            className={[
+                              "border-b border-white/5 transition-colors",
+                              selected
+                                ? "bg-primary/15"
+                                : "hover:bg-white/[0.03]",
+                            ].join(" ")}
+                          >
+                            <td className="px-4 py-3 align-middle">
+                              <button
+                                type="button"
+                                className="text-left"
+                                onClick={() =>
+                                  setSelectedName(member.personName)
+                                }
+                              >
+                                <div className="font-medium text-foreground">
+                                  {member.personName}
+                                </div>
+                                {member.updatedByAdminName ? (
+                                  <div className="mt-0.5 text-xs text-muted-foreground">
+                                    by {member.updatedByAdminName}
+                                    {updated ? ` · ${updated}` : ""}
+                                  </div>
+                                ) : null}
+                              </button>
+                            </td>
+                            <td className="px-3 py-3 text-right tabular-nums align-middle">
+                              {member.expectedCount ?? "—"}
+                            </td>
+                            <td className="px-3 py-3 text-right tabular-nums align-middle">
+                              {member.submittedDays}
+                            </td>
+                            <td className="px-3 py-3 text-right tabular-nums align-middle">
+                              {member.missingDays ?? "—"}
+                            </td>
+                            <td className="px-3 py-3 align-middle">
+                              <div className="flex min-w-[7rem] items-center gap-2">
+                                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                                  <div
+                                    className="h-full rounded-full bg-emerald-500/80"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                                <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">
+                                  {pct}%
+                                </span>
                               </div>
-                            ) : null}
-                          </td>
-                          <td className="py-2.5 pr-3 tabular-nums">
-                            {member.expectedCount ?? "—"}
-                          </td>
-                          <td className="py-2.5 pr-3 tabular-nums">
-                            {member.submittedDays}
-                          </td>
-                          <td className="py-2.5 pr-3 tabular-nums">
-                            {member.missingDays ?? "—"}
-                          </td>
-                          <td className="py-2.5 pr-3">
-                            {sourceLabel(member.source)}
-                          </td>
-                          <td className="py-2.5">
-                            <div className="flex flex-wrap gap-2">
-                              {canWrite ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={pending}
-                                  onClick={() => openEdit(member)}
-                                >
-                                  Edit
-                                </Button>
-                              ) : null}
-                              {canWrite && member.source === "db" ? (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  disabled={pending}
-                                  onClick={() => void removeTarget(member)}
-                                >
-                                  Remove
-                                </Button>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            </td>
+                            <td className="px-3 py-3 align-middle">
+                              <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-muted-foreground">
+                                {sourceLabel(member.source)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 align-middle">
+                              <div className="flex justify-end gap-2">
+                                {canWrite ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={pending}
+                                    onClick={() => openEdit(member)}
+                                  >
+                                    Edit
+                                  </Button>
+                                ) : null}
+                                {canWrite && member.source === "db" ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={pending}
+                                    onClick={() => void removeTarget(member)}
+                                  >
+                                    Remove
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
                 {report.members.length === 0 ? (
-                  <p className="py-6 text-sm text-muted-foreground">
+                  <p className="px-4 py-8 text-sm text-muted-foreground">
                     No team members for this month yet. Add a target to start
                     the roster.
                   </p>
@@ -498,45 +560,74 @@ export default function AdminGeekbotExpectedUpdates() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
+            <Card className="xl:sticky xl:top-6">
+              <CardHeader className="border-b border-white/5 pb-4">
                 <CardTitle className="text-base">Daily updates</CardTitle>
                 <CardDescription>
                   {selectedMember
-                    ? `${selectedMember.personName} · read-only from Slack/Geekbot`
+                    ? selectedMember.personName
                     : "Select a team member"}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pt-4">
                 {selectedMember ? (
                   <>
-                    <div className="text-sm text-muted-foreground">
-                      {selectedMember.submittedDays} day
-                      {selectedMember.submittedDays === 1 ? "" : "s"} with an
-                      update
-                      {selectedMember.expectedCount != null
-                        ? ` · target ${selectedMember.expectedCount}`
-                        : ""}
-                    </div>
-                    <div className="grid grid-cols-7 gap-1.5">
-                      {monthDays.map((d) => (
+                    <div className="space-y-2 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                      <div className="flex items-baseline justify-between gap-3 text-sm">
+                        <span className="text-muted-foreground">
+                          {selectedMember.submittedDays} day
+                          {selectedMember.submittedDays === 1 ? "" : "s"}{" "}
+                          submitted
+                        </span>
+                        <span className="tabular-nums font-medium">
+                          {selectedMember.expectedCount != null
+                            ? `${selectedMember.submittedDays} / ${selectedMember.expectedCount}`
+                            : selectedMember.submittedDays}
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-white/10">
                         <div
-                          key={d.key}
-                          title={`${d.key}${d.hasUpdate ? " · update submitted" : " · no update"}`}
-                          className={[
-                            "flex aspect-square items-center justify-center rounded-md border text-xs tabular-nums",
-                            d.hasUpdate
-                              ? "border-emerald-500/50 bg-emerald-500/20 text-emerald-100"
-                              : "border-white/10 bg-white/5 text-muted-foreground",
-                          ].join(" ")}
+                          className="h-full rounded-full bg-emerald-500/80"
+                          style={{ width: `${selectedProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Read-only from Slack/Geekbot
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1">
+                      {WEEKDAY_LABELS.map((label) => (
+                        <div
+                          key={label}
+                          className="pb-1 text-center text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
                         >
-                          {d.day}
+                          {label}
                         </div>
                       ))}
+                      {monthDays.map((cell) =>
+                        cell.kind === "pad" ? (
+                          <div key={cell.key} className="aspect-square" />
+                        ) : (
+                          <div
+                            key={cell.key}
+                            title={`${cell.key}${cell.hasUpdate ? " · update submitted" : " · no update"}`}
+                            className={[
+                              "flex aspect-square items-center justify-center rounded-md border text-xs tabular-nums",
+                              cell.hasUpdate
+                                ? "border-emerald-500/50 bg-emerald-500/20 font-semibold text-emerald-100"
+                                : "border-white/10 bg-white/[0.03] text-muted-foreground",
+                            ].join(" ")}
+                          >
+                            {cell.day}
+                          </div>
+                        ),
+                      )}
                     </div>
-                    <div className="flex gap-3 text-xs text-muted-foreground">
+
+                    <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1.5">
-                        <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500/60" />
+                        <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500/70" />
                         Has update
                       </span>
                       <span className="inline-flex items-center gap-1.5">
