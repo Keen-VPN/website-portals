@@ -204,10 +204,10 @@ export default function AdminGeekbotExpectedUpdates() {
     const total = daysInMonth(year, month);
     const withUpdate = new Set(selectedMember?.daysWithUpdate ?? []);
     const leading = mondayFirstOffset(year, month);
-    const cells: Array<
+    const cells: (
       | { kind: "pad"; key: string }
       | { kind: "day"; day: number; key: string; hasUpdate: boolean }
-    > = [];
+    )[] = [];
     for (let i = 0; i < leading; i += 1) {
       cells.push({ kind: "pad", key: `pad-${i}` });
     }
