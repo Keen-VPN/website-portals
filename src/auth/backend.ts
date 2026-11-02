@@ -7666,7 +7666,7 @@ export async function adminFetchChurnReport(params: {
 
 export type AdminGeekbotExpectedSource = "db" | "env" | "default" | null;
 
-export type AdminGeekbotExpectedMember = {
+export interface AdminGeekbotExpectedMember {
   personName: string;
   expectedCount: number | null;
   source: AdminGeekbotExpectedSource;
@@ -7675,22 +7675,24 @@ export type AdminGeekbotExpectedMember = {
   daysWithUpdate: string[];
   updatedAt: string | null;
   updatedByAdminName: string | null;
-};
+}
 
-export type AdminGeekbotExpectedMonthReport = {
+export interface AdminGeekbotExpectedMonthSummary {
+  peopleWithTarget: number;
+  totalExpected: number;
+  totalSubmitted: number;
+  totalMissing: number;
+}
+
+export interface AdminGeekbotExpectedMonthReport {
   year: number;
   month: number;
   monthKey: string;
   geekbotDailyUpdatesConfigured: boolean;
   members: AdminGeekbotExpectedMember[];
-  summary: {
-    peopleWithTarget: number;
-    totalExpected: number;
-    totalSubmitted: number;
-    totalMissing: number;
-  };
+  summary: AdminGeekbotExpectedMonthSummary;
   rosterNames: string[];
-};
+}
 
 export async function adminFetchGeekbotExpectedUpdates(params: {
   month: number;
