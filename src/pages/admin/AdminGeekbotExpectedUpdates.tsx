@@ -131,19 +131,17 @@ export default function AdminGeekbotExpectedUpdates() {
         setLoading(false);
         return;
       }
-      if (
-        res.data.year !== yearRef.current ||
-        res.data.month !== monthRef.current
-      ) {
+      const data = res.data;
+      if (data.year !== yearRef.current || data.month !== monthRef.current) {
         return;
       }
-      setReport(res.data);
+      setReport(data);
       setLoading(false);
       setSelectedName((prev) => {
-        if (prev && res.data!.members.some((m) => m.personName === prev)) {
+        if (prev && data.members.some((m) => m.personName === prev)) {
           return prev;
         }
-        return res.data!.members[0]?.personName ?? null;
+        return data.members[0]?.personName ?? null;
       });
     },
     [],
