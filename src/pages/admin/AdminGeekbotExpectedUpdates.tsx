@@ -91,6 +91,7 @@ export default function AdminGeekbotExpectedUpdates() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState("");
@@ -115,7 +116,9 @@ export default function AdminGeekbotExpectedUpdates() {
       const generation = ++loadGeneration.current;
       if (!silent) {
         setLoading(true);
+        setReport(null);
         setError(null);
+        setActionError(null);
       }
       const res = await adminFetchGeekbotExpectedUpdates({
         year: targetYear,
@@ -188,6 +191,7 @@ export default function AdminGeekbotExpectedUpdates() {
 
   const openEdit = (member?: AdminGeekbotExpectedMember | null) => {
     setSaveError(null);
+    setActionError(null);
     setEditName(member?.personName ?? "");
     setEditCount(
       member?.expectedCount != null ? String(member.expectedCount) : "25",
@@ -212,6 +216,7 @@ export default function AdminGeekbotExpectedUpdates() {
     }
     setSaving(true);
     setSaveError(null);
+    setActionError(null);
     setPendingNames((prev) => new Set(prev).add(personName));
     const res = await adminUpsertGeekbotExpectedUpdate({
       personName,
@@ -243,6 +248,7 @@ export default function AdminGeekbotExpectedUpdates() {
     ) {
       return;
     }
+    setActionError(null);
     setPendingNames((prev) => new Set(prev).add(member.personName));
     const res = await adminDeleteGeekbotExpectedUpdate({
       personName: member.personName,
@@ -255,7 +261,7 @@ export default function AdminGeekbotExpectedUpdates() {
       return next;
     });
     if (!res.ok) {
-      setError(res.error ?? "Delete failed");
+      setActionError(res.error ?? "Delete failed");
       return;
     }
     await load({ silent: true });
@@ -326,6 +332,17 @@ export default function AdminGeekbotExpectedUpdates() {
               Could not load
             </CardTitle>
             <CardDescription>{error}</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
+
+      {actionError ? (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-base text-destructive">
+              Action failed
+            </CardTitle>
+            <CardDescription>{actionError}</CardDescription>
           </CardHeader>
         </Card>
       ) : null}
@@ -541,8 +558,21 @@ export default function AdminGeekbotExpectedUpdates() {
         </>
       ) : null}
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
+      <Dialog
+        open={editOpen}
+        onOpenChange={(open) => {
+          if (saving && !open) return;
+          setEditOpen(open);
+        }}
+      >
+        <DialogContent
+          onEscapeKeyDown={(event) => {
+            if (saving) event.preventDefault();
+          }}
+          onPointerDownOutside={(event) => {
+            if (saving) event.preventDefault();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Monthly expected updates</DialogTitle>
             <DialogDescription>
@@ -562,7 +592,11 @@ export default function AdminGeekbotExpectedUpdates() {
                       : "__custom__"
                   }
                   onValueChange={(value) => {
-                    if (value !== "__custom__") setEditName(value);
+                    if (value === "__custom__") {
+                      setEditName("");
+                      return;
+                    }
+                    setEditName(value);
                   }}
                 >
                   <SelectTrigger id="geekbot-person">
