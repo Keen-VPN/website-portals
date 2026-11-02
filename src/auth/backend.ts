@@ -7664,6 +7664,144 @@ export async function adminFetchChurnReport(params: {
   }
 }
 
+export type AdminGeekbotExpectedSource = "db" | "env" | "default" | null;
+
+export type AdminGeekbotExpectedMember = {
+  personName: string;
+  expectedCount: number | null;
+  source: AdminGeekbotExpectedSource;
+  submittedDays: number;
+  missingDays: number | null;
+  daysWithUpdate: string[];
+  updatedAt: string | null;
+  updatedByAdminName: string | null;
+};
+
+export type AdminGeekbotExpectedMonthReport = {
+  year: number;
+  month: number;
+  monthKey: string;
+  geekbotDailyUpdatesConfigured: boolean;
+  members: AdminGeekbotExpectedMember[];
+  summary: {
+    peopleWithTarget: number;
+    totalExpected: number;
+    totalSubmitted: number;
+    totalMissing: number;
+  };
+  rosterNames: string[];
+};
+
+export async function adminFetchGeekbotExpectedUpdates(params: {
+  month: number;
+  year: number;
+}): Promise<{
+  ok: boolean;
+  data?: AdminGeekbotExpectedMonthReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    query.set("month", String(params.month));
+    query.set("year", String(params.year));
+    const response = await fetch(
+      `${BACKEND_URL}/admin/geekbot-expected-updates?${query.toString()}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load Geekbot expected updates",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminGeekbotExpectedMonthReport };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminUpsertGeekbotExpectedUpdate(body: {
+  personName: string;
+  year: number;
+  month: number;
+  expectedCount: number;
+}): Promise<{
+  ok: boolean;
+  data?: AdminGeekbotExpectedMember;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/geekbot-expected-updates`,
+      {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to save Geekbot expected update",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminGeekbotExpectedMember };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminDeleteGeekbotExpectedUpdate(body: {
+  personName: string;
+  year: number;
+  month: number;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/geekbot-expected-updates`,
+      {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to delete Geekbot expected update",
+        ),
+      };
+    }
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
 export async function adminFetchJiraDeliveryReport(params: {
   month: number;
   year: number;

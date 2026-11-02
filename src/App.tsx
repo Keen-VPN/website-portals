@@ -99,6 +99,9 @@ const AdminSubscriptionAnalytics = lazy(
 const AdminJiraDelivery = lazy(
   () => import("./pages/admin/AdminJiraDelivery"),
 );
+const AdminGeekbotExpectedUpdates = lazy(
+  () => import("./pages/admin/AdminGeekbotExpectedUpdates"),
+);
 const AdminIterationRecommendations = lazy(
   () => import("./pages/admin/AdminIterationRecommendations"),
 );
@@ -455,6 +458,10 @@ const App = () => (
                   element={<AdminSubscriptionAnalytics />}
                 />
                 <Route path="jira-delivery" element={<AdminJiraDelivery />} />
+                <Route
+                  path="geekbot-updates"
+                  element={<AdminGeekbotExpectedUpdates />}
+                />
                 <Route
                   path="iteration-recommendations"
                   element={<AdminIterationRecommendations />}
