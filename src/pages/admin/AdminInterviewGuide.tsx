@@ -117,6 +117,9 @@ export default function AdminInterviewGuide() {
   }, []);
 
   useEffect(() => {
+    // Drop a stale RQ selection when the week changes so notes cannot
+    // attach to a question that is no longer in the active guide.
+    setNoteQuestionId("");
     if (!canRead) {
       setLoading(false);
       return;
@@ -345,8 +348,10 @@ export default function AdminInterviewGuide() {
                   ].map((q) => (
                     <option key={q.id} value={q.id}>
                       {q.publicId}
-                      {q.category ? ` · ${q.category}` : ""} —{" "}
-                      {q.prompt.slice(0, 80)}
+                      {q.category
+                        ? ` · ${q.category.replace(/_/g, " ")}`
+                        : ""}{" "}
+                      — {q.prompt.slice(0, 80)}
                       {q.prompt.length > 80 ? "…" : ""}
                     </option>
                   ))}
@@ -367,7 +372,15 @@ export default function AdminInterviewGuide() {
                     const requestedWeek = weekStart;
                     const submittedBody = noteBody.trim();
                     const submittedTranscript = transcriptId.trim();
-                    const submittedQuestionId = noteQuestionId.trim();
+                    const activeQuestionIds = new Set([
+                      ...activeGuide.aiWeeklyQuestions.map((q) => q.id),
+                      ...activeGuide.standardQuestions.map((q) => q.id),
+                    ]);
+                    const submittedQuestionId = activeQuestionIds.has(
+                      noteQuestionId,
+                    )
+                      ? noteQuestionId.trim()
+                      : "";
                     setSavingNote(true);
                     setError(null);
                     void adminCreateInterviewGuideNote({
