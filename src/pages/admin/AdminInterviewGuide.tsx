@@ -187,12 +187,20 @@ export default function AdminInterviewGuide() {
               type="button"
               disabled={busy}
               className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+              title={
+                (activeGuide?.aiWeeklyQuestions.length ?? 0) > 0
+                  ? "Adds another AI batch for this week (force=true); does not replace existing questions"
+                  : "Generate AI weekly research questions for this week"
+              }
               onClick={() => {
                 const requestedWeek = weekStart;
+                const force =
+                  (activeGuide?.aiWeeklyQuestions.length ?? 0) > 0;
                 setBusy(true);
                 setError(null);
                 void adminGenerateWeeklyInterviewQuestions({
                   weekStart: requestedWeek,
+                  force,
                 })
                   .then((res) => {
                     if (weekStartRef.current !== requestedWeek) return;
@@ -211,7 +219,9 @@ export default function AdminInterviewGuide() {
                   .finally(() => setBusy(false));
               }}
             >
-              Generate AI questions
+              {(activeGuide?.aiWeeklyQuestions.length ?? 0) > 0
+                ? "Generate more AI questions"
+                : "Generate AI questions"}
             </button>
           ) : null}
         </div>
