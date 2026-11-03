@@ -133,6 +133,8 @@ export default function AdminInterviewGuide() {
   const activeGuide =
     guide && guide.weekStart === weekStart ? guide : null;
   const awaiting = loading || (guide != null && activeGuide == null);
+  // Initial/week fetch failed: generate stays disabled until the guide loads.
+  const loadFailed = !loading && !activeGuide && error != null;
 
   if (!canRead) {
     return (
@@ -185,33 +187,46 @@ export default function AdminInterviewGuide() {
           {canWrite ? (
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || awaiting || !activeGuide}
               className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+              title={
+                (activeGuide?.aiWeeklyQuestions.length ?? 0) > 0
+                  ? "Adds another AI batch for this week (force=true); does not replace existing questions"
+                  : "Generate AI weekly research questions for this week"
+              }
               onClick={() => {
+                if (!activeGuide || awaiting) return;
                 const requestedWeek = weekStart;
+                // Only trust force once the guide for this week is loaded.
+                const force = activeGuide.aiWeeklyQuestions.length > 0;
                 setBusy(true);
                 setError(null);
                 void adminGenerateWeeklyInterviewQuestions({
                   weekStart: requestedWeek,
+                  force,
                 })
-                  .then((res) => {
+                  .then(async (res) => {
                     if (weekStartRef.current !== requestedWeek) return;
                     if (!res.ok) {
                       setError(res.error ?? "Generate failed");
                       return;
                     }
-                    void load({ silent: true });
                     if (res.data?.skipped) {
                       setError(
                         res.data.message ??
                           "AI questions already exist for this week.",
                       );
                     }
+                    // Keep the button busy until refresh finishes so a second
+                    // click cannot infer force:false from a stale/empty guide.
+                    await load({ silent: true });
                   })
                   .finally(() => setBusy(false));
               }}
             >
-              Generate AI questions
+              {(activeGuide?.aiWeeklyQuestions.length ?? 0) > 0
+                ? "Generate more AI questions"
+                : "Generate AI questions"}
             </button>
           ) : null}
         </div>
@@ -222,13 +237,35 @@ export default function AdminInterviewGuide() {
       </p>
 
       {error ? (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <span className="flex-1">{error}</span>
+          {loadFailed ? (
+            <button
+              type="button"
+              disabled={busy || loading}
+              className="rounded-md border border-destructive/40 px-3 py-1.5 text-sm hover:bg-destructive/10 disabled:opacity-50"
+              onClick={() => {
+                setBusy(true);
+                void load()
+                  .catch(() => undefined)
+                  .finally(() => setBusy(false));
+              }}
+            >
+              Retry load
+            </button>
+          ) : null}
         </div>
       ) : null}
 
       {awaiting ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : null}
+
+      {loadFailed ? (
+        <p className="text-sm text-muted-foreground">
+          The interview guide for this week could not be loaded. Retry to enable
+          generating AI questions.
+        </p>
       ) : null}
 
       {!awaiting && activeGuide ? (
