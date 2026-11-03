@@ -133,6 +133,8 @@ export default function AdminInterviewGuide() {
   const activeGuide =
     guide && guide.weekStart === weekStart ? guide : null;
   const awaiting = loading || (guide != null && activeGuide == null);
+  // Initial/week fetch failed: generate stays disabled until the guide loads.
+  const loadFailed = !loading && !activeGuide && error != null;
 
   if (!canRead) {
     return (
@@ -235,13 +237,35 @@ export default function AdminInterviewGuide() {
       </p>
 
       {error ? (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <span className="flex-1">{error}</span>
+          {loadFailed ? (
+            <button
+              type="button"
+              disabled={busy || loading}
+              className="rounded-md border border-destructive/40 px-3 py-1.5 text-sm hover:bg-destructive/10 disabled:opacity-50"
+              onClick={() => {
+                setBusy(true);
+                void load()
+                  .catch(() => undefined)
+                  .finally(() => setBusy(false));
+              }}
+            >
+              Retry load
+            </button>
+          ) : null}
         </div>
       ) : null}
 
       {awaiting ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : null}
+
+      {loadFailed ? (
+        <p className="text-sm text-muted-foreground">
+          The interview guide for this week could not be loaded. Retry to enable
+          generating AI questions.
+        </p>
       ) : null}
 
       {!awaiting && activeGuide ? (
