@@ -12649,6 +12649,9 @@ export interface AdminResearchQuestion {
   weekStart: string | null;
   prompt: string;
   followUp: string | null;
+  category: string | null;
+  purpose: string | null;
+  generationRunId: string | null;
   sortOrder: number;
   active: boolean;
   studyId: string | null;
@@ -12679,6 +12682,12 @@ export interface AdminInterviewGuideWeekly {
       title: string;
       occurredAt: string;
     } | null;
+    researchQuestionId: string | null;
+    researchQuestion: {
+      id: string;
+      publicId: string;
+      prompt: string;
+    } | null;
     createdByAdminId: string | null;
     createdAt: string;
     updatedAt: string;
@@ -12708,6 +12717,7 @@ export async function adminGenerateWeeklyInterviewQuestions(body?: {
     skipped: boolean;
     message?: string;
     source: "llm" | "heuristics" | null;
+    generationRunId: string | null;
     questions: AdminResearchQuestion[];
   }>(
     "/admin/research/interview-guides/generate-questions",
@@ -12721,6 +12731,7 @@ export async function adminCreateInterviewGuideNote(body: {
   body: string;
   participantId?: string;
   transcriptId?: string;
+  researchQuestionId?: string;
 }) {
   return adminResearchJson<{
     id: string;
@@ -12728,6 +12739,12 @@ export async function adminCreateInterviewGuideNote(body: {
     body: string;
     participantId: string | null;
     transcriptId: string | null;
+    researchQuestionId: string | null;
+    researchQuestion: {
+      id: string;
+      publicId: string;
+      prompt: string;
+    } | null;
     createdByAdminId: string | null;
     createdAt: string;
     updatedAt: string;

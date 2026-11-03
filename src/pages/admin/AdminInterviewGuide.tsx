@@ -55,8 +55,18 @@ function QuestionBlock(props: {
             {props.badge}
           </span>
         ) : null}
+        {props.question.category ? (
+          <span className="rounded border border-border px-1.5 py-0.5">
+            {props.question.category.replace(/_/g, " ")}
+          </span>
+        ) : null}
       </div>
       <p className="mt-2 text-sm font-medium">{props.question.prompt}</p>
+      {props.question.purpose ? (
+        <p className="mt-1 text-sm text-muted-foreground">
+          Purpose: {props.question.purpose}
+        </p>
+      ) : null}
       {props.question.followUp ? (
         <p className="mt-1 text-sm text-muted-foreground">
           Follow-up: {props.question.followUp}
@@ -79,6 +89,7 @@ export default function AdminInterviewGuide() {
   const [savingNote, setSavingNote] = useState(false);
   const [noteBody, setNoteBody] = useState("");
   const [transcriptId, setTranscriptId] = useState("");
+  const [noteQuestionId, setNoteQuestionId] = useState("");
   const loadGeneration = useRef(0);
   const weekStartRef = useRef(weekStart);
   weekStartRef.current = weekStart;
@@ -106,6 +117,9 @@ export default function AdminInterviewGuide() {
   }, []);
 
   useEffect(() => {
+    // Drop a stale RQ selection when the week changes so notes cannot
+    // attach to a question that is no longer in the active guide.
+    setNoteQuestionId("");
     if (!canRead) {
       setLoading(false);
       return;
@@ -251,8 +265,9 @@ export default function AdminInterviewGuide() {
                 3. AI-generated weekly questions
               </h3>
               <p className="text-sm text-muted-foreground">
-                These change as the Iteration Engine identifies new research
-                priorities. Each has a stable RQ id for later evaluation.
+                Generated from Iteration Engine gaps analytics cannot answer.
+                Each has a category, research purpose, and stable RQ id for
+                evaluation.
               </p>
             </div>
             <div className="space-y-2">
@@ -273,8 +288,8 @@ export default function AdminInterviewGuide() {
             <div>
               <h3 className="text-lg font-semibold">4. Interview notes</h3>
               <p className="text-sm text-muted-foreground">
-                Capture findings and optionally link a transcript UUID from
-                Research.
+                Capture findings and optionally link a research question and
+                transcript UUID from Research.
               </p>
             </div>
             <div className="space-y-2">
@@ -289,6 +304,11 @@ export default function AdminInterviewGuide() {
                       timeZone: "UTC",
                     })}{" "}
                     UTC
+                    {n.researchQuestion
+                      ? ` · ${n.researchQuestion.publicId}`
+                      : n.researchQuestionId
+                        ? ` · question: ${n.researchQuestionId}`
+                        : null}
                     {n.transcript
                       ? ` · transcript: ${n.transcript.title}`
                       : n.transcriptId
@@ -314,6 +334,28 @@ export default function AdminInterviewGuide() {
                   disabled={savingNote}
                   onChange={(e) => setNoteBody(e.target.value)}
                 />
+                <select
+                  aria-label="Optional research question"
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
+                  value={noteQuestionId}
+                  disabled={savingNote}
+                  onChange={(e) => setNoteQuestionId(e.target.value)}
+                >
+                  <option value="">Optional: link to research question</option>
+                  {[
+                    ...activeGuide.aiWeeklyQuestions,
+                    ...activeGuide.standardQuestions,
+                  ].map((q) => (
+                    <option key={q.id} value={q.id}>
+                      {q.publicId}
+                      {q.category
+                        ? ` · ${q.category.replace(/_/g, " ")}`
+                        : ""}{" "}
+                      — {q.prompt.slice(0, 80)}
+                      {q.prompt.length > 80 ? "…" : ""}
+                    </option>
+                  ))}
+                </select>
                 <input
                   aria-label="Optional transcript UUID"
                   className="rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
@@ -330,12 +372,22 @@ export default function AdminInterviewGuide() {
                     const requestedWeek = weekStart;
                     const submittedBody = noteBody.trim();
                     const submittedTranscript = transcriptId.trim();
+                    const activeQuestionIds = new Set([
+                      ...activeGuide.aiWeeklyQuestions.map((q) => q.id),
+                      ...activeGuide.standardQuestions.map((q) => q.id),
+                    ]);
+                    const submittedQuestionId = activeQuestionIds.has(
+                      noteQuestionId,
+                    )
+                      ? noteQuestionId.trim()
+                      : "";
                     setSavingNote(true);
                     setError(null);
                     void adminCreateInterviewGuideNote({
                       weekStart: requestedWeek,
                       body: submittedBody,
                       transcriptId: submittedTranscript || undefined,
+                      researchQuestionId: submittedQuestionId || undefined,
                     })
                       .then((res) => {
                         if (!res.ok || !res.data) {
@@ -348,6 +400,7 @@ export default function AdminInterviewGuide() {
                         // mid-save cannot leave text that duplicates on re-save.
                         setNoteBody("");
                         setTranscriptId("");
+                        setNoteQuestionId("");
 
                         if (weekStartRef.current !== requestedWeek) return;
 
@@ -373,6 +426,8 @@ export default function AdminInterviewGuide() {
                                 participant: null,
                                 transcriptId: saved.transcriptId,
                                 transcript: null,
+                                researchQuestionId: saved.researchQuestionId,
+                                researchQuestion: saved.researchQuestion,
                                 createdByAdminId: saved.createdByAdminId,
                                 createdAt: saved.createdAt,
                                 updatedAt: saved.updatedAt,
