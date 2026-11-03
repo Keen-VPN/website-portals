@@ -185,7 +185,7 @@ export default function AdminInterviewGuide() {
           {canWrite ? (
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || awaiting || !activeGuide}
               className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
               title={
                 (activeGuide?.aiWeeklyQuestions.length ?? 0) > 0
@@ -193,28 +193,31 @@ export default function AdminInterviewGuide() {
                   : "Generate AI weekly research questions for this week"
               }
               onClick={() => {
+                if (!activeGuide || awaiting) return;
                 const requestedWeek = weekStart;
-                const force =
-                  (activeGuide?.aiWeeklyQuestions.length ?? 0) > 0;
+                // Only trust force once the guide for this week is loaded.
+                const force = activeGuide.aiWeeklyQuestions.length > 0;
                 setBusy(true);
                 setError(null);
                 void adminGenerateWeeklyInterviewQuestions({
                   weekStart: requestedWeek,
                   force,
                 })
-                  .then((res) => {
+                  .then(async (res) => {
                     if (weekStartRef.current !== requestedWeek) return;
                     if (!res.ok) {
                       setError(res.error ?? "Generate failed");
                       return;
                     }
-                    void load({ silent: true });
                     if (res.data?.skipped) {
                       setError(
                         res.data.message ??
                           "AI questions already exist for this week.",
                       );
                     }
+                    // Keep the button busy until refresh finishes so a second
+                    // click cannot infer force:false from a stale/empty guide.
+                    await load({ silent: true });
                   })
                   .finally(() => setBusy(false));
               }}
