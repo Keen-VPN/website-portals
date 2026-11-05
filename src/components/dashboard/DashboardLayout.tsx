@@ -13,6 +13,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/downloads": "Downloads",
   "/class-action": "Class Actions",
   "/ai-assistant": "AI Assistant",
+  "/flight-compensation": "Flight Compensation",
 };
 
 export default function DashboardLayout() {
