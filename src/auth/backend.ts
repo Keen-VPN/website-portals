@@ -12633,6 +12633,12 @@ export async function adminReconcileFirefliesTranscripts() {
     succeeded: number;
     failed: number;
     skipped: number;
+    recommendationRetry?: {
+      postedMeetings: number;
+      posted: number;
+      generatedMeetings: number;
+      errors: string[];
+    };
   }>(
     "/admin/research/transcripts/reconcile",
     { method: "POST", body: "{}" },

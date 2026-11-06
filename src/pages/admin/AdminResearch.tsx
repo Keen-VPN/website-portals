@@ -323,14 +323,21 @@ export default function AdminResearch() {
                 type="button"
                 disabled={busy}
                 className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
-                onClick={() => {
+                onClick={async () => {
                   setBusy(true);
-                  void adminReconcileFirefliesTranscripts()
-                    .then((res) => {
-                      if (!res.ok) setError(res.error ?? "Reconcile failed");
-                      else void loadTranscripts({ offset: 0, append: false });
-                    })
-                    .finally(() => setBusy(false));
+                  try {
+                    const res = await adminReconcileFirefliesTranscripts();
+                    if (!res.ok) {
+                      setError(res.error ?? "Reconcile failed");
+                      return;
+                    }
+                    const draftError =
+                      res.data?.recommendationRetry?.errors?.[0];
+                    await loadTranscripts({ offset: 0, append: false });
+                    if (draftError) setError(draftError);
+                  } finally {
+                    setBusy(false);
+                  }
                 }}
               >
                 Reconcile Fireflies
