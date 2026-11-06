@@ -327,8 +327,14 @@ export default function AdminResearch() {
                   setBusy(true);
                   void adminReconcileFirefliesTranscripts()
                     .then((res) => {
-                      if (!res.ok) setError(res.error ?? "Reconcile failed");
-                      else void loadTranscripts({ offset: 0, append: false });
+                      if (!res.ok) {
+                        setError(res.error ?? "Reconcile failed");
+                        return;
+                      }
+                      const draftError =
+                        res.data?.recommendationRetry?.errors?.[0];
+                      if (draftError) setError(draftError);
+                      void loadTranscripts({ offset: 0, append: false });
                     })
                     .finally(() => setBusy(false));
                 }}
