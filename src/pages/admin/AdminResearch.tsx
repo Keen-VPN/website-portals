@@ -331,8 +331,9 @@ export default function AdminResearch() {
                       setError(res.error ?? "Reconcile failed");
                       return;
                     }
-                    const draftError =
-                      res.data?.recommendationRetry?.errors?.[0];
+                    const draftError = res.data?.recommendationRetry?.errors
+                      ?.filter((message) => message.trim())
+                      .join(" · ");
                     await loadTranscripts({ offset: 0, append: false });
                     if (draftError) setError(draftError);
                   } finally {
