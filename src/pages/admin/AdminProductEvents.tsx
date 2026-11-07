@@ -12,10 +12,12 @@ function BreakdownList({
   title,
   rows,
   loading,
+  failed = false,
 }: {
   title: string;
   rows: { label: string; count: number }[];
   loading: boolean;
+  failed?: boolean;
 }) {
   return (
     <div className="rounded-lg border border-border p-4">
@@ -33,7 +35,10 @@ function BreakdownList({
         {loading && rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : null}
-        {!loading && rows.length === 0 ? (
+        {!loading && failed && rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">—</p>
+        ) : null}
+        {!loading && !failed && rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No events recorded.</p>
         ) : null}
       </div>
@@ -81,6 +86,7 @@ export default function AdminProductEvents() {
   const [loadingIp, setLoadingIp] = useState(true);
   const [loadingReview, setLoadingReview] = useState(true);
   const [loadingRestricted, setLoadingRestricted] = useState(true);
+  const [restrictedFailed, setRestrictedFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fromInput, setFromInput] = useState("");
   const [toInput, setToInput] = useState("");
@@ -102,11 +108,13 @@ export default function AdminProductEvents() {
       setLoadingIp(true);
       setLoadingReview(true);
       setLoadingRestricted(true);
+      setRestrictedFailed(false);
       setError(null);
       if (fromValue && toValue && fromValue > toValue) {
         setSummary(null);
         setReviewSummary(null);
         setRestrictedSummary(null);
+        setRestrictedFailed(false);
         setError("Start date must be before end date");
         setLoadingIp(false);
         setLoadingReview(false);
@@ -174,9 +182,11 @@ export default function AdminProductEvents() {
         if (!isCurrent()) return;
         if (restrictedRes.ok && restrictedRes.data) {
           setRestrictedSummary(restrictedRes.data);
+          setRestrictedFailed(false);
           delete panelErrors.current.restricted;
         } else {
           setRestrictedSummary(null);
+          setRestrictedFailed(true);
           panelErrors.current.restricted =
             restrictedRes.error ??
             "Failed to load restricted network diagnostics";
@@ -380,10 +390,16 @@ export default function AdminProductEvents() {
         <div className="rounded-lg border border-border p-4">
           <p className="text-sm text-muted-foreground">Total diagnostics</p>
           <p className="mt-1 text-3xl font-semibold">
-            {restrictedSummary?.total ?? (loadingRestricted ? "…" : 0)}
+            {loadingRestricted
+              ? "…"
+              : restrictedFailed
+                ? "—"
+                : (restrictedSummary?.total ?? 0)}
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
-            {formatDateRange(restrictedSummary?.from, restrictedSummary?.to)}
+            {restrictedFailed
+              ? "Could not load diagnostics"
+              : formatDateRange(restrictedSummary?.from, restrictedSummary?.to)}
           </p>
         </div>
 
@@ -392,16 +408,19 @@ export default function AdminProductEvents() {
             title="By trigger"
             rows={restrictedSummary?.byTrigger ?? []}
             loading={loadingRestricted}
+            failed={restrictedFailed}
           />
           <BreakdownList
             title="By connectivity result"
             rows={restrictedSummary?.byConnectivityResult ?? []}
             loading={loadingRestricted}
+            failed={restrictedFailed}
           />
           <BreakdownList
             title="By Wi‑Fi security"
             rows={restrictedSummary?.byWifiSecurity ?? []}
             loading={loadingRestricted}
+            failed={restrictedFailed}
           />
         </div>
 
@@ -410,11 +429,13 @@ export default function AdminProductEvents() {
             title="By platform"
             rows={restrictedSummary?.byPlatform ?? []}
             loading={loadingRestricted}
+            failed={restrictedFailed}
           />
           <BreakdownList
             title="By public hint"
             rows={restrictedSummary?.byPublicHint ?? []}
             loading={loadingRestricted}
+            failed={restrictedFailed}
           />
         </div>
       </section>
