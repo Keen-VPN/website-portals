@@ -3527,6 +3527,17 @@ export interface AdminReviewPromptSummary {
   byPlatform: { label: string; count: number }[];
 }
 
+export interface AdminRestrictedNetworkDiagnosticSummary {
+  total: number;
+  from: string;
+  to: string;
+  byPlatform: { label: string; count: number }[];
+  byTrigger: { label: string; count: number }[];
+  byConnectivityResult: { label: string; count: number }[];
+  byPublicHint: { label: string; count: number }[];
+  byWifiSecurity: { label: string; count: number }[];
+}
+
 export interface AdminUserProfileAnswerDistribution {
   value: string;
   label: string;
@@ -5963,6 +5974,47 @@ export async function adminFetchReviewPromptSummary(params?: {
       };
     }
     const record = raw as { data?: AdminReviewPromptSummary };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchRestrictedNetworkDiagnosticSummary(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminRestrictedNetworkDiagnosticSummary;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/product-events/restricted-network-diagnostics${suffix}`,
+      {
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load restricted network diagnostics",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminRestrictedNetworkDiagnosticSummary };
     return { ok: true, data: record.data };
   } catch (e) {
     return {

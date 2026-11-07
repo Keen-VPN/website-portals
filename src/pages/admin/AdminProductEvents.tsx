@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   adminFetchIpAddressClickSummary,
+  adminFetchRestrictedNetworkDiagnosticSummary,
   adminFetchReviewPromptSummary,
   type AdminIpAddressClickSummary,
+  type AdminRestrictedNetworkDiagnosticSummary,
   type AdminReviewPromptSummary,
 } from "@/auth/backend";
 
@@ -72,6 +74,8 @@ export default function AdminProductEvents() {
   );
   const [reviewSummary, setReviewSummary] =
     useState<AdminReviewPromptSummary | null>(null);
+  const [restrictedSummary, setRestrictedSummary] =
+    useState<AdminRestrictedNetworkDiagnosticSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fromInput, setFromInput] = useState("");
@@ -88,6 +92,7 @@ export default function AdminProductEvents() {
     if (fromValue && toValue && fromValue > toValue) {
       setSummary(null);
       setReviewSummary(null);
+      setRestrictedSummary(null);
       setError("Start date must be before end date");
       setLoading(false);
       activeRequest.current = null;
@@ -96,9 +101,14 @@ export default function AdminProductEvents() {
 
     const from = dateInputToIsoStart(fromValue);
     const to = dateInputToIsoExclusiveEnd(toValue);
-    const [ipRes, reviewRes] = await Promise.all([
+    const [ipRes, reviewRes, restrictedRes] = await Promise.all([
       adminFetchIpAddressClickSummary({ from, to, signal: controller.signal }),
       adminFetchReviewPromptSummary({ from, to, signal: controller.signal }),
+      adminFetchRestrictedNetworkDiagnosticSummary({
+        from,
+        to,
+        signal: controller.signal,
+      }),
     ]);
 
     if (controller.signal.aborted || activeRequest.current !== controller) {
@@ -122,6 +132,16 @@ export default function AdminProductEvents() {
       setReviewSummary(null);
       errors.push(
         reviewRes.error ?? "Failed to load review prompt metrics",
+      );
+    }
+
+    if (restrictedRes.ok && restrictedRes.data) {
+      setRestrictedSummary(restrictedRes.data);
+    } else {
+      setRestrictedSummary(null);
+      errors.push(
+        restrictedRes.error ??
+          "Failed to load restricted network diagnostics",
       );
     }
 
@@ -299,6 +319,59 @@ export default function AdminProductEvents() {
           <BreakdownList
             title="Top server locations"
             rows={summary?.topServerLocations ?? []}
+            loading={loading}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold">
+            Restricted network diagnostics
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Coarse Wi‑Fi conditions when VPN fails (airline / hotel / captive).
+            No SSIDs are stored.
+          </p>
+        </div>
+
+        <div className="rounded-lg border border-border p-4">
+          <p className="text-sm text-muted-foreground">Total diagnostics</p>
+          <p className="mt-1 text-3xl font-semibold">
+            {restrictedSummary?.total ?? (loading ? "…" : 0)}
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {formatDateRange(restrictedSummary?.from, restrictedSummary?.to)}
+          </p>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <BreakdownList
+            title="By trigger"
+            rows={restrictedSummary?.byTrigger ?? []}
+            loading={loading}
+          />
+          <BreakdownList
+            title="By connectivity result"
+            rows={restrictedSummary?.byConnectivityResult ?? []}
+            loading={loading}
+          />
+          <BreakdownList
+            title="By Wi‑Fi security"
+            rows={restrictedSummary?.byWifiSecurity ?? []}
+            loading={loading}
+          />
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <BreakdownList
+            title="By platform"
+            rows={restrictedSummary?.byPlatform ?? []}
+            loading={loading}
+          />
+          <BreakdownList
+            title="By public hint"
+            rows={restrictedSummary?.byPublicHint ?? []}
             loading={loading}
           />
         </div>
