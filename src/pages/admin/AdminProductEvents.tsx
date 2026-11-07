@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   adminFetchIpAddressClickSummary,
+  adminFetchRestrictedNetworkDiagnosticSummary,
   adminFetchReviewPromptSummary,
   type AdminIpAddressClickSummary,
+  type AdminRestrictedNetworkDiagnosticSummary,
   type AdminReviewPromptSummary,
 } from "@/auth/backend";
 
@@ -10,10 +12,12 @@ function BreakdownList({
   title,
   rows,
   loading,
+  failed = false,
 }: {
   title: string;
   rows: { label: string; count: number }[];
   loading: boolean;
+  failed?: boolean;
 }) {
   return (
     <div className="rounded-lg border border-border p-4">
@@ -31,7 +35,10 @@ function BreakdownList({
         {loading && rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : null}
-        {!loading && rows.length === 0 ? (
+        {!loading && failed && rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">—</p>
+        ) : null}
+        {!loading && !failed && rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No events recorded.</p>
         ) : null}
       </div>
@@ -66,69 +73,131 @@ function dateInputToIsoExclusiveEnd(value: string) {
   return date.toISOString();
 }
 
+type PanelKey = "ip" | "review" | "restricted";
+
 export default function AdminProductEvents() {
   const [summary, setSummary] = useState<AdminIpAddressClickSummary | null>(
     null,
   );
   const [reviewSummary, setReviewSummary] =
     useState<AdminReviewPromptSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [restrictedSummary, setRestrictedSummary] =
+    useState<AdminRestrictedNetworkDiagnosticSummary | null>(null);
+  const [loadingIp, setLoadingIp] = useState(true);
+  const [loadingReview, setLoadingReview] = useState(true);
+  const [loadingRestricted, setLoadingRestricted] = useState(true);
+  const [restrictedFailed, setRestrictedFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fromInput, setFromInput] = useState("");
   const [toInput, setToInput] = useState("");
   const activeRequest = useRef<AbortController | null>(null);
+  const panelErrors = useRef<Partial<Record<PanelKey, string>>>({});
 
-  const load = useCallback(async (fromValue: string, toValue: string) => {
-    activeRequest.current?.abort();
-    const controller = new AbortController();
-    activeRequest.current = controller;
-
-    setLoading(true);
-    setError(null);
-    if (fromValue && toValue && fromValue > toValue) {
-      setSummary(null);
-      setReviewSummary(null);
-      setError("Start date must be before end date");
-      setLoading(false);
-      activeRequest.current = null;
-      return;
-    }
-
-    const from = dateInputToIsoStart(fromValue);
-    const to = dateInputToIsoExclusiveEnd(toValue);
-    const [ipRes, reviewRes] = await Promise.all([
-      adminFetchIpAddressClickSummary({ from, to, signal: controller.signal }),
-      adminFetchReviewPromptSummary({ from, to, signal: controller.signal }),
-    ]);
-
-    if (controller.signal.aborted || activeRequest.current !== controller) {
-      return;
-    }
-
-    const errors: string[] = [];
-
-    if (ipRes.ok && ipRes.data) {
-      setSummary(ipRes.data);
-    } else {
-      setSummary(null);
-      errors.push(
-        ipRes.error ?? "Failed to load IP address click metrics",
-      );
-    }
-
-    if (reviewRes.ok && reviewRes.data) {
-      setReviewSummary(reviewRes.data);
-    } else {
-      setReviewSummary(null);
-      errors.push(
-        reviewRes.error ?? "Failed to load review prompt metrics",
-      );
-    }
-
-    setError(errors.length > 0 ? errors.join(" · ") : null);
-    setLoading(false);
-    activeRequest.current = null;
+  const publishErrors = useCallback(() => {
+    const messages = Object.values(panelErrors.current).filter(Boolean);
+    setError(messages.length > 0 ? messages.join(" · ") : null);
   }, []);
+
+  const load = useCallback(
+    async (fromValue: string, toValue: string) => {
+      activeRequest.current?.abort();
+      const controller = new AbortController();
+      activeRequest.current = controller;
+      panelErrors.current = {};
+
+      setLoadingIp(true);
+      setLoadingReview(true);
+      setLoadingRestricted(true);
+      setRestrictedFailed(false);
+      setError(null);
+      if (fromValue && toValue && fromValue > toValue) {
+        setSummary(null);
+        setReviewSummary(null);
+        setRestrictedSummary(null);
+        setRestrictedFailed(false);
+        setError("Start date must be before end date");
+        setLoadingIp(false);
+        setLoadingReview(false);
+        setLoadingRestricted(false);
+        activeRequest.current = null;
+        return;
+      }
+
+      const from = dateInputToIsoStart(fromValue);
+      const to = dateInputToIsoExclusiveEnd(toValue);
+      const isCurrent = () =>
+        !controller.signal.aborted && activeRequest.current === controller;
+
+      let pending = 3;
+      const onPanelSettled = () => {
+        pending -= 1;
+        if (pending === 0 && activeRequest.current === controller) {
+          activeRequest.current = null;
+        }
+      };
+
+      void adminFetchIpAddressClickSummary({
+        from,
+        to,
+        signal: controller.signal,
+      }).then((ipRes) => {
+        if (!isCurrent()) return;
+        if (ipRes.ok && ipRes.data) {
+          setSummary(ipRes.data);
+          delete panelErrors.current.ip;
+        } else {
+          setSummary(null);
+          panelErrors.current.ip =
+            ipRes.error ?? "Failed to load IP address click metrics";
+        }
+        publishErrors();
+        setLoadingIp(false);
+        onPanelSettled();
+      });
+
+      void adminFetchReviewPromptSummary({
+        from,
+        to,
+        signal: controller.signal,
+      }).then((reviewRes) => {
+        if (!isCurrent()) return;
+        if (reviewRes.ok && reviewRes.data) {
+          setReviewSummary(reviewRes.data);
+          delete panelErrors.current.review;
+        } else {
+          setReviewSummary(null);
+          panelErrors.current.review =
+            reviewRes.error ?? "Failed to load review prompt metrics";
+        }
+        publishErrors();
+        setLoadingReview(false);
+        onPanelSettled();
+      });
+
+      void adminFetchRestrictedNetworkDiagnosticSummary({
+        from,
+        to,
+        signal: controller.signal,
+      }).then((restrictedRes) => {
+        if (!isCurrent()) return;
+        if (restrictedRes.ok && restrictedRes.data) {
+          setRestrictedSummary(restrictedRes.data);
+          setRestrictedFailed(false);
+          delete panelErrors.current.restricted;
+        } else {
+          setRestrictedSummary(null);
+          setRestrictedFailed(true);
+          panelErrors.current.restricted =
+            restrictedRes.error ??
+            "Failed to load restricted network diagnostics";
+        }
+        publishErrors();
+        setLoadingRestricted(false);
+        onPanelSettled();
+      });
+    },
+    [publishErrors],
+  );
 
   useEffect(() => {
     void load("", "");
@@ -206,32 +275,35 @@ export default function AdminProductEvents() {
           <div className="rounded-lg border border-border p-4">
             <p className="text-sm text-muted-foreground">Users prompted</p>
             <p className="mt-1 text-3xl font-semibold">
-              {reviewSummary?.usersPrompted ?? (loading ? "…" : 0)}
+              {reviewSummary?.usersPrompted ?? (loadingReview ? "…" : 0)}
             </p>
           </div>
           <div className="rounded-lg border border-border p-4">
             <p className="text-sm text-muted-foreground">Needs improvement</p>
             <p className="mt-1 text-3xl font-semibold">
-              {reviewSummary?.needsImprovementSelected ?? (loading ? "…" : 0)}
+              {reviewSummary?.needsImprovementSelected ??
+                (loadingReview ? "…" : 0)}
             </p>
           </div>
           <div className="rounded-lg border border-border p-4">
             <p className="text-sm text-muted-foreground">Feedback submitted</p>
             <p className="mt-1 text-3xl font-semibold">
-              {reviewSummary?.feedbackSubmitted ?? (loading ? "…" : 0)}
+              {reviewSummary?.feedbackSubmitted ?? (loadingReview ? "…" : 0)}
             </p>
           </div>
           <div className="rounded-lg border border-border p-4">
             <p className="text-sm text-muted-foreground">Feedback conversion</p>
             <p className="mt-1 text-3xl font-semibold">
-              {loading ? "…" : formatPercent(reviewSummary?.feedbackConversionRate)}
+              {loadingReview
+                ? "…"
+                : formatPercent(reviewSummary?.feedbackConversionRate)}
             </p>
           </div>
         </div>
 
         <div
           className={`rounded-lg border p-4 text-sm ${
-            loading || !reviewSummary
+            loadingReview || !reviewSummary
               ? "border-border bg-muted/30"
               : reviewSummary.feedbackFormEnabled
                 ? "border-border bg-muted/30"
@@ -240,14 +312,14 @@ export default function AdminProductEvents() {
         >
           <p className="font-medium">
             Feedback form (live app setting):{" "}
-            {loading || !reviewSummary
+            {loadingReview || !reviewSummary
               ? "…"
               : reviewSummary.feedbackFormEnabled
                 ? "enabled"
                 : "auto-disabled"}
           </p>
           <p className="mt-1 text-muted-foreground">
-            {loading
+            {loadingReview
               ? "Loading feedback form status…"
               : !reviewSummary
                 ? "Review prompt metrics unavailable."
@@ -259,14 +331,14 @@ export default function AdminProductEvents() {
 
         <p className="text-xs text-muted-foreground">
           {formatDateRange(reviewSummary?.from, reviewSummary?.to)} · Great:{" "}
-          {reviewSummary?.accepted ?? (loading ? "…" : 0)} · Later:{" "}
-          {reviewSummary?.dismissed ?? (loading ? "…" : 0)}
+          {reviewSummary?.accepted ?? (loadingReview ? "…" : 0)} · Later:{" "}
+          {reviewSummary?.dismissed ?? (loadingReview ? "…" : 0)}
         </p>
 
         <BreakdownList
           title="Prompt events by platform"
           rows={reviewSummary?.byPlatform ?? []}
-          loading={loading}
+          loading={loadingReview}
         />
       </section>
 
@@ -278,7 +350,7 @@ export default function AdminProductEvents() {
         <div className="rounded-lg border border-border p-4">
           <p className="text-sm text-muted-foreground">Total clicks</p>
           <p className="mt-1 text-3xl font-semibold">
-            {summary?.total ?? (loading ? "…" : 0)}
+            {summary?.total ?? (loadingIp ? "…" : 0)}
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             {formatDateRange(summary?.from, summary?.to)}
@@ -289,17 +361,81 @@ export default function AdminProductEvents() {
           <BreakdownList
             title="By platform"
             rows={summary?.byPlatform ?? []}
-            loading={loading}
+            loading={loadingIp}
           />
           <BreakdownList
             title="By connection status"
             rows={summary?.byConnectionStatus ?? []}
-            loading={loading}
+            loading={loadingIp}
           />
           <BreakdownList
             title="Top server locations"
             rows={summary?.topServerLocations ?? []}
-            loading={loading}
+            loading={loadingIp}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold">
+            Restricted network diagnostics
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Coarse Wi‑Fi conditions when VPN fails (airline / hotel / captive).
+            No SSIDs are stored.
+          </p>
+        </div>
+
+        <div className="rounded-lg border border-border p-4">
+          <p className="text-sm text-muted-foreground">Total diagnostics</p>
+          <p className="mt-1 text-3xl font-semibold">
+            {loadingRestricted
+              ? "…"
+              : restrictedFailed
+                ? "—"
+                : (restrictedSummary?.total ?? 0)}
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {restrictedFailed
+              ? "Could not load diagnostics"
+              : formatDateRange(restrictedSummary?.from, restrictedSummary?.to)}
+          </p>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <BreakdownList
+            title="By trigger"
+            rows={restrictedSummary?.byTrigger ?? []}
+            loading={loadingRestricted}
+            failed={restrictedFailed}
+          />
+          <BreakdownList
+            title="By connectivity result"
+            rows={restrictedSummary?.byConnectivityResult ?? []}
+            loading={loadingRestricted}
+            failed={restrictedFailed}
+          />
+          <BreakdownList
+            title="By Wi‑Fi security"
+            rows={restrictedSummary?.byWifiSecurity ?? []}
+            loading={loadingRestricted}
+            failed={restrictedFailed}
+          />
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <BreakdownList
+            title="By platform"
+            rows={restrictedSummary?.byPlatform ?? []}
+            loading={loadingRestricted}
+            failed={restrictedFailed}
+          />
+          <BreakdownList
+            title="By public hint"
+            rows={restrictedSummary?.byPublicHint ?? []}
+            loading={loadingRestricted}
+            failed={restrictedFailed}
           />
         </div>
       </section>
