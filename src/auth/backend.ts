@@ -7941,6 +7941,8 @@ export interface AdminProductWorkStoryDraft {
   environment: string;
   storyPoints: number | null;
   recommendedRp: string | null;
+  priorityRank?: number | null;
+  priorityRationale?: string | null;
 }
 
 export interface AdminProductWorkRecommendation {
@@ -7963,6 +7965,8 @@ export interface AdminProductWorkRecommendation {
   estimateUnavailableReason: string | null;
   estimateRubricVersion?: string | null;
   recommendedRp: string | null;
+  priorityRank?: number | null;
+  priorityRationale?: string | null;
   originalAiDraft: AdminProductWorkStoryDraft | Record<string, unknown> | null;
   finalJiraDraft?: AdminProductWorkStoryDraft | Record<string, unknown> | null;
   scopeChangeScore?: number | null;

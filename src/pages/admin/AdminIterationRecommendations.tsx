@@ -513,7 +513,16 @@ export default function AdminIterationRecommendations() {
                         role="button"
                         tabIndex={0}
                         aria-pressed={selectedId === row.id}
-                        aria-label={`Select recommendation ${row.title}`}
+                        aria-label={[
+                          "Select recommendation",
+                          row.priorityRank != null
+                            ? `priority ${row.priorityRank}`
+                            : null,
+                          row.title,
+                          row.priorityRationale ?? null,
+                        ]
+                          .filter(Boolean)
+                          .join(": ")}
                         className={`cursor-pointer border-b border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                           selectedId === row.id
                             ? "bg-muted/50"
@@ -528,7 +537,19 @@ export default function AdminIterationRecommendations() {
                         }}
                       >
                         <td className="p-3">
-                          <div className="font-medium">{row.title}</div>
+                          <div className="font-medium">
+                            {row.priorityRank != null ? (
+                              <span className="mr-2 text-xs text-muted-foreground">
+                                #{row.priorityRank}
+                              </span>
+                            ) : null}
+                            {row.title}
+                          </div>
+                          {row.priorityRationale ? (
+                            <div className="text-xs text-muted-foreground">
+                              {row.priorityRationale}
+                            </div>
+                          ) : null}
                           {row.environment ? (
                             <div className="text-xs text-muted-foreground">
                               {row.environment}
@@ -617,10 +638,26 @@ export default function AdminIterationRecommendations() {
             <p className="text-sm text-muted-foreground">
               Select a recommendation to review the full Jira-ready draft.
             </p>
-          ) : showOriginal && selected.originalAiDraft ? (
-            <OriginalDraftView draft={selected.originalAiDraft} />
           ) : (
             <>
+              {selected.priorityRank != null || selected.priorityRationale ? (
+                <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+                  {selected.priorityRank != null ? (
+                    <p className="font-medium">
+                      Priority #{selected.priorityRank}
+                    </p>
+                  ) : null}
+                  {selected.priorityRationale ? (
+                    <p className="text-muted-foreground">
+                      {selected.priorityRationale}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+              {showOriginal && selected.originalAiDraft ? (
+                <OriginalDraftView draft={selected.originalAiDraft} />
+              ) : (
+                <>
               <DraftFields
                 draft={draft}
                 disabled={!canEditDraft || busy}
@@ -883,6 +920,8 @@ export default function AdminIterationRecommendations() {
                   </p>
                 )}
               </div>
+                </>
+              )}
             </>
           )}
         </section>
