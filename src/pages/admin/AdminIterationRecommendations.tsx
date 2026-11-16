@@ -657,6 +657,7 @@ export default function AdminIterationRecommendations() {
               {showOriginal && selected.originalAiDraft ? (
                 <OriginalDraftView draft={selected.originalAiDraft} />
               ) : (
+                <>
               <DraftFields
                 draft={draft}
                 disabled={!canEditDraft || busy}
@@ -664,7 +665,6 @@ export default function AdminIterationRecommendations() {
                 environments={createOptions?.environments ?? []}
                 responsiblePersons={createOptions?.responsiblePersons ?? []}
               />
-              )}
               {selected.evaluationTotalScore != null ||
               selected.scopeChangeScore != null ||
               selected.estimateAccuracyScore != null ||
@@ -920,6 +920,8 @@ export default function AdminIterationRecommendations() {
                   </p>
                 )}
               </div>
+                </>
+              )}
             </>
           )}
         </section>
