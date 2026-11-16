@@ -528,7 +528,19 @@ export default function AdminIterationRecommendations() {
                         }}
                       >
                         <td className="p-3">
-                          <div className="font-medium">{row.title}</div>
+                          <div className="font-medium">
+                            {row.priorityRank != null ? (
+                              <span className="mr-2 text-xs text-muted-foreground">
+                                #{row.priorityRank}
+                              </span>
+                            ) : null}
+                            {row.title}
+                          </div>
+                          {row.priorityRationale ? (
+                            <div className="text-xs text-muted-foreground">
+                              {row.priorityRationale}
+                            </div>
+                          ) : null}
                           {row.environment ? (
                             <div className="text-xs text-muted-foreground">
                               {row.environment}
@@ -621,6 +633,20 @@ export default function AdminIterationRecommendations() {
             <OriginalDraftView draft={selected.originalAiDraft} />
           ) : (
             <>
+              {selected.priorityRank != null || selected.priorityRationale ? (
+                <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+                  {selected.priorityRank != null ? (
+                    <p className="font-medium">
+                      Priority #{selected.priorityRank}
+                    </p>
+                  ) : null}
+                  {selected.priorityRationale ? (
+                    <p className="text-muted-foreground">
+                      {selected.priorityRationale}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               <DraftFields
                 draft={draft}
                 disabled={!canEditDraft || busy}
