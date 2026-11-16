@@ -513,7 +513,16 @@ export default function AdminIterationRecommendations() {
                         role="button"
                         tabIndex={0}
                         aria-pressed={selectedId === row.id}
-                        aria-label={`Select recommendation ${row.title}`}
+                        aria-label={[
+                          "Select recommendation",
+                          row.priorityRank != null
+                            ? `priority ${row.priorityRank}`
+                            : null,
+                          row.title,
+                          row.priorityRationale ?? null,
+                        ]
+                          .filter(Boolean)
+                          .join(": ")}
                         className={`cursor-pointer border-b border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                           selectedId === row.id
                             ? "bg-muted/50"
@@ -629,8 +638,6 @@ export default function AdminIterationRecommendations() {
             <p className="text-sm text-muted-foreground">
               Select a recommendation to review the full Jira-ready draft.
             </p>
-          ) : showOriginal && selected.originalAiDraft ? (
-            <OriginalDraftView draft={selected.originalAiDraft} />
           ) : (
             <>
               {selected.priorityRank != null || selected.priorityRationale ? (
@@ -647,6 +654,9 @@ export default function AdminIterationRecommendations() {
                   ) : null}
                 </div>
               ) : null}
+              {showOriginal && selected.originalAiDraft ? (
+                <OriginalDraftView draft={selected.originalAiDraft} />
+              ) : (
               <DraftFields
                 draft={draft}
                 disabled={!canEditDraft || busy}
@@ -654,6 +664,7 @@ export default function AdminIterationRecommendations() {
                 environments={createOptions?.environments ?? []}
                 responsiblePersons={createOptions?.responsiblePersons ?? []}
               />
+              )}
               {selected.evaluationTotalScore != null ||
               selected.scopeChangeScore != null ||
               selected.estimateAccuracyScore != null ||
