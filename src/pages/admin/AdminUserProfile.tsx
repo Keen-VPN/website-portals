@@ -82,6 +82,53 @@ function MeasureTile({
   );
 }
 
+const PREVIEW_CSP =
+  "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; base-uri 'none'; form-action 'none';";
+
+/** Only schemes safe to open via allow-popups-to-escape-sandbox. */
+function isAllowedPreviewHref(href: string): boolean {
+  const trimmed = href.trim();
+  if (!trimmed || trimmed.startsWith('#')) return true;
+  // Reject protocol-relative and exotic schemes (data:, javascript:, etc.).
+  if (trimmed.startsWith('//')) return false;
+  return /^(https?:|mailto:)/i.test(trimmed);
+}
+
+/**
+ * Parse with DOMParser so we never regex-corrupt quoted attrs, always inject a
+ * real <head> CSP (comments cannot swallow it), and neutralize unsafe links.
+ */
+function wrapEmailPreviewHtml(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const cspMeta = doc.createElement('meta');
+  cspMeta.httpEquiv = 'Content-Security-Policy';
+  cspMeta.content = PREVIEW_CSP;
+  doc.head.insertBefore(cspMeta, doc.head.firstChild);
+
+  for (const anchor of Array.from(doc.querySelectorAll('a'))) {
+    const href = anchor.getAttribute('href') ?? '';
+    if (!isAllowedPreviewHref(href)) {
+      anchor.removeAttribute('href');
+      anchor.removeAttribute('target');
+      continue;
+    }
+    if (href.trim() && !href.trim().startsWith('#')) {
+      anchor.setAttribute('target', '_blank');
+      const relTokens = new Set(
+        (anchor.getAttribute('rel') ?? '')
+          .split(/\s+/)
+          .map((t) => t.toLowerCase())
+          .filter((t) => t && t !== 'opener'),
+      );
+      relTokens.add('noopener');
+      relTokens.add('noreferrer');
+      anchor.setAttribute('rel', Array.from(relTokens).join(' '));
+    }
+  }
+
+  return `<!DOCTYPE html>${doc.documentElement.outerHTML}`;
+}
+
 function EmailTable({
   userId,
   emails,
@@ -213,9 +260,9 @@ function EmailTable({
               </DialogHeader>
               <iframe
                 title={preview.subject}
-                srcDoc={preview.html}
+                srcDoc={wrapEmailPreviewHtml(preview.html)}
                 className="min-h-[60vh] w-full flex-1 bg-white"
-                sandbox=""
+                sandbox="allow-popups allow-popups-to-escape-sandbox"
               />
               <DialogFooter className="border-t border-border p-3">
                 <Button

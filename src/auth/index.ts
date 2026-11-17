@@ -132,6 +132,7 @@ export {
   adminLogout,
   adminFetchMe,
   adminFetchUsersOverview,
+  adminFetchUserEmailPreview,
   adminCreateUser,
   adminUpdateOwnPassword,
   adminListTransferRequests,
