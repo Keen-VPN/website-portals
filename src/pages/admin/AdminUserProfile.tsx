@@ -82,27 +82,51 @@ function MeasureTile({
   );
 }
 
-/** Block remote images/scripts so preview cannot fire tracking pixels. */
+const PREVIEW_CSP =
+  "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; base-uri 'none'; form-action 'none';";
+
+/** Only schemes safe to open via allow-popups-to-escape-sandbox. */
+function isAllowedPreviewHref(href: string): boolean {
+  const trimmed = href.trim();
+  if (!trimmed || trimmed.startsWith('#')) return true;
+  // Reject protocol-relative and exotic schemes (data:, javascript:, etc.).
+  if (trimmed.startsWith('//')) return false;
+  return /^(https?:|mailto:)/i.test(trimmed);
+}
+
+/**
+ * Parse with DOMParser so we never regex-corrupt quoted attrs, always inject a
+ * real <head> CSP (comments cannot swallow it), and neutralize unsafe links.
+ */
 function wrapEmailPreviewHtml(html: string): string {
-  const csp =
-    "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; base-uri 'none'; form-action 'none';\">";
-  const withBlankTargets = html.replace(
-    /<a\b([^>]*?)>/gi,
-    (match, attrs: string) => {
-      let next = attrs;
-      if (!/\btarget=/i.test(next)) {
-        next += ' target="_blank"';
-      }
-      if (!/\brel=/i.test(next)) {
-        next += ' rel="noopener noreferrer"';
-      }
-      return `<a${next}>`;
-    },
-  );
-  if (/<head[\s>]/i.test(withBlankTargets)) {
-    return withBlankTargets.replace(/<head([^>]*)>/i, `<head$1>${csp}`);
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const cspMeta = doc.createElement('meta');
+  cspMeta.httpEquiv = 'Content-Security-Policy';
+  cspMeta.content = PREVIEW_CSP;
+  doc.head.insertBefore(cspMeta, doc.head.firstChild);
+
+  for (const anchor of Array.from(doc.querySelectorAll('a'))) {
+    const href = anchor.getAttribute('href') ?? '';
+    if (!isAllowedPreviewHref(href)) {
+      anchor.removeAttribute('href');
+      anchor.removeAttribute('target');
+      continue;
+    }
+    if (href.trim() && !href.trim().startsWith('#')) {
+      anchor.setAttribute('target', '_blank');
+      const relTokens = new Set(
+        (anchor.getAttribute('rel') ?? '')
+          .split(/\s+/)
+          .map((t) => t.toLowerCase())
+          .filter((t) => t && t !== 'opener'),
+      );
+      relTokens.add('noopener');
+      relTokens.add('noreferrer');
+      anchor.setAttribute('rel', Array.from(relTokens).join(' '));
+    }
   }
-  return `<!DOCTYPE html><html><head>${csp}</head><body>${withBlankTargets}</body></html>`;
+
+  return `<!DOCTYPE html>${doc.documentElement.outerHTML}`;
 }
 
 function EmailTable({
