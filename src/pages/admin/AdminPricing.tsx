@@ -459,14 +459,22 @@ export default function AdminPricing() {
       // response cannot blank the page (platformResults / auditEvents).
       const refreshed = await adminGetPricingChange(id);
       if (refreshed.ok && refreshed.data) {
-        setDetail(refreshed.data);
+        const next = refreshed.data;
+        // Skip if the user closed/switched the panel while reload was in flight.
+        setDetail((prev) => (prev?.id === id ? next : prev));
       } else if (res.data) {
-        setDetail({
+        const next = {
           ...res.data,
           platformResults: res.data.platformResults ?? [],
           auditEvents: res.data.auditEvents ?? [],
           proposedChanges: res.data.proposedChanges ?? [],
-        });
+        };
+        setDetail((prev) => (prev?.id === id ? next : prev));
+      } else {
+        setError(
+          refreshed.error ??
+            "Submitted, but failed to refresh the pricing request. Reload before retrying.",
+        );
       }
     }
     await loadRequests();
