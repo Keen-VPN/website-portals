@@ -455,7 +455,27 @@ export default function AdminPricing() {
       setNotes("");
     }
     if (detail?.id === id) {
-      setDetail((prev) => res.data ?? prev);
+      // Prefer a full reload so missing nested arrays from a lean submit
+      // response cannot blank the page (platformResults / auditEvents).
+      const refreshed = await adminGetPricingChange(id);
+      if (refreshed.ok && refreshed.data) {
+        const next = refreshed.data;
+        // Skip if the user closed/switched the panel while reload was in flight.
+        setDetail((prev) => (prev?.id === id ? next : prev));
+      } else if (res.data) {
+        const next = {
+          ...res.data,
+          platformResults: res.data.platformResults ?? [],
+          auditEvents: res.data.auditEvents ?? [],
+          proposedChanges: res.data.proposedChanges ?? [],
+        };
+        setDetail((prev) => (prev?.id === id ? next : prev));
+      } else {
+        setError(
+          refreshed.error ??
+            "Submitted, but failed to refresh the pricing request. Reload before retrying.",
+        );
+      }
     }
     await loadRequests();
     setBusy(false);
@@ -1026,11 +1046,11 @@ export default function AdminPricing() {
 
           <div>
             <h4 className="mb-2 text-sm font-semibold">Platform results</h4>
-            {detail.platformResults.length === 0 ? (
+            {(detail.platformResults ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground">None yet</p>
             ) : (
               <ul className="space-y-1 text-sm">
-                {detail.platformResults.map((r) => (
+                {(detail.platformResults ?? []).map((r) => (
                   <li key={r.id}>
                     <span className="font-medium">{r.platform}</span>: {r.status}
                     {r.message ? ` — ${r.message}` : ""}
@@ -1042,14 +1062,18 @@ export default function AdminPricing() {
 
           <div>
             <h4 className="mb-2 text-sm font-semibold">Audit</h4>
-            <ul className="space-y-1 text-xs text-muted-foreground">
-              {detail.auditEvents.map((e) => (
-                <li key={e.id}>
-                  {new Date(e.createdAt).toLocaleString()} · {e.action}
-                  {e.actorLabel ? ` · ${e.actorLabel}` : ""}
-                </li>
-              ))}
-            </ul>
+            {(detail.auditEvents ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">No audit events yet.</p>
+            ) : (
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                {(detail.auditEvents ?? []).map((e) => (
+                  <li key={e.id}>
+                    {new Date(e.createdAt).toLocaleString()} · {e.action}
+                    {e.actorLabel ? ` · ${e.actorLabel}` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {detail.status === "PENDING_APPROVAL" && canApprove ? (
