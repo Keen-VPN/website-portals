@@ -82,6 +82,29 @@ function MeasureTile({
   );
 }
 
+/** Block remote images/scripts so preview cannot fire tracking pixels. */
+function wrapEmailPreviewHtml(html: string): string {
+  const csp =
+    "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; base-uri 'none'; form-action 'none';\">";
+  const withBlankTargets = html.replace(
+    /<a\b([^>]*?)>/gi,
+    (match, attrs: string) => {
+      let next = attrs;
+      if (!/\btarget=/i.test(next)) {
+        next += ' target="_blank"';
+      }
+      if (!/\brel=/i.test(next)) {
+        next += ' rel="noopener noreferrer"';
+      }
+      return `<a${next}>`;
+    },
+  );
+  if (/<head[\s>]/i.test(withBlankTargets)) {
+    return withBlankTargets.replace(/<head([^>]*)>/i, `<head$1>${csp}`);
+  }
+  return `<!DOCTYPE html><html><head>${csp}</head><body>${withBlankTargets}</body></html>`;
+}
+
 function EmailTable({
   userId,
   emails,
@@ -213,9 +236,9 @@ function EmailTable({
               </DialogHeader>
               <iframe
                 title={preview.subject}
-                srcDoc={preview.html}
+                srcDoc={wrapEmailPreviewHtml(preview.html)}
                 className="min-h-[60vh] w-full flex-1 bg-white"
-                sandbox=""
+                sandbox="allow-popups allow-popups-to-escape-sandbox"
               />
               <DialogFooter className="border-t border-border p-3">
                 <Button
