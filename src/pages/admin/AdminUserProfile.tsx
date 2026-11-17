@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   adminFetchUserEngagementProfile,
+  adminFetchUserEmailPreview,
   adminGetUserAuthEmail,
   adminRequestUserAuthEmailChange,
   adminResendUserAuthEmailChange,
   adminCancelUserAuthEmailChange,
   type AdminUserEngagementProfile,
+  type AdminUserEmailPreview,
   type AdminUserEmailRecord,
   type AdminUserReviewActivityRecord,
   type AdminUserTimelineEvent,
@@ -72,51 +74,140 @@ function MeasureTile({
   );
 }
 
-function EmailTable({ emails }: { emails: AdminUserEmailRecord[] }) {
+function EmailTable({
+  userId,
+  emails,
+}: {
+  userId: string;
+  emails: AdminUserEmailRecord[];
+}) {
+  const [preview, setPreview] = useState<AdminUserEmailPreview | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  const openPreview = async (email: AdminUserEmailRecord) => {
+    if (!email.previewAvailable) return;
+    setPreviewError(null);
+    setPreviewLoadingId(email.id);
+    const result = await adminFetchUserEmailPreview(
+      userId,
+      email.category,
+      email.id,
+    );
+    setPreviewLoadingId(null);
+    if (!result.ok || !result.data) {
+      setPreviewError(result.error ?? "Failed to load email preview");
+      return;
+    }
+    setPreview(result.data);
+  };
+
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[900px] text-sm">
-        <thead className="bg-muted/50">
-          <tr className="text-left">
-            <th className="p-3">Category</th>
-            <th className="p-3">Subject</th>
-            <th className="p-3">Sent</th>
-            <th className="p-3">Delivery</th>
-            <th className="p-3">Opened</th>
-            <th className="p-3">Clicked</th>
-          </tr>
-        </thead>
-        <tbody>
-          {emails.map((email) => (
-            <tr key={email.id} className="border-t border-border">
-              <td className="p-3 text-muted-foreground">
-                {formatCategory(email.category)}
-              </td>
-              <td className="p-3">{email.subject}</td>
-              <td className="p-3 whitespace-nowrap text-muted-foreground">
-                {formatDateTime(email.sentAt)}
-              </td>
-              <td className="p-3">
-                <StatusBadge value={email.deliveryStatus} />
-              </td>
-              <td className="p-3 whitespace-nowrap text-muted-foreground">
-                {formatDateTime(email.openedAt)}
-              </td>
-              <td className="p-3 whitespace-nowrap text-muted-foreground">
-                {formatDateTime(email.clickedAt)}
-              </td>
+    <>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full min-w-[900px] text-sm">
+          <thead className="bg-muted/50">
+            <tr className="text-left">
+              <th className="p-3">Category</th>
+              <th className="p-3">Subject</th>
+              <th className="p-3">Sent</th>
+              <th className="p-3">Delivery</th>
+              <th className="p-3">Opened</th>
+              <th className="p-3">Clicked</th>
             </tr>
-          ))}
-          {emails.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="p-4 text-muted-foreground">
-                No tracked emails for this user yet.
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {emails.map((email) => (
+              <tr key={email.id} className="border-t border-border">
+                <td className="p-3 text-muted-foreground">
+                  {formatCategory(email.category)}
+                </td>
+                <td className="p-3">
+                  {email.previewAvailable ? (
+                    <button
+                      type="button"
+                      className="text-left text-sky-400 underline-offset-2 hover:underline disabled:opacity-60"
+                      disabled={previewLoadingId === email.id}
+                      onClick={() => void openPreview(email)}
+                    >
+                      {previewLoadingId === email.id
+                        ? "Loading…"
+                        : email.subject}
+                    </button>
+                  ) : (
+                    email.subject
+                  )}
+                </td>
+                <td className="p-3 whitespace-nowrap text-muted-foreground">
+                  {formatDateTime(email.sentAt)}
+                </td>
+                <td className="p-3">
+                  <StatusBadge value={email.deliveryStatus} />
+                </td>
+                <td className="p-3 whitespace-nowrap text-muted-foreground">
+                  {formatDateTime(email.openedAt)}
+                </td>
+                <td className="p-3 whitespace-nowrap text-muted-foreground">
+                  {formatDateTime(email.clickedAt)}
+                </td>
+              </tr>
+            ))}
+            {emails.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-4 text-muted-foreground">
+                  No tracked emails for this user yet.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+      {previewError ? (
+        <p className="mt-2 text-sm text-destructive">{previewError}</p>
+      ) : null}
+      {preview ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Email preview"
+          onClick={() => setPreview(null)}
+        >
+          <div
+            className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-border bg-background shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-border p-4">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {formatCategory(preview.category)}
+                </p>
+                <h3 className="text-base font-medium">{preview.subject}</h3>
+                {preview.note ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {preview.note}
+                  </p>
+                ) : null}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPreview(null)}
+              >
+                Close
+              </Button>
+            </div>
+            <iframe
+              title={preview.subject}
+              srcDoc={preview.html}
+              className="min-h-[60vh] w-full flex-1 bg-white"
+              sandbox=""
+            />
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -693,7 +784,7 @@ export default function AdminUserProfile() {
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : (
-          <EmailTable emails={profile?.emails ?? []} />
+          <EmailTable userId={userId!} emails={profile?.emails ?? []} />
         )}
       </section>
 
