@@ -4082,6 +4082,16 @@ export interface AdminUserEmailRecord {
   openedAt: string | null;
   clickedAt: string | null;
   metadata: Record<string, unknown> | null;
+  previewAvailable?: boolean;
+}
+
+export interface AdminUserEmailPreview {
+  id: string;
+  category: string;
+  subject: string;
+  html: string;
+  reconstructed: boolean;
+  note: string | null;
 }
 
 export interface AdminUserReviewActivityRecord {
@@ -4290,6 +4300,47 @@ export async function adminFetchUserEngagementProfile(
       };
     }
     const record = raw as { data?: AdminUserEngagementProfile };
+    if (!record.data) {
+      return { ok: false, error: "Invalid response from server" };
+    }
+    return { ok: true, data: record.data };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchUserEmailPreview(
+  userId: string,
+  category: string,
+  emailId: string,
+  params?: { signal?: AbortSignal },
+): Promise<{
+  ok: boolean;
+  data?: AdminUserEmailPreview;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/emails/${encodeURIComponent(category)}/${encodeURIComponent(emailId)}/preview`,
+      {
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load email preview"),
+      };
+    }
+    const record = raw as { data?: AdminUserEmailPreview };
     if (!record.data) {
       return { ok: false, error: "Invalid response from server" };
     }

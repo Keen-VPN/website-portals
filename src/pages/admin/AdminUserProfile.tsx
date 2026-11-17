@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   adminFetchUserEngagementProfile,
+  adminFetchUserEmailPreview,
   adminGetUserAuthEmail,
   adminRequestUserAuthEmailChange,
   adminResendUserAuthEmailChange,
   adminCancelUserAuthEmailChange,
   type AdminUserEngagementProfile,
+  type AdminUserEmailPreview,
   type AdminUserEmailRecord,
   type AdminUserReviewActivityRecord,
   type AdminUserTimelineEvent,
@@ -15,6 +17,14 @@ import {
 import { formatDuration } from "@/lib/format-duration";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AdminInterviewInvitationDialog } from "./AdminInterviewInvitationDialog";
@@ -72,51 +82,202 @@ function MeasureTile({
   );
 }
 
-function EmailTable({ emails }: { emails: AdminUserEmailRecord[] }) {
+const PREVIEW_CSP =
+  "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; base-uri 'none'; form-action 'none';";
+
+/** Only schemes safe to open via allow-popups-to-escape-sandbox. */
+function isAllowedPreviewHref(href: string): boolean {
+  const trimmed = href.trim();
+  if (!trimmed || trimmed.startsWith('#')) return true;
+  // Reject protocol-relative and exotic schemes (data:, javascript:, etc.).
+  if (trimmed.startsWith('//')) return false;
+  return /^(https?:|mailto:)/i.test(trimmed);
+}
+
+/**
+ * Parse with DOMParser so we never regex-corrupt quoted attrs, always inject a
+ * real <head> CSP (comments cannot swallow it), and neutralize unsafe links.
+ */
+function wrapEmailPreviewHtml(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const cspMeta = doc.createElement('meta');
+  cspMeta.httpEquiv = 'Content-Security-Policy';
+  cspMeta.content = PREVIEW_CSP;
+  doc.head.insertBefore(cspMeta, doc.head.firstChild);
+
+  for (const anchor of Array.from(doc.querySelectorAll('a'))) {
+    const href = anchor.getAttribute('href') ?? '';
+    if (!isAllowedPreviewHref(href)) {
+      anchor.removeAttribute('href');
+      anchor.removeAttribute('target');
+      continue;
+    }
+    if (href.trim() && !href.trim().startsWith('#')) {
+      anchor.setAttribute('target', '_blank');
+      const relTokens = new Set(
+        (anchor.getAttribute('rel') ?? '')
+          .split(/\s+/)
+          .map((t) => t.toLowerCase())
+          .filter((t) => t && t !== 'opener'),
+      );
+      relTokens.add('noopener');
+      relTokens.add('noreferrer');
+      anchor.setAttribute('rel', Array.from(relTokens).join(' '));
+    }
+  }
+
+  return `<!DOCTYPE html>${doc.documentElement.outerHTML}`;
+}
+
+function EmailTable({
+  userId,
+  emails,
+}: {
+  userId: string;
+  emails: AdminUserEmailRecord[];
+}) {
+  const [preview, setPreview] = useState<AdminUserEmailPreview | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const previewRequestRef = useRef(0);
+  const previewAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => previewAbortRef.current?.abort(), []);
+
+  const openPreview = async (email: AdminUserEmailRecord) => {
+    if (!email.previewAvailable) return;
+    previewAbortRef.current?.abort();
+    const controller = new AbortController();
+    previewAbortRef.current = controller;
+    const requestId = previewRequestRef.current + 1;
+    previewRequestRef.current = requestId;
+
+    setPreviewError(null);
+    setPreviewLoadingId(email.id);
+    const result = await adminFetchUserEmailPreview(
+      userId,
+      email.category,
+      email.id,
+      { signal: controller.signal },
+    );
+    if (requestId !== previewRequestRef.current) return;
+    setPreviewLoadingId(null);
+    if (!result.ok || !result.data) {
+      if (result.error === "Request aborted") return;
+      setPreviewError(result.error ?? "Failed to load email preview");
+      return;
+    }
+    setPreview(result.data);
+    setPreviewOpen(true);
+  };
+
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[900px] text-sm">
-        <thead className="bg-muted/50">
-          <tr className="text-left">
-            <th className="p-3">Category</th>
-            <th className="p-3">Subject</th>
-            <th className="p-3">Sent</th>
-            <th className="p-3">Delivery</th>
-            <th className="p-3">Opened</th>
-            <th className="p-3">Clicked</th>
-          </tr>
-        </thead>
-        <tbody>
-          {emails.map((email) => (
-            <tr key={email.id} className="border-t border-border">
-              <td className="p-3 text-muted-foreground">
-                {formatCategory(email.category)}
-              </td>
-              <td className="p-3">{email.subject}</td>
-              <td className="p-3 whitespace-nowrap text-muted-foreground">
-                {formatDateTime(email.sentAt)}
-              </td>
-              <td className="p-3">
-                <StatusBadge value={email.deliveryStatus} />
-              </td>
-              <td className="p-3 whitespace-nowrap text-muted-foreground">
-                {formatDateTime(email.openedAt)}
-              </td>
-              <td className="p-3 whitespace-nowrap text-muted-foreground">
-                {formatDateTime(email.clickedAt)}
-              </td>
+    <>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full min-w-[900px] text-sm">
+          <thead className="bg-muted/50">
+            <tr className="text-left">
+              <th className="p-3">Category</th>
+              <th className="p-3">Subject</th>
+              <th className="p-3">Sent</th>
+              <th className="p-3">Delivery</th>
+              <th className="p-3">Opened</th>
+              <th className="p-3">Clicked</th>
             </tr>
-          ))}
-          {emails.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="p-4 text-muted-foreground">
-                No tracked emails for this user yet.
-              </td>
-            </tr>
+          </thead>
+          <tbody>
+            {emails.map((email) => (
+              <tr key={email.id} className="border-t border-border">
+                <td className="p-3 text-muted-foreground">
+                  {formatCategory(email.category)}
+                </td>
+                <td className="p-3">
+                  {email.previewAvailable ? (
+                    <button
+                      type="button"
+                      className="text-left text-sky-400 underline-offset-2 hover:underline disabled:opacity-60"
+                      disabled={previewLoadingId === email.id}
+                      onClick={() => void openPreview(email)}
+                    >
+                      {previewLoadingId === email.id
+                        ? "Loading…"
+                        : email.subject}
+                    </button>
+                  ) : (
+                    email.subject
+                  )}
+                </td>
+                <td className="p-3 whitespace-nowrap text-muted-foreground">
+                  {formatDateTime(email.sentAt)}
+                </td>
+                <td className="p-3">
+                  <StatusBadge value={email.deliveryStatus} />
+                </td>
+                <td className="p-3 whitespace-nowrap text-muted-foreground">
+                  {formatDateTime(email.openedAt)}
+                </td>
+                <td className="p-3 whitespace-nowrap text-muted-foreground">
+                  {formatDateTime(email.clickedAt)}
+                </td>
+              </tr>
+            ))}
+            {emails.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-4 text-muted-foreground">
+                  No tracked emails for this user yet.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+      {previewError ? (
+        <p className="mt-2 text-sm text-destructive">{previewError}</p>
+      ) : null}
+      <Dialog open={previewOpen && preview != null} onOpenChange={setPreviewOpen}>
+        <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col gap-0 overflow-hidden p-0">
+          {preview ? (
+            <>
+              <DialogHeader className="space-y-1 border-b border-border p-4 pr-12 text-left">
+                <p className="text-sm text-muted-foreground">
+                  {formatCategory(preview.category)}
+                </p>
+                <DialogTitle className="text-base font-medium">
+                  {preview.subject}
+                </DialogTitle>
+                <DialogDescription asChild>
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    {preview.reconstructed ? (
+                      <p>
+                        Reconstructed preview; may differ from the email
+                        actually sent.
+                      </p>
+                    ) : null}
+                    {preview.note ? <p>{preview.note}</p> : null}
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+              <iframe
+                title={preview.subject}
+                srcDoc={wrapEmailPreviewHtml(preview.html)}
+                className="min-h-[60vh] w-full flex-1 bg-white"
+                sandbox="allow-popups allow-popups-to-escape-sandbox"
+              />
+              <DialogFooter className="border-t border-border p-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPreviewOpen(false)}
+                >
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
           ) : null}
-        </tbody>
-      </table>
-    </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -692,9 +853,9 @@ export default function AdminUserProfile() {
         </div>
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : (
-          <EmailTable emails={profile?.emails ?? []} />
-        )}
+        ) : userId ? (
+          <EmailTable userId={userId} emails={profile?.emails ?? []} />
+        ) : null}
       </section>
 
       <section className="space-y-3">
