@@ -17,6 +17,14 @@ import {
 import { formatDuration } from "@/lib/format-duration";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AdminInterviewInvitationDialog } from "./AdminInterviewInvitationDialog";
@@ -82,24 +90,37 @@ function EmailTable({
   emails: AdminUserEmailRecord[];
 }) {
   const [preview, setPreview] = useState<AdminUserEmailPreview | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const previewRequestRef = useRef(0);
+  const previewAbortRef = useRef<AbortController | null>(null);
 
   const openPreview = async (email: AdminUserEmailRecord) => {
     if (!email.previewAvailable) return;
+    previewAbortRef.current?.abort();
+    const controller = new AbortController();
+    previewAbortRef.current = controller;
+    const requestId = previewRequestRef.current + 1;
+    previewRequestRef.current = requestId;
+
     setPreviewError(null);
     setPreviewLoadingId(email.id);
     const result = await adminFetchUserEmailPreview(
       userId,
       email.category,
       email.id,
+      { signal: controller.signal },
     );
+    if (requestId !== previewRequestRef.current) return;
     setPreviewLoadingId(null);
     if (!result.ok || !result.data) {
+      if (result.error === "Request aborted") return;
       setPreviewError(result.error ?? "Failed to load email preview");
       return;
     }
     setPreview(result.data);
+    setPreviewOpen(true);
   };
 
   return (
@@ -165,48 +186,54 @@ function EmailTable({
       {previewError ? (
         <p className="mt-2 text-sm text-destructive">{previewError}</p>
       ) : null}
-      {preview ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Email preview"
-          onClick={() => setPreview(null)}
-        >
-          <div
-            className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-border bg-background shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3 border-b border-border p-4">
-              <div>
+      <Dialog
+        open={previewOpen && preview != null}
+        onOpenChange={(open) => {
+          setPreviewOpen(open);
+          if (!open) setPreview(null);
+        }}
+      >
+        <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col gap-0 overflow-hidden p-0">
+          {preview ? (
+            <>
+              <DialogHeader className="space-y-1 border-b border-border p-4 pr-12 text-left">
                 <p className="text-sm text-muted-foreground">
                   {formatCategory(preview.category)}
                 </p>
-                <h3 className="text-base font-medium">{preview.subject}</h3>
-                {preview.note ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {preview.note}
-                  </p>
-                ) : null}
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setPreview(null)}
-              >
-                Close
-              </Button>
-            </div>
-            <iframe
-              title={preview.subject}
-              srcDoc={preview.html}
-              className="min-h-[60vh] w-full flex-1 bg-white"
-              sandbox=""
-            />
-          </div>
-        </div>
-      ) : null}
+                <DialogTitle className="text-base font-medium">
+                  {preview.subject}
+                </DialogTitle>
+                <DialogDescription asChild>
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    {preview.reconstructed ? (
+                      <p>
+                        Reconstructed preview; may differ from the email
+                        actually sent.
+                      </p>
+                    ) : null}
+                    {preview.note ? <p>{preview.note}</p> : null}
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+              <iframe
+                title={preview.subject}
+                srcDoc={preview.html}
+                className="min-h-[60vh] w-full flex-1 bg-white"
+                sandbox=""
+              />
+              <DialogFooter className="border-t border-border p-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPreviewOpen(false)}
+                >
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -783,9 +810,9 @@ export default function AdminUserProfile() {
         </div>
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : (
-          <EmailTable userId={userId!} emails={profile?.emails ?? []} />
-        )}
+        ) : userId ? (
+          <EmailTable userId={userId} emails={profile?.emails ?? []} />
+        ) : null}
       </section>
 
       <section className="space-y-3">
