@@ -96,6 +96,8 @@ function EmailTable({
   const previewRequestRef = useRef(0);
   const previewAbortRef = useRef<AbortController | null>(null);
 
+  useEffect(() => () => previewAbortRef.current?.abort(), []);
+
   const openPreview = async (email: AdminUserEmailRecord) => {
     if (!email.previewAvailable) return;
     previewAbortRef.current?.abort();
@@ -186,13 +188,7 @@ function EmailTable({
       {previewError ? (
         <p className="mt-2 text-sm text-destructive">{previewError}</p>
       ) : null}
-      <Dialog
-        open={previewOpen && preview != null}
-        onOpenChange={(open) => {
-          setPreviewOpen(open);
-          if (!open) setPreview(null);
-        }}
-      >
+      <Dialog open={previewOpen && preview != null} onOpenChange={setPreviewOpen}>
         <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col gap-0 overflow-hidden p-0">
           {preview ? (
             <>
