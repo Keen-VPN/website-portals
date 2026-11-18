@@ -78,14 +78,30 @@ function formatResolvedAt(iso: string): string {
   });
 }
 
+function calendarDateInUtcPlus1(now = new Date()): {
+  year: number;
+  month: number;
+  day: number;
+} {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Etc/GMT-1",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(now);
+  return {
+    year: Number(parts.find((p) => p.type === "year")?.value),
+    month: Number(parts.find((p) => p.type === "month")?.value),
+    day: Number(parts.find((p) => p.type === "day")?.value),
+  };
+}
+
 function currentMonthYear(): {
   month: number;
   year: number;
   label: string;
 } {
-  const now = new Date();
-  const month = now.getUTCMonth() + 1;
-  const year = now.getUTCFullYear();
+  const { year, month } = calendarDateInUtcPlus1();
   return {
     month,
     year,
@@ -101,10 +117,28 @@ function pct(value: number): string {
   return `${value.toFixed(1)}%`;
 }
 
+function daysInCalendarMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/** Linear EOM projection: MTD × daysInMonth / dayOfMonth (day 15/30 → 2×). */
+function projectMonthEndFromMtd(
+  mtdPoints: number,
+  dayOfMonth: number,
+  daysInMonth: number,
+): number {
+  if (dayOfMonth <= 0 || daysInMonth <= 0) return mtdPoints;
+  return Math.round((mtdPoints * daysInMonth) / dayOfMonth);
+}
+
 const trendChartConfig = {
   totalPoints: {
-    label: "Story points",
+    label: "Actual",
     color: "hsl(var(--primary))",
+  },
+  projectedPoints: {
+    label: "Projected EOM",
+    color: "hsl(38 90% 45%)",
   },
 } satisfies ChartConfig;
 
@@ -253,14 +287,45 @@ export default function AdminJiraDelivery() {
     setPointsSinceLoading(false);
   }, [meetingSinceLocal, pointsSinceOpen]);
 
-  const chartRows = useMemo(
-    () =>
-      (report?.trend ?? []).map((p) => ({
+  const chartRows = useMemo(() => {
+    const trend = report?.trend ?? [];
+    if (!trend.length) return [];
+
+    const asOf = calendarDateInUtcPlus1();
+    const viewingCurrentMonth =
+      report != null &&
+      report.month ===
+        `${asOf.year}-${String(asOf.month).padStart(2, "0")}`;
+    const daysInMonth = daysInCalendarMonth(asOf.year, asOf.month);
+    const projectedEom = viewingCurrentMonth
+      ? projectMonthEndFromMtd(report.totalPoints, asOf.day, daysInMonth)
+      : null;
+
+    const rows: {
+      label: string;
+      totalPoints: number | null;
+      projectedPoints: number | null;
+    }[] = trend.map((p, index) => {
+      const isLast = index === trend.length - 1;
+      return {
         label: p.monthLabel,
         totalPoints: p.totalPoints,
-      })),
-    [report],
-  );
+        // Dashed series starts at MTD then goes to projected EOM.
+        projectedPoints:
+          viewingCurrentMonth && isLast ? p.totalPoints : null,
+      };
+    });
+
+    if (viewingCurrentMonth && projectedEom != null) {
+      rows.push({
+        label: "EOM proj",
+        totalPoints: null,
+        projectedPoints: projectedEom,
+      });
+    }
+
+    return rows;
+  }, [report]);
 
   const monthInputValue = `${year}-${String(month).padStart(2, "0")}`;
 
@@ -586,7 +651,11 @@ export default function AdminJiraDelivery() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Monthly trend</CardTitle>
-              <CardDescription>Last 6 months including selection</CardDescription>
+              <CardDescription>
+                Last 6 months including selection. For the current month, the
+                dotted line is the linear run-rate projection to month-end
+                (MTD × days left factor; day 15 of a 30-day month = 2× MTD).
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ChartContainer config={trendChartConfig} className="h-[240px] w-full">
@@ -601,6 +670,16 @@ export default function AdminJiraDelivery() {
                     stroke="var(--color-totalPoints)"
                     strokeWidth={2}
                     dot={false}
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="linear"
+                    dataKey="projectedPoints"
+                    stroke="var(--color-projectedPoints)"
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                    dot={false}
+                    connectNulls
                   />
                 </LineChart>
               </ChartContainer>
