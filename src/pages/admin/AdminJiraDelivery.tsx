@@ -46,6 +46,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  calendarDateInUtcPlus1,
+  daysInCalendarMonth,
+  monthKeyUtcPlus1,
+  projectMonthEndFromMtd,
+} from "@/lib/jira-delivery-run-rate";
 
 const RP_FILTER_ALL = "__all__";
 const RP_OPTION_PREFIX = "rp:";
@@ -78,24 +84,6 @@ function formatResolvedAt(iso: string): string {
   });
 }
 
-function calendarDateInUtcPlus1(now = new Date()): {
-  year: number;
-  month: number;
-  day: number;
-} {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Etc/GMT-1",
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  }).formatToParts(now);
-  return {
-    year: Number(parts.find((p) => p.type === "year")?.value),
-    month: Number(parts.find((p) => p.type === "month")?.value),
-    day: Number(parts.find((p) => p.type === "day")?.value),
-  };
-}
-
 function currentMonthYear(): {
   month: number;
   year: number;
@@ -105,7 +93,7 @@ function currentMonthYear(): {
   return {
     month,
     year,
-    label: `${year}-${String(month).padStart(2, "0")}`,
+    label: monthKeyUtcPlus1({ year, month }),
   };
 }
 
@@ -115,20 +103,6 @@ function isFutureMonth(month: number, year: number, max: { month: number; year: 
 
 function pct(value: number): string {
   return `${value.toFixed(1)}%`;
-}
-
-function daysInCalendarMonth(year: number, month: number): number {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
-}
-
-/** Linear EOM projection: MTD × daysInMonth / dayOfMonth (day 15/30 → 2×). */
-function projectMonthEndFromMtd(
-  mtdPoints: number,
-  dayOfMonth: number,
-  daysInMonth: number,
-): number {
-  if (dayOfMonth <= 0 || daysInMonth <= 0) return mtdPoints;
-  return Math.round((mtdPoints * daysInMonth) / dayOfMonth);
 }
 
 const trendChartConfig = {
@@ -159,10 +133,30 @@ export default function AdminJiraDelivery() {
     useState<AdminJiraPointsSinceReport | null>(null);
   const [pointsSinceLoading, setPointsSinceLoading] = useState(false);
   const [pointsSinceError, setPointsSinceError] = useState<string | null>(null);
+  const [asOfDay, setAsOfDay] = useState(() => calendarDateInUtcPlus1());
   const loadGeneration = useRef(0);
   const pointsSinceGeneration = useRef(0);
   const skipMeetingClearOnce = useRef(false);
   const loadPointsSinceRef = useRef<() => Promise<void>>(async () => {});
+
+  useEffect(() => {
+    const refreshAsOfDay = () => {
+      const next = calendarDateInUtcPlus1();
+      setAsOfDay((prev) =>
+        prev.year === next.year &&
+        prev.month === next.month &&
+        prev.day === next.day
+          ? prev
+          : next,
+      );
+    };
+    const id = window.setInterval(refreshAsOfDay, 60_000);
+    window.addEventListener("focus", refreshAsOfDay);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", refreshAsOfDay);
+    };
+  }, []);
 
   const load = useCallback(
     async (
@@ -291,14 +285,11 @@ export default function AdminJiraDelivery() {
     const trend = report?.trend ?? [];
     if (!trend.length) return [];
 
-    const asOf = calendarDateInUtcPlus1();
     const viewingCurrentMonth =
-      report != null &&
-      report.month ===
-        `${asOf.year}-${String(asOf.month).padStart(2, "0")}`;
-    const daysInMonth = daysInCalendarMonth(asOf.year, asOf.month);
+      report != null && report.month === monthKeyUtcPlus1(asOfDay);
+    const daysInMonth = daysInCalendarMonth(asOfDay.year, asOfDay.month);
     const projectedEom = viewingCurrentMonth
-      ? projectMonthEndFromMtd(report.totalPoints, asOf.day, daysInMonth)
+      ? projectMonthEndFromMtd(report.totalPoints, asOfDay.day, daysInMonth)
       : null;
 
     const rows: {
@@ -310,7 +301,7 @@ export default function AdminJiraDelivery() {
       return {
         label: p.monthLabel,
         totalPoints: p.totalPoints,
-        // Dashed series starts at MTD then goes to projected EOM.
+        // Dotted series starts at MTD then goes to projected EOM.
         projectedPoints:
           viewingCurrentMonth && isLast ? p.totalPoints : null,
       };
@@ -325,7 +316,7 @@ export default function AdminJiraDelivery() {
     }
 
     return rows;
-  }, [report]);
+  }, [report, asOfDay]);
 
   const monthInputValue = `${year}-${String(month).padStart(2, "0")}`;
 
@@ -654,7 +645,8 @@ export default function AdminJiraDelivery() {
               <CardDescription>
                 Last 6 months including selection. For the current month, the
                 dotted line is the linear run-rate projection to month-end
-                (MTD × days left factor; day 15 of a 30-day month = 2× MTD).
+                (MTD × days in month ÷ day of month; day 15 of a 30-day month =
+                2× MTD).
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -677,7 +669,8 @@ export default function AdminJiraDelivery() {
                     dataKey="projectedPoints"
                     stroke="var(--color-projectedPoints)"
                     strokeWidth={2}
-                    strokeDasharray="6 4"
+                    strokeDasharray="2 2"
+                    strokeLinecap="round"
                     dot={false}
                     connectNulls
                   />
