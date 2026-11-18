@@ -4534,6 +4534,43 @@ export interface AdminLandingPageReport {
   rows: AdminLandingPageReportRow[];
 }
 
+export interface AdminSiteVisitAttributionTile {
+  value: number;
+  prev: number;
+  change: number | null;
+}
+
+export interface AdminSiteVisitAttributionChannelRow {
+  channel: string;
+  visits: number;
+  share: number;
+  trials_first: number;
+  trials_last: number;
+}
+
+export interface AdminSiteVisitAttributionLandingRow {
+  page: string;
+  visits: number;
+  trials: number;
+  rate: number;
+}
+
+export interface AdminSiteVisitAttributionReport {
+  period?: { from: string; to: string; days: number };
+  generated_at?: string;
+  tiles?: Record<string, AdminSiteVisitAttributionTile>;
+  channels?: AdminSiteVisitAttributionChannelRow[];
+  landing?: AdminSiteVisitAttributionLandingRow[];
+  funnel?: Array<{
+    step: string;
+    count: number;
+    of_first: number;
+    drop_from_previous: number;
+  }>;
+  live?: { visitors?: number; views?: number };
+  [key: string]: unknown;
+}
+
 const SIGNUP_STARTED_SESSION_KEY = "keen_signup_started_tracked";
 const STICKER_LANDING_SESSION_KEY = "keen_sticker_landing_tracked";
 
@@ -5116,6 +5153,58 @@ export async function adminFetchLandingPageReport(params?: {
     const record = data as { data?: AdminLandingPageReport };
     if (!record.data) {
       return { ok: false, error: "Invalid landing page report response" };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+/** Proxied Netlify site-visit attribution stats (token stays on the backend). */
+export async function adminFetchSiteVisitAttributionReport(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminSiteVisitAttributionReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/landing-site-attribution/stats${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load site visit attribution",
+        ),
+      };
+    }
+    const record = data as { data?: AdminSiteVisitAttributionReport };
+    if (!record.data) {
+      return {
+        ok: false,
+        error: "Invalid site visit attribution response",
+      };
     }
     return { ok: true, data: record.data };
   } catch (e) {
