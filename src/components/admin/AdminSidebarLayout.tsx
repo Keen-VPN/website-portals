@@ -295,6 +295,13 @@ export default function AdminSidebarLayout() {
               Landing Pages
             </NavLink>
             <NavLink
+              to="/admin/site-visit-attribution"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Megaphone className="h-4 w-4" />
+              Site Visits
+            </NavLink>
+            <NavLink
               to="/admin/download-funnel"
               className={({ isActive }) => linkClass(isActive)}
             >

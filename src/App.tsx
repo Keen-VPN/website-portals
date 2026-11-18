@@ -124,6 +124,9 @@ const AdminUtmAttribution = lazy(
 const AdminLandingAttribution = lazy(
   () => import("./pages/admin/AdminLandingAttribution"),
 );
+const AdminSiteVisitAttribution = lazy(
+  () => import("./pages/admin/AdminSiteVisitAttribution"),
+);
 const AdminDownloadFunnel = lazy(
   () => import("./pages/admin/AdminDownloadFunnel"),
 );
@@ -475,6 +478,10 @@ const App = () => (
                 <Route
                   path="landing-attribution"
                   element={<AdminLandingAttribution />}
+                />
+                <Route
+                  path="site-visit-attribution"
+                  element={<AdminSiteVisitAttribution />}
                 />
                 <Route
                   path="download-funnel"
