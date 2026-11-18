@@ -4561,12 +4561,12 @@ export interface AdminSiteVisitAttributionReport {
   tiles?: Record<string, AdminSiteVisitAttributionTile>;
   channels?: AdminSiteVisitAttributionChannelRow[];
   landing?: AdminSiteVisitAttributionLandingRow[];
-  funnel?: Array<{
+  funnel?: {
     step: string;
     count: number;
     of_first: number;
     drop_from_previous: number;
-  }>;
+  }[];
   live?: { visitors?: number; views?: number };
   [key: string]: unknown;
 }
@@ -5195,7 +5195,7 @@ export async function adminFetchSiteVisitAttributionReport(params?: {
         ok: false,
         error: extractBackendErrorMessage(
           data,
-          "Failed to load site visit attribution",
+          `Failed to load site visit attribution (HTTP ${response.status})`,
         ),
       };
     }

@@ -11,13 +11,15 @@ import {
   isAdminReportDateRangeValid,
 } from "@/lib/admin-utils";
 
-const TILE_LABELS: Array<{ key: string; label: string }> = [
+const TILE_LABELS: { key: string; label: string }[] = [
   { key: "visits", label: "Visits" },
   { key: "visits_full", label: "Accepted analytics" },
   { key: "visits_anon", label: "Anonymous" },
   { key: "trials", label: "Trials" },
   { key: "trials_per_100_visits", label: "Trials / 100 visits" },
 ];
+
+const LANDING_PAGE_LIMIT = 40;
 
 function formatChange(change: number | null | undefined): string {
   if (change == null || Number.isNaN(change)) return "";
@@ -87,10 +89,13 @@ export default function AdminSiteVisitAttribution() {
     return () => activeRequest.current?.abort();
   }, [load, fromInput, toInput]);
 
+  const metricsUnavailable = loading || Boolean(error);
   const tiles = report?.tiles;
   const channels = report?.channels ?? [];
   const landing = report?.landing ?? [];
   const funnel = report?.funnel ?? [];
+  const landingShown = landing.slice(0, LANDING_PAGE_LIMIT);
+  const landingRemaining = Math.max(0, landing.length - LANDING_PAGE_LIMIT);
 
   return (
     <div className="space-y-6">
@@ -159,9 +164,9 @@ export default function AdminSiteVisitAttribution() {
             >
               <p className="text-sm text-muted-foreground">{label}</p>
               <p className="text-2xl font-semibold">
-                {loading ? "—" : (tile?.value ?? 0)}
+                {metricsUnavailable ? "—" : (tile?.value ?? 0)}
               </p>
-              {!loading && tile ? (
+              {!metricsUnavailable && tile ? (
                 <p className="text-xs text-muted-foreground">
                   {formatChange(tile.change)}
                 </p>
@@ -189,7 +194,13 @@ export default function AdminSiteVisitAttribution() {
                   Loading…
                 </td>
               </tr>
-            ) : error ? null : channels.length ? (
+            ) : error ? (
+              <tr>
+                <td className="p-3 text-muted-foreground" colSpan={5}>
+                  Unavailable
+                </td>
+              </tr>
+            ) : channels.length ? (
               channels.map((row) => (
                 <tr
                   key={row.channel}
@@ -217,6 +228,15 @@ export default function AdminSiteVisitAttribution() {
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <div className="border-b border-border px-3 py-2 text-sm font-medium">
             Landing pages
+            {!metricsUnavailable && landing.length > 0 ? (
+              <span className="ml-2 font-normal text-muted-foreground">
+                (top {Math.min(LANDING_PAGE_LIMIT, landing.length)}
+                {landingRemaining > 0
+                  ? ` of ${landing.length}`
+                  : ""}
+                )
+              </span>
+            ) : null}
           </div>
           <table className="min-w-full text-sm">
             <thead className="border-b border-border bg-muted/40 text-left">
@@ -233,8 +253,14 @@ export default function AdminSiteVisitAttribution() {
                     Loading…
                   </td>
                 </tr>
-              ) : landing.length ? (
-                landing.slice(0, 40).map((row) => (
+              ) : error ? (
+                <tr>
+                  <td className="p-3 text-muted-foreground" colSpan={3}>
+                    Unavailable
+                  </td>
+                </tr>
+              ) : landingShown.length ? (
+                landingShown.map((row) => (
                   <tr
                     key={row.page}
                     className="border-b border-border last:border-0"
@@ -255,6 +281,12 @@ export default function AdminSiteVisitAttribution() {
               )}
             </tbody>
           </table>
+          {!metricsUnavailable && landingRemaining > 0 ? (
+            <p className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
+              {landingRemaining} more landing page
+              {landingRemaining === 1 ? "" : "s"} not shown.
+            </p>
+          ) : null}
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
@@ -274,6 +306,12 @@ export default function AdminSiteVisitAttribution() {
                 <tr>
                   <td className="p-3 text-muted-foreground" colSpan={3}>
                     Loading…
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td className="p-3 text-muted-foreground" colSpan={3}>
+                    Unavailable
                   </td>
                 </tr>
               ) : funnel.length ? (
