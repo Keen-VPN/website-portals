@@ -39,8 +39,10 @@ export default function AdminSiteVisitAttribution() {
 
   const load = useCallback(async (from: string, to: string) => {
     if (!from.trim() || !to.trim()) {
+      activeRequest.current?.abort();
+      activeRequest.current = null;
       setReport(null);
-      setError(null);
+      setError("Select both dates.");
       setLoading(false);
       return;
     }
