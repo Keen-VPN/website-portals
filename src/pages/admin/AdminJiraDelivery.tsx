@@ -221,7 +221,8 @@ export default function AdminJiraDelivery() {
   }, []);
 
   // When the calendar day rolls, reload MTD so projected EOM is not based on
-  // yesterday's totalPoints with today's day denominator.
+  // yesterday's totalPoints with today's day denominator. Only needed while
+  // viewing the current UTC+1 month (projection is hidden for past months).
   const asOfDayReady = useRef(false);
   useEffect(() => {
     if (!asOfDayReady.current) {
@@ -230,8 +231,11 @@ export default function AdminJiraDelivery() {
     }
     const args = asOfReloadRef.current;
     if (!args) return;
+    if (args.month !== asOfDay.month || args.year !== asOfDay.year) return;
     void args.load(args.month, args.year, {
-      preserveOnError: true,
+      // Clear stale totals if refresh fails so we don't project with a new day
+      // denominator on yesterday's MTD.
+      preserveOnError: false,
       rp: args.rp || undefined,
     });
   }, [asOfDay]);
