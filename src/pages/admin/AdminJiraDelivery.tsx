@@ -138,25 +138,16 @@ export default function AdminJiraDelivery() {
   const pointsSinceGeneration = useRef(0);
   const skipMeetingClearOnce = useRef(false);
   const loadPointsSinceRef = useRef<() => Promise<void>>(async () => {});
-
-  useEffect(() => {
-    const refreshAsOfDay = () => {
-      const next = calendarDateInUtcPlus1();
-      setAsOfDay((prev) =>
-        prev.year === next.year &&
-        prev.month === next.month &&
-        prev.day === next.day
-          ? prev
-          : next,
-      );
-    };
-    const id = window.setInterval(refreshAsOfDay, 60_000);
-    window.addEventListener("focus", refreshAsOfDay);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener("focus", refreshAsOfDay);
-    };
-  }, []);
+  const asOfReloadRef = useRef<{
+    month: number;
+    year: number;
+    rp: string;
+    load: (
+      targetMonth: number,
+      targetYear: number,
+      options?: { preserveOnError?: boolean; rp?: string },
+    ) => Promise<void>;
+  } | null>(null);
 
   const load = useCallback(
     async (
@@ -201,6 +192,49 @@ export default function AdminJiraDelivery() {
       loadGeneration.current += 1;
     };
   }, [load, month, year, rpFilterApplied]);
+
+  asOfReloadRef.current = {
+    month,
+    year,
+    rp: rpFilterApplied,
+    load,
+  };
+
+  // Advance projection day after midnight / focus.
+  useEffect(() => {
+    const refreshAsOfDay = () => {
+      const next = calendarDateInUtcPlus1();
+      setAsOfDay((prev) =>
+        prev.year === next.year &&
+        prev.month === next.month &&
+        prev.day === next.day
+          ? prev
+          : next,
+      );
+    };
+    const id = window.setInterval(refreshAsOfDay, 60_000);
+    window.addEventListener("focus", refreshAsOfDay);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", refreshAsOfDay);
+    };
+  }, []);
+
+  // When the calendar day rolls, reload MTD so projected EOM is not based on
+  // yesterday's totalPoints with today's day denominator.
+  const asOfDayReady = useRef(false);
+  useEffect(() => {
+    if (!asOfDayReady.current) {
+      asOfDayReady.current = true;
+      return;
+    }
+    const args = asOfReloadRef.current;
+    if (!args) return;
+    void args.load(args.month, args.year, {
+      preserveOnError: true,
+      rp: args.rp || undefined,
+    });
+  }, [asOfDay]);
 
   useEffect(() => {
     if (!report || rpFilterApplied) return;
