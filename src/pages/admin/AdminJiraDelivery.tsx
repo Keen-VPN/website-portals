@@ -46,6 +46,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  calendarDateInUtcPlus1,
+  daysInCalendarMonth,
+  monthKeyUtcPlus1,
+  projectMonthEndFromMtd,
+} from "@/lib/jira-delivery-run-rate";
 
 const RP_FILTER_ALL = "__all__";
 const RP_OPTION_PREFIX = "rp:";
@@ -83,13 +89,11 @@ function currentMonthYear(): {
   year: number;
   label: string;
 } {
-  const now = new Date();
-  const month = now.getUTCMonth() + 1;
-  const year = now.getUTCFullYear();
+  const { year, month } = calendarDateInUtcPlus1();
   return {
     month,
     year,
-    label: `${year}-${String(month).padStart(2, "0")}`,
+    label: monthKeyUtcPlus1({ year, month }),
   };
 }
 
@@ -103,8 +107,12 @@ function pct(value: number): string {
 
 const trendChartConfig = {
   totalPoints: {
-    label: "Story points",
+    label: "Actual",
     color: "hsl(var(--primary))",
+  },
+  projectedPoints: {
+    label: "Projected EOM",
+    color: "hsl(38 90% 45%)",
   },
 } satisfies ChartConfig;
 
@@ -125,10 +133,21 @@ export default function AdminJiraDelivery() {
     useState<AdminJiraPointsSinceReport | null>(null);
   const [pointsSinceLoading, setPointsSinceLoading] = useState(false);
   const [pointsSinceError, setPointsSinceError] = useState<string | null>(null);
+  const [asOfDay, setAsOfDay] = useState(() => calendarDateInUtcPlus1());
   const loadGeneration = useRef(0);
   const pointsSinceGeneration = useRef(0);
   const skipMeetingClearOnce = useRef(false);
   const loadPointsSinceRef = useRef<() => Promise<void>>(async () => {});
+  const asOfReloadRef = useRef<{
+    month: number;
+    year: number;
+    rp: string;
+    load: (
+      targetMonth: number,
+      targetYear: number,
+      options?: { preserveOnError?: boolean; rp?: string },
+    ) => Promise<void>;
+  } | null>(null);
 
   const load = useCallback(
     async (
@@ -173,6 +192,53 @@ export default function AdminJiraDelivery() {
       loadGeneration.current += 1;
     };
   }, [load, month, year, rpFilterApplied]);
+
+  asOfReloadRef.current = {
+    month,
+    year,
+    rp: rpFilterApplied,
+    load,
+  };
+
+  // Advance projection day after midnight / focus.
+  useEffect(() => {
+    const refreshAsOfDay = () => {
+      const next = calendarDateInUtcPlus1();
+      setAsOfDay((prev) =>
+        prev.year === next.year &&
+        prev.month === next.month &&
+        prev.day === next.day
+          ? prev
+          : next,
+      );
+    };
+    const id = window.setInterval(refreshAsOfDay, 60_000);
+    window.addEventListener("focus", refreshAsOfDay);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", refreshAsOfDay);
+    };
+  }, []);
+
+  // When the calendar day rolls, reload MTD so projected EOM is not based on
+  // yesterday's totalPoints with today's day denominator. Only needed while
+  // viewing the current UTC+1 month (projection is hidden for past months).
+  const asOfDayReady = useRef(false);
+  useEffect(() => {
+    if (!asOfDayReady.current) {
+      asOfDayReady.current = true;
+      return;
+    }
+    const args = asOfReloadRef.current;
+    if (!args) return;
+    if (args.month !== asOfDay.month || args.year !== asOfDay.year) return;
+    void args.load(args.month, args.year, {
+      // Clear stale totals if refresh fails so we don't project with a new day
+      // denominator on yesterday's MTD.
+      preserveOnError: false,
+      rp: args.rp || undefined,
+    });
+  }, [asOfDay]);
 
   useEffect(() => {
     if (!report || rpFilterApplied) return;
@@ -253,14 +319,42 @@ export default function AdminJiraDelivery() {
     setPointsSinceLoading(false);
   }, [meetingSinceLocal, pointsSinceOpen]);
 
-  const chartRows = useMemo(
-    () =>
-      (report?.trend ?? []).map((p) => ({
+  const chartRows = useMemo(() => {
+    const trend = report?.trend ?? [];
+    if (!trend.length) return [];
+
+    const viewingCurrentMonth =
+      report != null && report.month === monthKeyUtcPlus1(asOfDay);
+    const daysInMonth = daysInCalendarMonth(asOfDay.year, asOfDay.month);
+    const projectedEom = viewingCurrentMonth
+      ? projectMonthEndFromMtd(report.totalPoints, asOfDay.day, daysInMonth)
+      : null;
+
+    const rows: {
+      label: string;
+      totalPoints: number | null;
+      projectedPoints: number | null;
+    }[] = trend.map((p, index) => {
+      const isLast = index === trend.length - 1;
+      return {
         label: p.monthLabel,
         totalPoints: p.totalPoints,
-      })),
-    [report],
-  );
+        // Dotted series starts at MTD then goes to projected EOM.
+        projectedPoints:
+          viewingCurrentMonth && isLast ? p.totalPoints : null,
+      };
+    });
+
+    if (viewingCurrentMonth && projectedEom != null) {
+      rows.push({
+        label: "EOM proj",
+        totalPoints: null,
+        projectedPoints: projectedEom,
+      });
+    }
+
+    return rows;
+  }, [report, asOfDay]);
 
   const monthInputValue = `${year}-${String(month).padStart(2, "0")}`;
 
@@ -586,7 +680,12 @@ export default function AdminJiraDelivery() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Monthly trend</CardTitle>
-              <CardDescription>Last 6 months including selection</CardDescription>
+              <CardDescription>
+                Last 6 months including selection. For the current month, the
+                dotted line is the linear run-rate projection to month-end
+                (MTD × days in month ÷ day of month; day 15 of a 30-day month =
+                2× MTD).
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ChartContainer config={trendChartConfig} className="h-[240px] w-full">
@@ -601,6 +700,17 @@ export default function AdminJiraDelivery() {
                     stroke="var(--color-totalPoints)"
                     strokeWidth={2}
                     dot={false}
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="linear"
+                    dataKey="projectedPoints"
+                    stroke="var(--color-projectedPoints)"
+                    strokeWidth={2}
+                    strokeDasharray="2 2"
+                    strokeLinecap="round"
+                    dot={false}
+                    connectNulls
                   />
                 </LineChart>
               </ChartContainer>
