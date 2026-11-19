@@ -1,15 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   calendarDateInUtcPlus1,
-  daysInCalendarMonth,
   monthKeyUtcPlus1,
   projectMonthEndFromMtd,
 } from "./jira-delivery-run-rate";
 
 describe("jira-delivery-run-rate", () => {
-  it("on day 15 of a 30-day month, projected month-end is 2 × MTD", () => {
-    expect(projectMonthEndFromMtd(40, 15, 30)).toBe(80);
-    expect(daysInCalendarMonth(2026, 11)).toBe(30);
+  it("projects month-end as exactly 2 × MTD on any report day", () => {
+    expect(projectMonthEndFromMtd(40)).toBe(80);
   });
 
   it("uses UTC+1 calendar parts around the month rollover hour", () => {
