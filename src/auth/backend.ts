@@ -3802,6 +3802,11 @@ export interface AdminJiraDeliveryTrendPoint {
   totalPoints: number;
 }
 
+export interface AdminJiraDeliveryDailyActualPoint {
+  day: number;
+  totalPoints: number;
+}
+
 export interface AdminJiraKennaCreatedEstimates {
   displayName: string;
   accountId: string | null;
@@ -3823,6 +3828,7 @@ export interface AdminJiraDeliveryReport {
   byRp: AdminJiraDeliveryRpRow[];
   byEnvironment: AdminJiraDeliveryEnvironmentRow[];
   trend: AdminJiraDeliveryTrendPoint[];
+  dailyActuals?: AdminJiraDeliveryDailyActualPoint[];
   kennaCreatedEstimates?: AdminJiraKennaCreatedEstimates;
   configured: boolean;
   geekbotDailyUpdatesConfigured?: boolean;

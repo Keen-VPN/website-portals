@@ -48,7 +48,6 @@ import {
 } from "@/components/ui/select";
 import {
   calendarDateInUtcPlus1,
-  daysInCalendarMonth,
   monthKeyUtcPlus1,
   projectMonthEndFromMtd,
 } from "@/lib/jira-delivery-run-rate";
@@ -320,34 +319,44 @@ export default function AdminJiraDelivery() {
   }, [meetingSinceLocal, pointsSinceOpen]);
 
   const chartRows = useMemo(() => {
-    const trend = report?.trend ?? [];
-    if (!trend.length) return [];
+    if (!report) return [];
 
     const viewingCurrentMonth =
-      report != null && report.month === monthKeyUtcPlus1(asOfDay);
-    const daysInMonth = daysInCalendarMonth(asOfDay.year, asOfDay.month);
+      report.month === monthKeyUtcPlus1(asOfDay);
     const projectedEom = viewingCurrentMonth
-      ? projectMonthEndFromMtd(report.totalPoints, asOfDay.day, daysInMonth)
+      ? projectMonthEndFromMtd(report.totalPoints)
       : null;
+    const allDailyActuals = report.dailyActuals ?? [];
+    const visibleActuals = viewingCurrentMonth
+      ? allDailyActuals.filter((point) => point.day <= asOfDay.day)
+      : allDailyActuals;
 
     const rows: {
       label: string;
       totalPoints: number | null;
       projectedPoints: number | null;
-    }[] = trend.map((p, index) => {
-      const isLast = index === trend.length - 1;
-      return {
-        label: p.monthLabel,
-        totalPoints: p.totalPoints,
-        // Dotted series starts at MTD then goes to projected EOM.
-        projectedPoints:
-          viewingCurrentMonth && isLast ? p.totalPoints : null,
-      };
-    });
+    }[] = visibleActuals.map((point, index) => ({
+      label: String(point.day),
+      totalPoints: point.totalPoints,
+      // Dotted series starts at today's MTD actual.
+      projectedPoints:
+        viewingCurrentMonth && index === visibleActuals.length - 1
+          ? point.totalPoints
+          : null,
+    }));
+
+    // Compatibility while the additive dailyActuals backend field rolls out.
+    if (rows.length === 0 && viewingCurrentMonth) {
+      rows.push({
+        label: String(asOfDay.day),
+        totalPoints: report.totalPoints,
+        projectedPoints: report.totalPoints,
+      });
+    }
 
     if (viewingCurrentMonth && projectedEom != null) {
       rows.push({
-        label: "EOM proj",
+        label: "EOM",
         totalPoints: null,
         projectedPoints: projectedEom,
       });
@@ -679,12 +688,13 @@ export default function AdminJiraDelivery() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Monthly trend</CardTitle>
+              <CardTitle className="text-base">
+                {report.monthLabel} daily delivery
+              </CardTitle>
               <CardDescription>
-                Last 6 months including selection. For the current month, the
-                dotted line is the linear run-rate projection to month-end
-                (MTD × days in month ÷ day of month; day 15 of a 30-day month =
-                2× MTD).
+                Solid line is cumulative Done points for this month. For the
+                current month, the dotted line runs from today&apos;s actual to
+                the boss-defined month-end run-rate of 2× MTD.
               </CardDescription>
             </CardHeader>
             <CardContent>
