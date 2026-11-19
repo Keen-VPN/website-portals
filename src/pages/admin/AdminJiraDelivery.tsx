@@ -106,11 +106,11 @@ function pct(value: number): string {
 
 const trendChartConfig = {
   totalPoints: {
-    label: "Actual MTD",
+    label: "Actual month-to-date",
     color: "hsl(var(--primary))",
   },
   projectedPoints: {
-    label: "2× MTD projection",
+    label: "2× month-to-date projection",
     color: "hsl(38 90% 45%)",
   },
 } satisfies ChartConfig;
@@ -697,9 +697,10 @@ export default function AdminJiraDelivery() {
                 {report.monthLabel} story point run-rate
               </CardTitle>
               <CardDescription>
-                Solid line shows cumulative Done story points through today.
-                For the current month, the dotted line shows the projected
-                month-end total at 2× the current MTD.
+                Solid line shows cumulative Done story points for the selected
+                month. For the current month, the solid line runs through today
+                and the dotted line shows the projected month-end total at 2×
+                the current month-to-date.
               </CardDescription>
             </CardHeader>
             <CardContent>
