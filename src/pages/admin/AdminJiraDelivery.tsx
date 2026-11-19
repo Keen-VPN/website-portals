@@ -106,11 +106,11 @@ function pct(value: number): string {
 
 const trendChartConfig = {
   totalPoints: {
-    label: "Actual",
+    label: "Actual MTD",
     color: "hsl(var(--primary))",
   },
   projectedPoints: {
-    label: "Projected EOM",
+    label: "2× MTD projection",
     color: "hsl(38 90% 45%)",
   },
 } satisfies ChartConfig;
@@ -361,7 +361,7 @@ export default function AdminJiraDelivery() {
 
     if (viewingCurrentMonth && projectedEom != null) {
       rows.push({
-        label: "EOM",
+        label: "Month end",
         totalPoints: null,
         projectedPoints: projectedEom,
       });
@@ -694,12 +694,12 @@ export default function AdminJiraDelivery() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                {report.monthLabel} daily delivery
+                {report.monthLabel} story point run-rate
               </CardTitle>
               <CardDescription>
-                Solid line is cumulative Done points for this month. For the
-                current month, the dotted line runs from today&apos;s actual to
-                the boss-defined month-end run-rate of 2× MTD.
+                Solid line shows cumulative Done story points through today.
+                For the current month, the dotted line shows the projected
+                month-end total at 2× the current MTD.
               </CardDescription>
             </CardHeader>
             <CardContent>
