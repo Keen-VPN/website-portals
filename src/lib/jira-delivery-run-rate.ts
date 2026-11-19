@@ -17,18 +17,9 @@ export function calendarDateInUtcPlus1(now = new Date()): {
   };
 }
 
-export function daysInCalendarMonth(year: number, month: number): number {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
-}
-
-/** Linear EOM projection: MTD × daysInMonth / dayOfMonth (day 15/30 → 2×). */
-export function projectMonthEndFromMtd(
-  mtdPoints: number,
-  dayOfMonth: number,
-  daysInMonth: number,
-): number {
-  if (dayOfMonth <= 0 || daysInMonth <= 0) return mtdPoints;
-  return Math.round((mtdPoints * daysInMonth) / dayOfMonth);
+/** Boss-defined month-end run-rate: exactly double current MTD Done points. */
+export function projectMonthEndFromMtd(mtdPoints: number): number {
+  return mtdPoints * 2;
 }
 
 export function monthKeyUtcPlus1(parts: {
