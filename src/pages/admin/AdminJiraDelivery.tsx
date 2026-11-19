@@ -318,18 +318,32 @@ export default function AdminJiraDelivery() {
     setPointsSinceLoading(false);
   }, [meetingSinceLocal, pointsSinceOpen]);
 
+  const viewingCurrentMonth =
+    report?.month === monthKeyUtcPlus1(asOfDay);
+  const dailyActualsAvailable = (report?.dailyActuals?.length ?? 0) > 0;
+
   const chartRows = useMemo(() => {
     if (!report) return [];
 
-    const viewingCurrentMonth =
-      report.month === monthKeyUtcPlus1(asOfDay);
     const projectedEom = viewingCurrentMonth
       ? projectMonthEndFromMtd(report.totalPoints)
       : null;
     const allDailyActuals = report.dailyActuals ?? [];
-    const visibleActuals = viewingCurrentMonth
+    let visibleActuals = viewingCurrentMonth
       ? allDailyActuals.filter((point) => point.day <= asOfDay.day)
       : allDailyActuals;
+
+    // The new backend returns a dense row for every day, but synthesize today
+    // while rolling out or if a future producer returns activity days only.
+    if (
+      viewingCurrentMonth &&
+      visibleActuals[visibleActuals.length - 1]?.day !== asOfDay.day
+    ) {
+      visibleActuals = [
+        ...visibleActuals.filter((point) => point.day < asOfDay.day),
+        { day: asOfDay.day, totalPoints: report.totalPoints },
+      ];
+    }
 
     const rows: {
       label: string;
@@ -345,15 +359,6 @@ export default function AdminJiraDelivery() {
           : null,
     }));
 
-    // Compatibility while the additive dailyActuals backend field rolls out.
-    if (rows.length === 0 && viewingCurrentMonth) {
-      rows.push({
-        label: String(asOfDay.day),
-        totalPoints: report.totalPoints,
-        projectedPoints: report.totalPoints,
-      });
-    }
-
     if (viewingCurrentMonth && projectedEom != null) {
       rows.push({
         label: "EOM",
@@ -363,7 +368,7 @@ export default function AdminJiraDelivery() {
     }
 
     return rows;
-  }, [report, asOfDay]);
+  }, [report, asOfDay, viewingCurrentMonth]);
 
   const monthInputValue = `${year}-${String(month).padStart(2, "0")}`;
 
@@ -698,32 +703,39 @@ export default function AdminJiraDelivery() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={trendChartConfig} className="h-[240px] w-full">
-                <LineChart data={chartRows} margin={{ left: 8, right: 8 }}>
-                  <CartesianGrid vertical={false} />
-                  <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                  <YAxis tickLine={false} axisLine={false} width={36} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line
-                    type="monotone"
-                    dataKey="totalPoints"
-                    stroke="var(--color-totalPoints)"
-                    strokeWidth={2}
-                    dot={false}
-                    connectNulls={false}
-                  />
-                  <Line
-                    type="linear"
-                    dataKey="projectedPoints"
-                    stroke="var(--color-projectedPoints)"
-                    strokeWidth={2}
-                    strokeDasharray="2 2"
-                    strokeLinecap="round"
-                    dot={false}
-                    connectNulls
-                  />
-                </LineChart>
-              </ChartContainer>
+              {!viewingCurrentMonth && !dailyActualsAvailable ? (
+                <p className="text-sm text-muted-foreground">
+                  Daily actuals are unavailable for this historical month until
+                  the backend run-rate update is deployed.
+                </p>
+              ) : (
+                <ChartContainer config={trendChartConfig} className="h-[240px] w-full">
+                  <LineChart data={chartRows} margin={{ left: 8, right: 8 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                    <YAxis tickLine={false} axisLine={false} width={36} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line
+                      type="monotone"
+                      dataKey="totalPoints"
+                      stroke="var(--color-totalPoints)"
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls={false}
+                    />
+                    <Line
+                      type="linear"
+                      dataKey="projectedPoints"
+                      stroke="var(--color-projectedPoints)"
+                      strokeWidth={2}
+                      strokeDasharray="2 2"
+                      strokeLinecap="round"
+                      dot={false}
+                      connectNulls
+                    />
+                  </LineChart>
+                </ChartContainer>
+              )}
             </CardContent>
           </Card>
 
