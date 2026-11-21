@@ -19,7 +19,7 @@ const Privacy = () => {
           <div className="text-center mb-12">
             <div className="inline-flex items-center bg-card/50 backdrop-blur-sm border border-border rounded-full px-4 py-2 mb-6">
               <Shield className="h-4 w-4 text-primary mr-2" />
-              <span className="text-sm text-muted-foreground">Last updated: October 9, 2025</span>
+              <span className="text-sm text-muted-foreground">Last updated: November 2, 2026</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
               Privacy Policy
@@ -117,13 +117,56 @@ const Privacy = () => {
             <div className="bg-gradient-card rounded-xl p-8 border border-border/50 mb-8">
               <h2 className="text-2xl font-bold text-foreground mb-4">Data Sharing & Third Parties</h2>
               <div className="text-muted-foreground space-y-3">
-                <p>We never sell, rent, or share your personal information with third parties for marketing purposes.</p>
+                <p>We never sell, rent, or share your personal information with third parties for marketing purposes. KeenVPN uses Google in two separate, optional ways that are not the same product flow: (1) Sign in with Google for account authentication, and (2) an optional Gmail mailbox connection for Flight compensation. Neither path uses Google user data for advertising or marketing.</p>
                 <p>We may share limited information only in these specific circumstances:</p>
                 <ul className="list-disc list-inside space-y-2 ml-4">
                   <li>Payment processing (handled by secure, certified payment providers)</li>
                   <li>Legal compliance when required by valid court orders</li>
                   <li>Service providers who help us operate our platform (under strict confidentiality)</li>
                 </ul>
+              </div>
+            </div>
+
+            <div className="bg-gradient-card rounded-xl p-8 border border-border/50 mb-8">
+              <h2 className="text-2xl font-bold text-foreground mb-4">Sign in with Google (account authentication — Limited Use)</h2>
+              <div className="text-muted-foreground space-y-3">
+                <p>This is ordinary account login. It is <strong>not</strong> mailbox access and does <strong>not</strong> grant KeenVPN permission to read your email.</p>
+                <p>If you choose Sign in with Google, KeenVPN receives basic account information from Google (typically your Google account email address and display name, and a stable account identifier) solely to create or authenticate your KeenVPN account and provide subscription and VPN features. We do not request Gmail or other sensitive Google scopes as part of sign-in.</p>
+                <p>KeenVPN’s use of Sign-In information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements:</p>
+                <ul className="list-disc list-inside space-y-2 ml-4">
+                  <li>Sign-In Google user data is used only to provide or improve user-facing account features (sign-in, account management, and VPN service delivery).</li>
+                  <li>We do not sell that data.</li>
+                  <li>We do not use it for advertising, including personalized, retargeted, or interest-based advertising.</li>
+                  <li>We do not use it for marketing campaigns, advertising measurement, or creditworthiness decisions.</li>
+                  <li>We do not transfer it to third parties except as needed to operate KeenVPN (for example encrypted account storage), to comply with law, for security/abuse prevention, or as part of a merger or acquisition with prior user consent where required.</li>
+                  <li>Human reading is not allowed except with your affirmative consent for support, for security/abuse investigation, or where required by law.</li>
+                </ul>
+                <p>The KeenVPN Android app does not collect or read advertising identifiers (AAID). Sign-in data from Google is not combined with website analytics, advertising tools, or Flight compensation mailbox data.</p>
+              </div>
+            </div>
+
+            <div className="bg-gradient-card rounded-xl p-8 border border-border/50 mb-8">
+              <h2 className="text-2xl font-bold text-foreground mb-4">Flight compensation — optional Gmail mailbox scan</h2>
+              <div className="text-muted-foreground space-y-3">
+                <p>Flight compensation is an optional member feature (currently offered via the KeenVPN web portal). Connecting Gmail for flight detection is a <strong>separate OAuth consent</strong> from Sign in with Google. Signing into KeenVPN with Google does not by itself allow us to read your mailbox.</p>
+                <p>Only if you explicitly connect Gmail and agree to the in-product Flight compensation consent does KeenVPN request read-only Gmail access (<code>https://www.googleapis.com/auth/gmail.readonly</code>) through a dedicated OAuth client. That access is used solely to find flight booking confirmations and airline cancellation notices so we can check delays/cancellations and tell you when you may be owed compensation under applicable passenger rules.</p>
+                <p>How mailbox data is handled:</p>
+                <ul className="list-disc list-inside space-y-2 ml-4">
+                  <li>Access is read-only. KeenVPN cannot send, delete, or change your email.</li>
+                  <li>We search for messages that look like flight bookings or airline cancellation notices. Only those messages are opened.</li>
+                  <li>Message content is processed in memory to extract flight details and is not stored as full email bodies.</li>
+                  <li>We keep only the structured flight fields needed for the feature (such as airline, flight number, travel date, airports, and the date an airline told you a flight was cancelled), plus encrypted mailbox OAuth tokens until you disconnect.</li>
+                  <li>You can disconnect at any time, which deletes our access tokens and stops scanning.</li>
+                </ul>
+                <p>KeenVPN’s use of Gmail data obtained for Flight compensation also adheres to the Google API Services User Data Policy, including Limited Use:</p>
+                <ul className="list-disc list-inside space-y-2 ml-4">
+                  <li>Gmail data is used only to provide or improve the user-facing Flight compensation feature.</li>
+                  <li>We do not sell Gmail data.</li>
+                  <li>We do not use Gmail data for advertising, marketing, advertising measurement, AI/ML training unrelated to this feature, or creditworthiness decisions.</li>
+                  <li>We do not transfer Gmail data to third parties except as needed to operate this feature (for example flight-status data providers used to check delays/cancellations), to comply with law, for security/abuse prevention, or as part of a merger or acquisition with prior user consent where required.</li>
+                  <li>Human reading of mailbox content is not allowed except with your affirmative consent for support, for security/abuse investigation, or where required by law.</li>
+                </ul>
+                <p>You may instead connect Outlook for the same Flight compensation feature under Microsoft’s permissions; that path is separate from Google.</p>
               </div>
             </div>
 
@@ -158,11 +201,14 @@ const Privacy = () => {
                   <li>Security monitoring to prevent abuse</li>
                 </ul>
                 <p className="mt-4"><strong>Data sharing:</strong></p>
-                <p>We do not sell or share your data with third parties for marketing. Limited data may be shared only with:</p>
+                <p>We do not sell or share VPN activity data, Google Sign-In data, or Flight compensation Gmail data with third parties for advertising or marketing. Limited operational data may be shared only with:</p>
                 <ul className="list-disc list-inside space-y-2 ml-4">
                   <li><strong>Stripe:</strong> For secure payment processing</li>
-                  <li><strong>Google/Apple:</strong> For authentication services (Sign in with Apple/Google)</li>
+                  <li><strong>Google:</strong> (a) Sign in with Google for account authentication only; (b) optional Gmail read-only access solely for Flight compensation when you connect a mailbox, as described above. Google Play Billing may process purchases when you subscribe on Android.</li>
+                  <li><strong>Apple:</strong> Sign in with Apple authentication and App Store billing where applicable</li>
+                  <li><strong>Microsoft:</strong> Optional Outlook mailbox connection for Flight compensation (separate from Google)</li>
                   <li><strong>Supabase:</strong> For secure account data storage (encrypted)</li>
+                  <li><strong>Flight-status data providers:</strong> To check whether detected flights were delayed or cancelled (structured flight fields only, not full email bodies)</li>
                 </ul>
                 <p>All data is stored securely with encryption and access controls. We never track or log your online activities.</p>
               </div>

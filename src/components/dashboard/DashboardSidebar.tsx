@@ -4,6 +4,7 @@ import {
   Home,
   Shield,
   Gavel,
+  Plane,
   Sparkles,
   CreditCard,
   Download,
@@ -136,6 +137,15 @@ export default function DashboardSidebar({
         >
           <Gavel className="h-4 w-4 shrink-0" />
           Class Actions
+        </NavLink>
+
+        <NavLink
+          to="/flight-compensation"
+          className={({ isActive }) => navLinkClass(isActive)}
+          {...linkProps}
+        >
+          <Plane className="h-4 w-4 shrink-0" />
+          Flight Compensation
         </NavLink>
 
         <NavLink

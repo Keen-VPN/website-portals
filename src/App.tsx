@@ -164,6 +164,9 @@ const DashboardSubscription = lazy(
   () => import("./pages/DashboardSubscription"),
 );
 const DashboardProfile = lazy(() => import("./pages/DashboardProfile"));
+const DashboardFlightCompensation = lazy(
+  () => import("./pages/DashboardFlightCompensation"),
+);
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const DashboardAiAssistant = lazy(
   () => import("./pages/DashboardAiAssistant"),
@@ -228,6 +231,12 @@ const AccountRoute = () => {
   }
 
   return <Account />;
+};
+
+/** The backend's OAuth return URL; keep the result query for the page banner. */
+const LegacyFlightCompensationRedirect = () => {
+  const { search } = useLocation();
+  return <Navigate to={`/flight-compensation${search}`} replace />;
 };
 
 const App = () => (
@@ -349,6 +358,10 @@ const App = () => (
                 path="/account/membership-sharing/accept"
                 element={<MembershipSharingAccept />}
               />
+              <Route
+                path="/account/flight-compensation"
+                element={<LegacyFlightCompensationRedirect />}
+              />
               {/* Dashboard shell — requires auth */}
               <Route
                 element={
@@ -375,6 +388,10 @@ const App = () => (
                   element={<DashboardClassActionDetail />}
                 />
                 <Route path="/ai-assistant" element={<DashboardAiAssistant />} />
+                <Route
+                  path="/flight-compensation"
+                  element={<DashboardFlightCompensation />}
+                />
                 <Route
                   path="/subscription"
                   element={<DashboardSubscription />}
