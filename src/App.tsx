@@ -40,7 +40,6 @@ const PromotionalTrialLanding = lazy(
 const Friends = lazy(() => import("./pages/Friends"));
 const FriendsAccept = lazy(() => import("./pages/FriendsAccept"));
 const FriendsJoin = lazy(() => import("./pages/FriendsJoin"));
-const Perks = lazy(() => import("./pages/Perks"));
 const Subscribe = lazy(() => import("./pages/Subscribe"));
 const Account = lazy(() => import("./pages/Account"));
 const MembershipSharingAccept = lazy(
@@ -307,11 +306,7 @@ const App = () => (
               <Route path="/friends/join/:token" element={<FriendsJoin />} />
               <Route
                 path="/perks"
-                element={
-                  <ProtectedRoute>
-                    <Perks />
-                  </ProtectedRoute>
-                }
+                element={<Navigate to="/class-action" replace />}
               />
               <Route
                 path="/subscribe"

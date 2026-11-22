@@ -83,7 +83,7 @@ function MeasureTile({
 }
 
 const PREVIEW_CSP =
-  "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; base-uri 'none'; form-action 'none';";
+  "default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; font-src data:; base-uri 'none'; form-action 'none';";
 
 /** Only schemes safe to open via allow-popups-to-escape-sandbox. */
 function isAllowedPreviewHref(href: string): boolean {
