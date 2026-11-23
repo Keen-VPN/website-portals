@@ -56,6 +56,16 @@ function formatDateRange(from?: string, to?: string) {
   return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
 }
 
+function reviewMetric(
+  value: number | null | undefined,
+  loading: boolean,
+  failed: boolean,
+) {
+  if (loading) return "…";
+  if (failed || value == null) return "—";
+  return value;
+}
+
 function formatPercent(value: number | null | undefined) {
   if (value == null) return "—";
   return `${Math.round(value * 100)}%`;
@@ -85,6 +95,7 @@ export default function AdminProductEvents() {
     useState<AdminRestrictedNetworkDiagnosticSummary | null>(null);
   const [loadingIp, setLoadingIp] = useState(true);
   const [loadingReview, setLoadingReview] = useState(true);
+  const [reviewFailed, setReviewFailed] = useState(false);
   const [loadingRestricted, setLoadingRestricted] = useState(true);
   const [restrictedFailed, setRestrictedFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,12 +118,14 @@ export default function AdminProductEvents() {
 
       setLoadingIp(true);
       setLoadingReview(true);
+      setReviewFailed(false);
       setLoadingRestricted(true);
       setRestrictedFailed(false);
       setError(null);
       if (fromValue && toValue && fromValue > toValue) {
         setSummary(null);
         setReviewSummary(null);
+        setReviewFailed(true);
         setRestrictedSummary(null);
         setRestrictedFailed(false);
         setError("Start date must be before end date");
@@ -163,9 +176,11 @@ export default function AdminProductEvents() {
         if (!isCurrent()) return;
         if (reviewRes.ok && reviewRes.data) {
           setReviewSummary(reviewRes.data);
+          setReviewFailed(false);
           delete panelErrors.current.review;
         } else {
           setReviewSummary(null);
+          setReviewFailed(true);
           panelErrors.current.review =
             reviewRes.error ?? "Failed to load review prompt metrics";
         }
@@ -266,9 +281,99 @@ export default function AdminProductEvents() {
         <div>
           <h3 className="text-lg font-semibold">In-app review prompts</h3>
           <p className="text-sm text-muted-foreground">
-            Users who connected on 3+ days with 3+ successful sessions and saw
-            the review prompt.
+            Shown after 30 minutes on VPN when the app has been installed for 7
+            days, the user connected on 3 different days, total VPN time is at
+            least 12 hours, and there was no connection failure in the last 48
+            hours.
           </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Review requests</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {reviewMetric(reviewSummary?.reviewRequests, loadingReview, reviewFailed)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">All time</p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Estimated reviews</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {reviewMetric(
+                reviewSummary?.estimatedReviews,
+                loadingReview,
+                reviewFailed,
+              )}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Users who continued toward the store prompt
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Confirmed reviews</p>
+            <p className="mt-1 text-3xl font-semibold">Unavailable</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              The stores do not tell the app when a review is submitted
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">
+              Estimated conversion
+            </p>
+            <p className="mt-1 text-3xl font-semibold">
+              {loadingReview
+                ? "…"
+                : reviewFailed
+                  ? "—"
+                  : formatPercent(reviewSummary?.estimatedConversionRate)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Estimated reviews / review requests
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <BreakdownList
+            title="Weekly review requests"
+            rows={(reviewSummary?.weeklyReviewRequests ?? []).map((row) => ({
+              label: row.bucket.slice(0, 10),
+              count: row.count,
+            }))}
+            loading={loadingReview}
+            failed={reviewFailed || reviewSummary?.weeklyReviewRequests == null}
+          />
+          <BreakdownList
+            title="Monthly review requests"
+            rows={(reviewSummary?.monthlyReviewRequests ?? []).map((row) => ({
+              label: row.bucket.slice(0, 7),
+              count: row.count,
+            }))}
+            loading={loadingReview}
+            failed={reviewFailed || reviewSummary?.monthlyReviewRequests == null}
+          />
+          <BreakdownList
+            title="Weekly estimated reviews"
+            rows={(reviewSummary?.weeklyEstimatedReviews ?? []).map((row) => ({
+              label: row.bucket.slice(0, 10),
+              count: row.count,
+            }))}
+            loading={loadingReview}
+            failed={reviewFailed || reviewSummary?.weeklyEstimatedReviews == null}
+          />
+          <BreakdownList
+            title="Monthly estimated reviews"
+            rows={(reviewSummary?.monthlyEstimatedReviews ?? []).map(
+              (row) => ({
+                label: row.bucket.slice(0, 7),
+                count: row.count,
+              }),
+            )}
+            loading={loadingReview}
+            failed={
+              reviewFailed || reviewSummary?.monthlyEstimatedReviews == null
+            }
+          />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
