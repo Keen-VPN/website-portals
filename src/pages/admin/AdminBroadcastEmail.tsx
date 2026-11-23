@@ -155,7 +155,7 @@ function LogoThumb({ url }: { url: string }) {
 }
 
 export default function AdminBroadcastEmail() {
-  const { admin, can } = useAdminAuth();
+  const { can } = useAdminAuth();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const canBroadcast = can("emails.broadcast");
@@ -696,7 +696,7 @@ export default function AdminBroadcastEmail() {
     }
     toast({
       title: "Preview sent",
-      description: `Check ${admin?.email ?? "your inbox"}.`,
+      description: "Check i@vpnkeen.com.",
     });
   };
 
