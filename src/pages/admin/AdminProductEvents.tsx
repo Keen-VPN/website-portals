@@ -266,9 +266,87 @@ export default function AdminProductEvents() {
         <div>
           <h3 className="text-lg font-semibold">In-app review prompts</h3>
           <p className="text-sm text-muted-foreground">
-            Users who connected on 3+ days with 3+ successful sessions and saw
-            the review prompt.
+            Shown after 30 minutes on VPN when the app has been installed for 7
+            days, the user connected on 3 different days, total VPN time is at
+            least 12 hours, and there was no connection failure in the last 48
+            hours.
           </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Review requests</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {reviewSummary?.reviewRequests ?? (loadingReview ? "…" : 0)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">All time</p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Estimated reviews</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {reviewSummary?.estimatedReviews ?? (loadingReview ? "…" : 0)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Users who continued toward the store prompt
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Confirmed reviews</p>
+            <p className="mt-1 text-3xl font-semibold">Unavailable</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              The stores do not tell the app when a review is submitted
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">
+              Estimated conversion
+            </p>
+            <p className="mt-1 text-3xl font-semibold">
+              {loadingReview
+                ? "…"
+                : formatPercent(reviewSummary?.estimatedConversionRate)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Estimated reviews / review requests
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <BreakdownList
+            title="Weekly review requests"
+            rows={(reviewSummary?.weeklyReviewRequests ?? []).map((row) => ({
+              label: row.bucket.slice(0, 10),
+              count: row.count,
+            }))}
+            loading={loadingReview}
+          />
+          <BreakdownList
+            title="Monthly review requests"
+            rows={(reviewSummary?.monthlyReviewRequests ?? []).map((row) => ({
+              label: row.bucket.slice(0, 7),
+              count: row.count,
+            }))}
+            loading={loadingReview}
+          />
+          <BreakdownList
+            title="Weekly estimated reviews"
+            rows={(reviewSummary?.weeklyEstimatedReviews ?? []).map((row) => ({
+              label: row.bucket.slice(0, 10),
+              count: row.count,
+            }))}
+            loading={loadingReview}
+          />
+          <BreakdownList
+            title="Monthly estimated reviews"
+            rows={(reviewSummary?.monthlyEstimatedReviews ?? []).map(
+              (row) => ({
+                label: row.bucket.slice(0, 7),
+                count: row.count,
+              }),
+            )}
+            loading={loadingReview}
+          />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
