@@ -3511,6 +3511,11 @@ export interface AdminIpAddressClickSummary {
   topServerLocations: { label: string; count: number }[];
 }
 
+export interface AdminReviewBucket {
+  bucket: string;
+  count: number;
+}
+
 export interface AdminReviewPromptSummary {
   usersPrompted: number;
   needsImprovementSelected: number;
@@ -3525,6 +3530,16 @@ export interface AdminReviewPromptSummary {
   from: string;
   to: string;
   byPlatform: { label: string; count: number }[];
+  reviewRequests?: number;
+  estimatedReviews?: number;
+  /** Apple and Google do not confirm that a prompt became a store review. */
+  confirmedReviews?: number | null;
+  /** Estimated reviews divided by review requests. Ratio in [0, 1]. */
+  estimatedConversionRate?: number | null;
+  weeklyReviewRequests?: AdminReviewBucket[];
+  monthlyReviewRequests?: AdminReviewBucket[];
+  weeklyEstimatedReviews?: AdminReviewBucket[];
+  monthlyEstimatedReviews?: AdminReviewBucket[];
 }
 
 export interface AdminRestrictedNetworkDiagnosticSummary {
