@@ -56,6 +56,16 @@ function formatDateRange(from?: string, to?: string) {
   return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
 }
 
+function reviewMetric(
+  value: number | null | undefined,
+  loading: boolean,
+  failed: boolean,
+) {
+  if (loading) return "…";
+  if (failed || value == null) return "—";
+  return value;
+}
+
 function formatPercent(value: number | null | undefined) {
   if (value == null) return "—";
   return `${Math.round(value * 100)}%`;
@@ -85,6 +95,7 @@ export default function AdminProductEvents() {
     useState<AdminRestrictedNetworkDiagnosticSummary | null>(null);
   const [loadingIp, setLoadingIp] = useState(true);
   const [loadingReview, setLoadingReview] = useState(true);
+  const [reviewFailed, setReviewFailed] = useState(false);
   const [loadingRestricted, setLoadingRestricted] = useState(true);
   const [restrictedFailed, setRestrictedFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,12 +118,14 @@ export default function AdminProductEvents() {
 
       setLoadingIp(true);
       setLoadingReview(true);
+      setReviewFailed(false);
       setLoadingRestricted(true);
       setRestrictedFailed(false);
       setError(null);
       if (fromValue && toValue && fromValue > toValue) {
         setSummary(null);
         setReviewSummary(null);
+        setReviewFailed(true);
         setRestrictedSummary(null);
         setRestrictedFailed(false);
         setError("Start date must be before end date");
@@ -163,9 +176,11 @@ export default function AdminProductEvents() {
         if (!isCurrent()) return;
         if (reviewRes.ok && reviewRes.data) {
           setReviewSummary(reviewRes.data);
+          setReviewFailed(false);
           delete panelErrors.current.review;
         } else {
           setReviewSummary(null);
+          setReviewFailed(true);
           panelErrors.current.review =
             reviewRes.error ?? "Failed to load review prompt metrics";
         }
@@ -277,14 +292,18 @@ export default function AdminProductEvents() {
           <div className="rounded-lg border border-border p-4">
             <p className="text-sm text-muted-foreground">Review requests</p>
             <p className="mt-1 text-3xl font-semibold">
-              {reviewSummary?.reviewRequests ?? (loadingReview ? "…" : 0)}
+              {reviewMetric(reviewSummary?.reviewRequests, loadingReview, reviewFailed)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">All time</p>
           </div>
           <div className="rounded-lg border border-border p-4">
             <p className="text-sm text-muted-foreground">Estimated reviews</p>
             <p className="mt-1 text-3xl font-semibold">
-              {reviewSummary?.estimatedReviews ?? (loadingReview ? "…" : 0)}
+              {reviewMetric(
+                reviewSummary?.estimatedReviews,
+                loadingReview,
+                reviewFailed,
+              )}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Users who continued toward the store prompt
@@ -304,7 +323,9 @@ export default function AdminProductEvents() {
             <p className="mt-1 text-3xl font-semibold">
               {loadingReview
                 ? "…"
-                : formatPercent(reviewSummary?.estimatedConversionRate)}
+                : reviewFailed
+                  ? "—"
+                  : formatPercent(reviewSummary?.estimatedConversionRate)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Estimated reviews / review requests
@@ -320,6 +341,7 @@ export default function AdminProductEvents() {
               count: row.count,
             }))}
             loading={loadingReview}
+            failed={reviewFailed || reviewSummary?.weeklyReviewRequests == null}
           />
           <BreakdownList
             title="Monthly review requests"
@@ -328,6 +350,7 @@ export default function AdminProductEvents() {
               count: row.count,
             }))}
             loading={loadingReview}
+            failed={reviewFailed || reviewSummary?.monthlyReviewRequests == null}
           />
           <BreakdownList
             title="Weekly estimated reviews"
@@ -336,6 +359,7 @@ export default function AdminProductEvents() {
               count: row.count,
             }))}
             loading={loadingReview}
+            failed={reviewFailed || reviewSummary?.weeklyEstimatedReviews == null}
           />
           <BreakdownList
             title="Monthly estimated reviews"
@@ -346,6 +370,9 @@ export default function AdminProductEvents() {
               }),
             )}
             loading={loadingReview}
+            failed={
+              reviewFailed || reviewSummary?.monthlyEstimatedReviews == null
+            }
           />
         </div>
 
