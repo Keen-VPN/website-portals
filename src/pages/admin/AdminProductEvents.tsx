@@ -71,6 +71,85 @@ function formatPercent(value: number | null | undefined) {
   return `${Math.round(value * 100)}%`;
 }
 
+/** Backend reviewConversionRate is already 0–100. */
+function formatConversionPercent(value: number | null | undefined) {
+  if (value == null) return "—";
+  return `${Math.round(value)}%`;
+}
+
+function formatTrendPeriod(iso: string, granularity: "week" | "month") {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  if (granularity === "month") {
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  }
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function TrendTable({
+  title,
+  rows,
+  loading,
+  failed = false,
+  granularity,
+}: {
+  title: string;
+  rows: { period: string; reviewRequests: number; estimatedReviews: number }[];
+  loading: boolean;
+  failed?: boolean;
+  granularity: "week" | "month";
+}) {
+  return (
+    <div className="rounded-lg border border-border p-4">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-muted-foreground">
+              <th className="pb-2 font-medium">Period</th>
+              <th className="pb-2 text-right font-medium">Requests</th>
+              <th className="pb-2 text-right font-medium">Est. reviews</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.period} className="border-t border-border/60">
+                <td className="py-2">
+                  {formatTrendPeriod(row.period, granularity)}
+                </td>
+                <td className="py-2 text-right font-mono tabular-nums">
+                  {row.reviewRequests}
+                </td>
+                <td className="py-2 text-right font-mono tabular-nums">
+                  {row.estimatedReviews}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {loading && rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : null}
+        {!loading && failed && rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">—</p>
+        ) : null}
+        {!loading && !failed && rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No events recorded.</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function dateInputToIsoStart(value: string) {
   if (!value) return undefined;
   return new Date(`${value}T00:00:00.000Z`).toISOString();
@@ -290,110 +369,104 @@ export default function AdminProductEvents() {
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-lg border border-border p-4">
-            <p className="text-sm text-muted-foreground">Review requests</p>
-            <p className="mt-1 text-3xl font-semibold">
-              {reviewMetric(reviewSummary?.reviewRequests, loadingReview, reviewFailed)}
+            <p className="text-sm text-muted-foreground">
+              All-time review requests
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">All time</p>
-          </div>
-          <div className="rounded-lg border border-border p-4">
-            <p className="text-sm text-muted-foreground">Estimated reviews</p>
             <p className="mt-1 text-3xl font-semibold">
               {reviewMetric(
-                reviewSummary?.estimatedReviews,
+                reviewSummary?.allTime?.reviewRequests,
+                loadingReview,
+                reviewFailed,
+              )}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">
+              All-time est. reviews
+            </p>
+            <p className="mt-1 text-3xl font-semibold">
+              {reviewMetric(
+                reviewSummary?.allTime?.estimatedReviewsReceived,
                 loadingReview,
                 reviewFailed,
               )}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Users who continued toward the store prompt
+              Confirmed:{" "}
+              {reviewMetric(
+                reviewSummary?.allTime?.confirmedReviewsReceived,
+                loadingReview,
+                reviewFailed,
+              )}
             </p>
           </div>
           <div className="rounded-lg border border-border p-4">
-            <p className="text-sm text-muted-foreground">Confirmed reviews</p>
-            <p className="mt-1 text-3xl font-semibold">Unavailable</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              The stores do not tell the app when a review is submitted
-            </p>
-          </div>
-          <div className="rounded-lg border border-border p-4">
-            <p className="text-sm text-muted-foreground">
-              Estimated conversion
-            </p>
+            <p className="text-sm text-muted-foreground">All-time conversion</p>
             <p className="mt-1 text-3xl font-semibold">
               {loadingReview
                 ? "…"
                 : reviewFailed
                   ? "—"
-                  : formatPercent(reviewSummary?.estimatedConversionRate)}
+                  : formatConversionPercent(
+                      reviewSummary?.allTime?.reviewConversionRate,
+                    )}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Estimated reviews / review requests
+              Est. reviews ÷ requests × 100
             </p>
           </div>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <BreakdownList
-            title="Weekly review requests"
-            rows={(reviewSummary?.weeklyReviewRequests ?? []).map((row) => ({
-              label: row.bucket.slice(0, 10),
-              count: row.count,
-            }))}
-            loading={loadingReview}
-            failed={reviewFailed || reviewSummary?.weeklyReviewRequests == null}
-          />
-          <BreakdownList
-            title="Monthly review requests"
-            rows={(reviewSummary?.monthlyReviewRequests ?? []).map((row) => ({
-              label: row.bucket.slice(0, 7),
-              count: row.count,
-            }))}
-            loading={loadingReview}
-            failed={reviewFailed || reviewSummary?.monthlyReviewRequests == null}
-          />
-          <BreakdownList
-            title="Weekly estimated reviews"
-            rows={(reviewSummary?.weeklyEstimatedReviews ?? []).map((row) => ({
-              label: row.bucket.slice(0, 10),
-              count: row.count,
-            }))}
-            loading={loadingReview}
-            failed={reviewFailed || reviewSummary?.weeklyEstimatedReviews == null}
-          />
-          <BreakdownList
-            title="Monthly estimated reviews"
-            rows={(reviewSummary?.monthlyEstimatedReviews ?? []).map(
-              (row) => ({
-                label: row.bucket.slice(0, 7),
-                count: row.count,
-              }),
-            )}
-            loading={loadingReview}
-            failed={
-              reviewFailed || reviewSummary?.monthlyEstimatedReviews == null
-            }
-          />
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Users prompted</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {reviewMetric(
+                reviewSummary?.usersPrompted,
+                loadingReview,
+                reviewFailed,
+              )}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              In selected range
+            </p>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-lg border border-border p-4">
-            <p className="text-sm text-muted-foreground">Users prompted</p>
+            <p className="text-sm text-muted-foreground">Review requests</p>
             <p className="mt-1 text-3xl font-semibold">
-              {reviewSummary?.usersPrompted ?? (loadingReview ? "…" : 0)}
+              {reviewMetric(
+                reviewSummary?.reviewRequests,
+                loadingReview,
+                reviewFailed,
+              )}
             </p>
           </div>
           <div className="rounded-lg border border-border p-4">
-            <p className="text-sm text-muted-foreground">Needs improvement</p>
+            <p className="text-sm text-muted-foreground">Est. reviews received</p>
             <p className="mt-1 text-3xl font-semibold">
-              {reviewSummary?.needsImprovementSelected ??
-                (loadingReview ? "…" : 0)}
+              {reviewMetric(
+                reviewSummary?.estimatedReviewsReceived,
+                loadingReview,
+                reviewFailed,
+              )}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Confirmed:{" "}
+              {reviewMetric(
+                reviewSummary?.confirmedReviewsReceived,
+                loadingReview,
+                reviewFailed,
+              )}
             </p>
           </div>
           <div className="rounded-lg border border-border p-4">
-            <p className="text-sm text-muted-foreground">Feedback submitted</p>
+            <p className="text-sm text-muted-foreground">Review conversion</p>
             <p className="mt-1 text-3xl font-semibold">
-              {reviewSummary?.feedbackSubmitted ?? (loadingReview ? "…" : 0)}
+              {loadingReview
+                ? "…"
+                : reviewFailed
+                  ? "—"
+                  : formatConversionPercent(reviewSummary?.reviewConversionRate)}
             </p>
           </div>
           <div className="rounded-lg border border-border p-4">
@@ -401,7 +474,48 @@ export default function AdminProductEvents() {
             <p className="mt-1 text-3xl font-semibold">
               {loadingReview
                 ? "…"
-                : formatPercent(reviewSummary?.feedbackConversionRate)}
+                : reviewFailed
+                  ? "—"
+                  : formatPercent(reviewSummary?.feedbackConversionRate)}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Needs improvement</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {reviewMetric(
+                reviewSummary?.needsImprovementSelected,
+                loadingReview,
+                reviewFailed,
+              )}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Feedback submitted</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {reviewMetric(
+                reviewSummary?.feedbackSubmitted,
+                loadingReview,
+                reviewFailed,
+              )}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Great / Later</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {reviewMetric(
+                reviewSummary?.accepted,
+                loadingReview,
+                reviewFailed,
+              )}
+              <span className="mx-2 text-muted-foreground">/</span>
+              {reviewMetric(
+                reviewSummary?.dismissed,
+                loadingReview,
+                reviewFailed,
+              )}
             </p>
           </div>
         </div>
@@ -432,18 +546,39 @@ export default function AdminProductEvents() {
                   ? "Users who tap “Needs improvement” see the in-app feedback form."
                   : `No feedback submissions after ${reviewSummary.minSampleSize}+ “Needs improvement” taps in the last ${reviewSummary.feedbackFormWindowDays ?? 90} days. Apps hide the feedback form automatically.`}
           </p>
+          <p className="mt-2 text-muted-foreground">
+            Estimated reviews come from users who accept the in-app prompt.
+            Confirmed counts use ingested App Store review events when
+            available.
+          </p>
         </div>
 
         <p className="text-xs text-muted-foreground">
-          {formatDateRange(reviewSummary?.from, reviewSummary?.to)} · Great:{" "}
-          {reviewSummary?.accepted ?? (loadingReview ? "…" : 0)} · Later:{" "}
-          {reviewSummary?.dismissed ?? (loadingReview ? "…" : 0)}
+          {formatDateRange(reviewSummary?.from, reviewSummary?.to)}
         </p>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <TrendTable
+            title="Weekly review trends"
+            rows={reviewSummary?.weekly ?? []}
+            loading={loadingReview}
+            failed={reviewFailed}
+            granularity="week"
+          />
+          <TrendTable
+            title="Monthly review trends"
+            rows={reviewSummary?.monthly ?? []}
+            loading={loadingReview}
+            failed={reviewFailed}
+            granularity="month"
+          />
+        </div>
 
         <BreakdownList
           title="Prompt events by platform"
           rows={reviewSummary?.byPlatform ?? []}
           loading={loadingReview}
+          failed={reviewFailed}
         />
       </section>
 

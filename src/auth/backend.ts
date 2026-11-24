@@ -3511,17 +3511,34 @@ export interface AdminIpAddressClickSummary {
   topServerLocations: { label: string; count: number }[];
 }
 
-export interface AdminReviewBucket {
-  bucket: string;
-  count: number;
+export interface AdminReviewPromptTrendRow {
+  period: string;
+  reviewRequests: number;
+  estimatedReviews: number;
+}
+
+export interface AdminReviewPromptAllTime {
+  reviewRequests: number;
+  estimatedReviewsReceived: number;
+  confirmedReviewsReceived: number;
+  /** Percentage 0–100: (estimated reviews / requests) × 100. */
+  reviewConversionRate: number | null;
 }
 
 export interface AdminReviewPromptSummary {
   usersPrompted: number;
+  /** Total review_prompt_shown events in the selected window. */
+  reviewRequests: number;
   needsImprovementSelected: number;
   feedbackSubmitted: number;
   accepted: number;
   dismissed: number;
+  /** Estimated reviews from review_prompt_accepted (user opted into App Store flow). */
+  estimatedReviewsReceived: number;
+  /** Confirmed App Store reviews when ingested as app_store_review_confirmed. */
+  confirmedReviewsReceived: number;
+  /** Percentage 0–100: (estimated reviews / review requests) × 100. */
+  reviewConversionRate: number | null;
   /** Ratio in [0, 1], e.g. 0.75 means 75% of "needs improvement" taps led to feedback. */
   feedbackConversionRate: number | null;
   feedbackFormEnabled: boolean;
@@ -3530,16 +3547,9 @@ export interface AdminReviewPromptSummary {
   from: string;
   to: string;
   byPlatform: { label: string; count: number }[];
-  reviewRequests?: number;
-  estimatedReviews?: number;
-  /** Apple and Google do not confirm that a prompt became a store review. */
-  confirmedReviews?: number | null;
-  /** Estimated reviews divided by review requests. Ratio in [0, 1]. */
-  estimatedConversionRate?: number | null;
-  weeklyReviewRequests?: AdminReviewBucket[];
-  monthlyReviewRequests?: AdminReviewBucket[];
-  weeklyEstimatedReviews?: AdminReviewBucket[];
-  monthlyEstimatedReviews?: AdminReviewBucket[];
+  allTime: AdminReviewPromptAllTime;
+  weekly: AdminReviewPromptTrendRow[];
+  monthly: AdminReviewPromptTrendRow[];
 }
 
 export interface AdminRestrictedNetworkDiagnosticSummary {
