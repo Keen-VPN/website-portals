@@ -4336,14 +4336,14 @@ export async function adminFetchUserEngagementProfile(
   }
 }
 
-export type AdminComplimentaryAccessGrant = {
+export interface AdminComplimentaryAccessGrant {
   userId: string;
   email: string;
   subscriptionId: string;
   action: "created" | "extended" | "already_active_paid";
   currentPeriodEnd: string | null;
   subscriptionType: string;
-};
+}
 
 export async function adminGrantComplimentaryAccess(
   userId: string,

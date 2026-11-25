@@ -395,6 +395,7 @@ export default function AdminUserProfile() {
   const activeRequest = useRef<AbortController | null>(null);
   const authEmailLoadId = useRef(0);
   const authEmailMutationId = useRef(0);
+  const complimentaryMutationId = useRef(0);
 
   const loadAuthEmail = useCallback(async (forUserId: string) => {
     const loadId = ++authEmailLoadId.current;
@@ -411,52 +412,64 @@ export default function AdminUserProfile() {
     }
   }, []);
 
-  const load = useCallback(async () => {
-    if (!userId) {
-      setError("Missing user id");
-      setLoading(false);
-      return;
-    }
+  const load = useCallback(
+    async (options?: { preserveAuthEmailDraft?: boolean }) => {
+      if (!userId) {
+        setError("Missing user id");
+        setLoading(false);
+        return;
+      }
 
-    activeRequest.current?.abort();
-    const controller = new AbortController();
-    activeRequest.current = controller;
-    authEmailLoadId.current += 1;
-    authEmailMutationId.current += 1;
-    setAuthEmail(null);
-    setPendingAuthEmail(null);
-    setAuthEmailError(null);
-    setAuthEmailMessage(null);
-    setNewAuthEmail("");
-    setAuthEmailSaving(false);
-    setAuthEmailReady(false);
+      const preserveAuthEmailDraft = options?.preserveAuthEmailDraft === true;
 
-    setLoading(true);
-    setError(null);
-    setProfile(null);
+      activeRequest.current?.abort();
+      const controller = new AbortController();
+      activeRequest.current = controller;
 
-    const res = await adminFetchUserEngagementProfile(userId, {
-      signal: controller.signal,
-    });
+      if (!preserveAuthEmailDraft) {
+        authEmailLoadId.current += 1;
+        authEmailMutationId.current += 1;
+        setAuthEmail(null);
+        setPendingAuthEmail(null);
+        setAuthEmailError(null);
+        setAuthEmailMessage(null);
+        setNewAuthEmail("");
+        setAuthEmailSaving(false);
+        setAuthEmailReady(false);
+      }
 
-    if (controller.signal.aborted || activeRequest.current !== controller) {
-      return;
-    }
-
-    if (!res.ok || !res.data) {
+      setLoading(true);
+      setError(null);
       setProfile(null);
-      setError(res.error ?? "Failed to load user profile");
+
+      const res = await adminFetchUserEngagementProfile(userId, {
+        signal: controller.signal,
+      });
+
+      if (controller.signal.aborted || activeRequest.current !== controller) {
+        return;
+      }
+
+      if (!res.ok || !res.data) {
+        setProfile(null);
+        setError(res.error ?? "Failed to load user profile");
+        setLoading(false);
+        activeRequest.current = null;
+        if (!preserveAuthEmailDraft) {
+          void loadAuthEmail(userId);
+        }
+        return;
+      }
+
+      setProfile(res.data);
       setLoading(false);
       activeRequest.current = null;
-      void loadAuthEmail(userId);
-      return;
-    }
-
-    setProfile(res.data);
-    setLoading(false);
-    activeRequest.current = null;
-    void loadAuthEmail(userId);
-  }, [loadAuthEmail, userId]);
+      if (!preserveAuthEmailDraft) {
+        void loadAuthEmail(userId);
+      }
+    },
+    [loadAuthEmail, userId],
+  );
 
   useEffect(() => {
     void load();
@@ -464,11 +477,16 @@ export default function AdminUserProfile() {
       activeRequest.current?.abort();
       authEmailLoadId.current += 1;
       authEmailMutationId.current += 1;
+      complimentaryMutationId.current += 1;
     };
   }, [load]);
 
   useEffect(() => {
     setInterviewDialogOpen(false);
+    setComplimentarySaving(false);
+    setComplimentaryMessage(null);
+    setComplimentaryError(null);
+    complimentaryMutationId.current += 1;
   }, [userId]);
 
   const user = profile?.user;
@@ -639,10 +657,15 @@ export default function AdminUserProfile() {
                 disabled={complimentarySaving || loading}
                 onClick={() => {
                   void (async () => {
+                    const forUserId = userId;
+                    const mutationId = ++complimentaryMutationId.current;
                     setComplimentarySaving(true);
                     setComplimentaryError(null);
                     setComplimentaryMessage(null);
-                    const res = await adminGrantComplimentaryAccess(userId);
+                    const res = await adminGrantComplimentaryAccess(forUserId);
+                    if (mutationId !== complimentaryMutationId.current) {
+                      return;
+                    }
                     setComplimentarySaving(false);
                     if (!res.ok || !res.data) {
                       setComplimentaryError(
@@ -661,12 +684,18 @@ export default function AdminUserProfile() {
                       setComplimentaryMessage(
                         `Granted complimentary premium through ${end}.`,
                       );
-                    } else {
+                    } else if (res.data.action === "extended") {
                       setComplimentaryMessage(
                         `Extended complimentary premium through ${end}.`,
                       );
+                    } else {
+                      setComplimentaryError("Unexpected response from server");
+                      return;
                     }
-                    void load();
+                    if (forUserId !== userId) {
+                      return;
+                    }
+                    void load({ preserveAuthEmailDraft: true });
                   })();
                 }}
               >
