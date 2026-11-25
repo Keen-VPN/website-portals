@@ -19,6 +19,15 @@ import { formatDuration } from "@/lib/format-duration";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -373,6 +382,8 @@ export default function AdminUserProfile() {
   const canGrantComplimentary = can("subscriptions.write");
   const [interviewDialogOpen, setInterviewDialogOpen] = useState(false);
   const [complimentarySaving, setComplimentarySaving] = useState(false);
+  const [complimentaryConfirmOpen, setComplimentaryConfirmOpen] =
+    useState(false);
   const [complimentaryMessage, setComplimentaryMessage] = useState<
     string | null
   >(null);
@@ -413,7 +424,11 @@ export default function AdminUserProfile() {
   }, []);
 
   const load = useCallback(
-    async (options?: { preserveAuthEmailDraft?: boolean }) => {
+    async (options?: {
+      preserveAuthEmailDraft?: boolean;
+      /** Keep current profile mounted (e.g. open interview dialog draft). */
+      soft?: boolean;
+    }) => {
       if (!userId) {
         setError("Missing user id");
         setLoading(false);
@@ -421,6 +436,7 @@ export default function AdminUserProfile() {
       }
 
       const preserveAuthEmailDraft = options?.preserveAuthEmailDraft === true;
+      const soft = options?.soft === true;
 
       activeRequest.current?.abort();
       const controller = new AbortController();
@@ -438,9 +454,11 @@ export default function AdminUserProfile() {
         setAuthEmailReady(false);
       }
 
-      setLoading(true);
+      if (!soft) {
+        setLoading(true);
+        setProfile(null);
+      }
       setError(null);
-      setProfile(null);
 
       const res = await adminFetchUserEngagementProfile(userId, {
         signal: controller.signal,
@@ -451,8 +469,10 @@ export default function AdminUserProfile() {
       }
 
       if (!res.ok || !res.data) {
-        setProfile(null);
-        setError(res.error ?? "Failed to load user profile");
+        if (!soft) {
+          setProfile(null);
+          setError(res.error ?? "Failed to load user profile");
+        }
         setLoading(false);
         activeRequest.current = null;
         if (!preserveAuthEmailDraft) {
@@ -484,6 +504,7 @@ export default function AdminUserProfile() {
   useEffect(() => {
     setInterviewDialogOpen(false);
     setComplimentarySaving(false);
+    setComplimentaryConfirmOpen(false);
     setComplimentaryMessage(null);
     setComplimentaryError(null);
     complimentaryMutationId.current += 1;
@@ -493,6 +514,56 @@ export default function AdminUserProfile() {
   const profileMatchesRoute = Boolean(
     userId && user && user.id === userId,
   );
+
+  async function confirmGrantComplimentary() {
+    if (!userId || !profileMatchesRoute) return;
+    const forUserId = userId;
+    const mutationId = ++complimentaryMutationId.current;
+    setComplimentarySaving(true);
+    setComplimentaryError(null);
+    setComplimentaryMessage(null);
+    const res = await adminGrantComplimentaryAccess(forUserId);
+    if (mutationId !== complimentaryMutationId.current) {
+      return;
+    }
+    setComplimentarySaving(false);
+    setComplimentaryConfirmOpen(false);
+    if (!res.ok || !res.data) {
+      setComplimentaryError(
+        res.error ?? "Failed to grant complimentary access",
+      );
+      return;
+    }
+    const endLabel = res.data.currentPeriodEnd
+      ? formatDateTime(res.data.currentPeriodEnd)
+      : null;
+    if (res.data.action === "already_active_paid") {
+      setComplimentaryMessage(
+        endLabel
+          ? `Already on paid access (${res.data.subscriptionType}) through ${endLabel}.`
+          : `Already on paid access (${res.data.subscriptionType}).`,
+      );
+    } else if (res.data.action === "created") {
+      setComplimentaryMessage(
+        endLabel
+          ? `Granted complimentary premium through ${endLabel}.`
+          : "Granted complimentary premium.",
+      );
+    } else if (res.data.action === "extended") {
+      setComplimentaryMessage(
+        endLabel
+          ? `Extended complimentary premium through ${endLabel}.`
+          : "Extended complimentary premium.",
+      );
+    } else {
+      setComplimentaryError("Unexpected response from server");
+      return;
+    }
+    if (forUserId !== userId) {
+      return;
+    }
+    void load({ preserveAuthEmailDraft: true, soft: true });
+  }
 
   async function handleAdminAuthEmailChange(event: React.FormEvent) {
     event.preventDefault();
@@ -649,54 +720,15 @@ export default function AdminUserProfile() {
                 </p>
               )}
             </div>
-            {canGrantComplimentary && userId ? (
+            {canGrantComplimentary && profileMatchesRoute && user ? (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 disabled={complimentarySaving || loading}
                 onClick={() => {
-                  void (async () => {
-                    const forUserId = userId;
-                    const mutationId = ++complimentaryMutationId.current;
-                    setComplimentarySaving(true);
-                    setComplimentaryError(null);
-                    setComplimentaryMessage(null);
-                    const res = await adminGrantComplimentaryAccess(forUserId);
-                    if (mutationId !== complimentaryMutationId.current) {
-                      return;
-                    }
-                    setComplimentarySaving(false);
-                    if (!res.ok || !res.data) {
-                      setComplimentaryError(
-                        res.error ?? "Failed to grant complimentary access",
-                      );
-                      return;
-                    }
-                    const end = res.data.currentPeriodEnd
-                      ? formatDateTime(res.data.currentPeriodEnd)
-                      : "no end date";
-                    if (res.data.action === "already_active_paid") {
-                      setComplimentaryMessage(
-                        `Already on paid access (${res.data.subscriptionType}) through ${end}.`,
-                      );
-                    } else if (res.data.action === "created") {
-                      setComplimentaryMessage(
-                        `Granted complimentary premium through ${end}.`,
-                      );
-                    } else if (res.data.action === "extended") {
-                      setComplimentaryMessage(
-                        `Extended complimentary premium through ${end}.`,
-                      );
-                    } else {
-                      setComplimentaryError("Unexpected response from server");
-                      return;
-                    }
-                    if (forUserId !== userId) {
-                      return;
-                    }
-                    void load({ preserveAuthEmailDraft: true });
-                  })();
+                  setComplimentaryError(null);
+                  setComplimentaryConfirmOpen(true);
                 }}
               >
                 {complimentarySaving ? "Granting…" : "Grant complimentary"}
@@ -980,9 +1012,41 @@ export default function AdminUserProfile() {
           defaultEmail={user.email}
           open={interviewDialogOpen}
           onOpenChange={setInterviewDialogOpen}
-          onSent={() => void load()}
+          onSent={() => void load({ soft: true, preserveAuthEmailDraft: true })}
         />
       ) : null}
+
+      <AlertDialog
+        open={complimentaryConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open && !complimentarySaving) {
+            setComplimentaryConfirmOpen(false);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Grant complimentary premium?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {user
+                ? `This gives ${user.email} premium VPN access for 365 days without payment. If they already have paid or linked premium, nothing will change.`
+                : "This gives the user premium VPN access for 365 days without payment."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={complimentarySaving}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              disabled={complimentarySaving || !profileMatchesRoute}
+              onClick={() => void confirmGrantComplimentary()}
+            >
+              {complimentarySaving ? "Granting…" : "Confirm grant"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
