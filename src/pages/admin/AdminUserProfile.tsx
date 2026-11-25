@@ -539,9 +539,13 @@ export default function AdminUserProfile() {
     }
     if (!res.ok || !res.data) {
       setComplimentarySaving(false);
+      setComplimentaryConfirmOpen(false);
       setComplimentaryError(
         res.error ?? "Failed to grant complimentary access",
       );
+      requestAnimationFrame(() => {
+        grantButtonRef.current?.focus();
+      });
       return;
     }
     setComplimentaryConfirmOpen(false);
@@ -568,7 +572,11 @@ export default function AdminUserProfile() {
       );
     } else {
       setComplimentarySaving(false);
+      setComplimentaryConfirmOpen(false);
       setComplimentaryError("Unexpected response from server");
+      requestAnimationFrame(() => {
+        grantButtonRef.current?.focus();
+      });
       return;
     }
     if (forUserId === userId) {
