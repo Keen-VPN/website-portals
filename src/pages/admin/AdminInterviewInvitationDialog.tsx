@@ -192,7 +192,13 @@ export function AdminInterviewInvitationDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={handleDialogOpenChange}
+      // Non-modal so other profile actions (e.g. grant complimentary) stay
+      // usable while a draft is open; soft refresh keeps this dialog mounted.
+      modal={false}
+    >
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Request interview</DialogTitle>
