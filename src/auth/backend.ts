@@ -4336,6 +4336,58 @@ export async function adminFetchUserEngagementProfile(
   }
 }
 
+export interface AdminComplimentaryAccessGrant {
+  userId: string;
+  email: string;
+  subscriptionId: string;
+  action: "created" | "extended" | "already_active_paid";
+  currentPeriodEnd: string | null;
+  subscriptionType: string;
+}
+
+export async function adminGrantComplimentaryAccess(
+  userId: string,
+  params?: { days?: number },
+): Promise<{
+  ok: boolean;
+  data?: AdminComplimentaryAccessGrant;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/complimentary-access`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          params?.days != null ? { days: params.days } : {},
+        ),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to grant complimentary access",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminComplimentaryAccessGrant };
+    if (!record.data) {
+      return { ok: false, error: "Invalid response from server" };
+    }
+    return { ok: true, data: record.data };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
 export async function adminFetchUserEmailPreview(
   userId: string,
   category: string,

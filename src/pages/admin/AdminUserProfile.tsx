@@ -4,6 +4,7 @@ import {
   adminFetchUserEngagementProfile,
   adminFetchUserEmailPreview,
   adminGetUserAuthEmail,
+  adminGrantComplimentaryAccess,
   adminRequestUserAuthEmailChange,
   adminResendUserAuthEmailChange,
   adminCancelUserAuthEmailChange,
@@ -369,7 +370,15 @@ export default function AdminUserProfile() {
   const { can } = useAdminAuth();
   const canWriteAuthEmail = can("users.write");
   const canRequestInterview = can("research.write");
+  const canGrantComplimentary = can("subscriptions.write");
   const [interviewDialogOpen, setInterviewDialogOpen] = useState(false);
+  const [complimentarySaving, setComplimentarySaving] = useState(false);
+  const [complimentaryMessage, setComplimentaryMessage] = useState<
+    string | null
+  >(null);
+  const [complimentaryError, setComplimentaryError] = useState<string | null>(
+    null,
+  );
   const [profile, setProfile] = useState<AdminUserEngagementProfile | null>(
     null,
   );
@@ -386,6 +395,7 @@ export default function AdminUserProfile() {
   const activeRequest = useRef<AbortController | null>(null);
   const authEmailLoadId = useRef(0);
   const authEmailMutationId = useRef(0);
+  const complimentaryMutationId = useRef(0);
 
   const loadAuthEmail = useCallback(async (forUserId: string) => {
     const loadId = ++authEmailLoadId.current;
@@ -402,52 +412,64 @@ export default function AdminUserProfile() {
     }
   }, []);
 
-  const load = useCallback(async () => {
-    if (!userId) {
-      setError("Missing user id");
-      setLoading(false);
-      return;
-    }
+  const load = useCallback(
+    async (options?: { preserveAuthEmailDraft?: boolean }) => {
+      if (!userId) {
+        setError("Missing user id");
+        setLoading(false);
+        return;
+      }
 
-    activeRequest.current?.abort();
-    const controller = new AbortController();
-    activeRequest.current = controller;
-    authEmailLoadId.current += 1;
-    authEmailMutationId.current += 1;
-    setAuthEmail(null);
-    setPendingAuthEmail(null);
-    setAuthEmailError(null);
-    setAuthEmailMessage(null);
-    setNewAuthEmail("");
-    setAuthEmailSaving(false);
-    setAuthEmailReady(false);
+      const preserveAuthEmailDraft = options?.preserveAuthEmailDraft === true;
 
-    setLoading(true);
-    setError(null);
-    setProfile(null);
+      activeRequest.current?.abort();
+      const controller = new AbortController();
+      activeRequest.current = controller;
 
-    const res = await adminFetchUserEngagementProfile(userId, {
-      signal: controller.signal,
-    });
+      if (!preserveAuthEmailDraft) {
+        authEmailLoadId.current += 1;
+        authEmailMutationId.current += 1;
+        setAuthEmail(null);
+        setPendingAuthEmail(null);
+        setAuthEmailError(null);
+        setAuthEmailMessage(null);
+        setNewAuthEmail("");
+        setAuthEmailSaving(false);
+        setAuthEmailReady(false);
+      }
 
-    if (controller.signal.aborted || activeRequest.current !== controller) {
-      return;
-    }
-
-    if (!res.ok || !res.data) {
+      setLoading(true);
+      setError(null);
       setProfile(null);
-      setError(res.error ?? "Failed to load user profile");
+
+      const res = await adminFetchUserEngagementProfile(userId, {
+        signal: controller.signal,
+      });
+
+      if (controller.signal.aborted || activeRequest.current !== controller) {
+        return;
+      }
+
+      if (!res.ok || !res.data) {
+        setProfile(null);
+        setError(res.error ?? "Failed to load user profile");
+        setLoading(false);
+        activeRequest.current = null;
+        if (!preserveAuthEmailDraft) {
+          void loadAuthEmail(userId);
+        }
+        return;
+      }
+
+      setProfile(res.data);
       setLoading(false);
       activeRequest.current = null;
-      void loadAuthEmail(userId);
-      return;
-    }
-
-    setProfile(res.data);
-    setLoading(false);
-    activeRequest.current = null;
-    void loadAuthEmail(userId);
-  }, [loadAuthEmail, userId]);
+      if (!preserveAuthEmailDraft) {
+        void loadAuthEmail(userId);
+      }
+    },
+    [loadAuthEmail, userId],
+  );
 
   useEffect(() => {
     void load();
@@ -455,11 +477,16 @@ export default function AdminUserProfile() {
       activeRequest.current?.abort();
       authEmailLoadId.current += 1;
       authEmailMutationId.current += 1;
+      complimentaryMutationId.current += 1;
     };
   }, [load]);
 
   useEffect(() => {
     setInterviewDialogOpen(false);
+    setComplimentarySaving(false);
+    setComplimentaryMessage(null);
+    setComplimentaryError(null);
+    complimentaryMutationId.current += 1;
   }, [userId]);
 
   const user = profile?.user;
@@ -600,25 +627,90 @@ export default function AdminUserProfile() {
           </p>
         </div>
         <div className="rounded-lg border border-border p-4 md:col-span-2">
-          <p className="text-sm text-muted-foreground">Subscription</p>
-          {profile?.subscription ? (
-            <p className="mt-1 text-sm">
-              {profile.subscription.status}
-              {profile.subscription.planName
-                ? ` · ${profile.subscription.planName}`
-                : ""}
-              {profile.subscription.billingPeriod
-                ? ` · ${profile.subscription.billingPeriod}`
-                : ""}
-              {profile.subscription.cancelAtPeriodEnd
-                ? " · auto-renew off"
-                : ""}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm text-muted-foreground">Subscription</p>
+              {profile?.subscription ? (
+                <p className="mt-1 text-sm">
+                  {profile.subscription.status}
+                  {profile.subscription.planName
+                    ? ` · ${profile.subscription.planName}`
+                    : ""}
+                  {profile.subscription.billingPeriod
+                    ? ` · ${profile.subscription.billingPeriod}`
+                    : ""}
+                  {profile.subscription.cancelAtPeriodEnd
+                    ? " · auto-renew off"
+                    : ""}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {loading ? "…" : "No subscription on file"}
+                </p>
+              )}
+            </div>
+            {canGrantComplimentary && userId ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={complimentarySaving || loading}
+                onClick={() => {
+                  void (async () => {
+                    const forUserId = userId;
+                    const mutationId = ++complimentaryMutationId.current;
+                    setComplimentarySaving(true);
+                    setComplimentaryError(null);
+                    setComplimentaryMessage(null);
+                    const res = await adminGrantComplimentaryAccess(forUserId);
+                    if (mutationId !== complimentaryMutationId.current) {
+                      return;
+                    }
+                    setComplimentarySaving(false);
+                    if (!res.ok || !res.data) {
+                      setComplimentaryError(
+                        res.error ?? "Failed to grant complimentary access",
+                      );
+                      return;
+                    }
+                    const end = res.data.currentPeriodEnd
+                      ? formatDateTime(res.data.currentPeriodEnd)
+                      : "no end date";
+                    if (res.data.action === "already_active_paid") {
+                      setComplimentaryMessage(
+                        `Already on paid access (${res.data.subscriptionType}) through ${end}.`,
+                      );
+                    } else if (res.data.action === "created") {
+                      setComplimentaryMessage(
+                        `Granted complimentary premium through ${end}.`,
+                      );
+                    } else if (res.data.action === "extended") {
+                      setComplimentaryMessage(
+                        `Extended complimentary premium through ${end}.`,
+                      );
+                    } else {
+                      setComplimentaryError("Unexpected response from server");
+                      return;
+                    }
+                    if (forUserId !== userId) {
+                      return;
+                    }
+                    void load({ preserveAuthEmailDraft: true });
+                  })();
+                }}
+              >
+                {complimentarySaving ? "Granting…" : "Grant complimentary"}
+              </Button>
+            ) : null}
+          </div>
+          {complimentaryError ? (
+            <p className="mt-2 text-sm text-destructive">{complimentaryError}</p>
+          ) : null}
+          {complimentaryMessage ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {complimentaryMessage}
             </p>
-          ) : (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {loading ? "…" : "No subscription on file"}
-            </p>
-          )}
+          ) : null}
         </div>
       </div>
 
