@@ -4,6 +4,7 @@ import {
   adminFetchUserEngagementProfile,
   adminFetchUserEmailPreview,
   adminGetUserAuthEmail,
+  adminGrantComplimentaryAccess,
   adminRequestUserAuthEmailChange,
   adminResendUserAuthEmailChange,
   adminCancelUserAuthEmailChange,
@@ -369,7 +370,15 @@ export default function AdminUserProfile() {
   const { can } = useAdminAuth();
   const canWriteAuthEmail = can("users.write");
   const canRequestInterview = can("research.write");
+  const canGrantComplimentary = can("subscriptions.write");
   const [interviewDialogOpen, setInterviewDialogOpen] = useState(false);
+  const [complimentarySaving, setComplimentarySaving] = useState(false);
+  const [complimentaryMessage, setComplimentaryMessage] = useState<
+    string | null
+  >(null);
+  const [complimentaryError, setComplimentaryError] = useState<string | null>(
+    null,
+  );
   const [profile, setProfile] = useState<AdminUserEngagementProfile | null>(
     null,
   );
@@ -600,25 +609,79 @@ export default function AdminUserProfile() {
           </p>
         </div>
         <div className="rounded-lg border border-border p-4 md:col-span-2">
-          <p className="text-sm text-muted-foreground">Subscription</p>
-          {profile?.subscription ? (
-            <p className="mt-1 text-sm">
-              {profile.subscription.status}
-              {profile.subscription.planName
-                ? ` · ${profile.subscription.planName}`
-                : ""}
-              {profile.subscription.billingPeriod
-                ? ` · ${profile.subscription.billingPeriod}`
-                : ""}
-              {profile.subscription.cancelAtPeriodEnd
-                ? " · auto-renew off"
-                : ""}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm text-muted-foreground">Subscription</p>
+              {profile?.subscription ? (
+                <p className="mt-1 text-sm">
+                  {profile.subscription.status}
+                  {profile.subscription.planName
+                    ? ` · ${profile.subscription.planName}`
+                    : ""}
+                  {profile.subscription.billingPeriod
+                    ? ` · ${profile.subscription.billingPeriod}`
+                    : ""}
+                  {profile.subscription.cancelAtPeriodEnd
+                    ? " · auto-renew off"
+                    : ""}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {loading ? "…" : "No subscription on file"}
+                </p>
+              )}
+            </div>
+            {canGrantComplimentary && userId ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={complimentarySaving || loading}
+                onClick={() => {
+                  void (async () => {
+                    setComplimentarySaving(true);
+                    setComplimentaryError(null);
+                    setComplimentaryMessage(null);
+                    const res = await adminGrantComplimentaryAccess(userId);
+                    setComplimentarySaving(false);
+                    if (!res.ok || !res.data) {
+                      setComplimentaryError(
+                        res.error ?? "Failed to grant complimentary access",
+                      );
+                      return;
+                    }
+                    const end = res.data.currentPeriodEnd
+                      ? formatDateTime(res.data.currentPeriodEnd)
+                      : "no end date";
+                    if (res.data.action === "already_active_paid") {
+                      setComplimentaryMessage(
+                        `Already on paid access (${res.data.subscriptionType}) through ${end}.`,
+                      );
+                    } else if (res.data.action === "created") {
+                      setComplimentaryMessage(
+                        `Granted complimentary premium through ${end}.`,
+                      );
+                    } else {
+                      setComplimentaryMessage(
+                        `Extended complimentary premium through ${end}.`,
+                      );
+                    }
+                    void load();
+                  })();
+                }}
+              >
+                {complimentarySaving ? "Granting…" : "Grant complimentary"}
+              </Button>
+            ) : null}
+          </div>
+          {complimentaryError ? (
+            <p className="mt-2 text-sm text-destructive">{complimentaryError}</p>
+          ) : null}
+          {complimentaryMessage ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {complimentaryMessage}
             </p>
-          ) : (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {loading ? "…" : "No subscription on file"}
-            </p>
-          )}
+          ) : null}
         </div>
       </div>
 
