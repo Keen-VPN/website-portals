@@ -39,6 +39,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AdminInterviewInvitationDialog } from "./AdminInterviewInvitationDialog";
 
+/** Matches backend DEFAULT_COMPLIMENTARY_DAYS; sent explicitly on grant. */
+const COMPLIMENTARY_GRANT_DAYS = 365;
+
 function formatDateTime(iso: string | null) {
   if (!iso) return "—";
   const date = new Date(iso);
@@ -407,6 +410,7 @@ export default function AdminUserProfile() {
   const authEmailLoadId = useRef(0);
   const authEmailMutationId = useRef(0);
   const complimentaryMutationId = useRef(0);
+  const grantButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const loadAuthEmail = useCallback(async (forUserId: string) => {
     const loadId = ++authEmailLoadId.current;
@@ -428,11 +432,11 @@ export default function AdminUserProfile() {
       preserveAuthEmailDraft?: boolean;
       /** Keep current profile mounted (e.g. open interview dialog draft). */
       soft?: boolean;
-    }) => {
+    }): Promise<boolean> => {
       if (!userId) {
         setError("Missing user id");
         setLoading(false);
-        return;
+        return false;
       }
 
       const preserveAuthEmailDraft = options?.preserveAuthEmailDraft === true;
@@ -465,20 +469,24 @@ export default function AdminUserProfile() {
       });
 
       if (controller.signal.aborted || activeRequest.current !== controller) {
-        return;
+        return false;
       }
 
       if (!res.ok || !res.data) {
         if (!soft) {
           setProfile(null);
-          setError(res.error ?? "Failed to load user profile");
         }
+        setError(
+          soft
+            ? `Profile refresh failed: ${res.error ?? "unknown error"}. Showing last loaded data.`
+            : (res.error ?? "Failed to load user profile"),
+        );
         setLoading(false);
         activeRequest.current = null;
         if (!preserveAuthEmailDraft) {
           void loadAuthEmail(userId);
         }
-        return;
+        return false;
       }
 
       setProfile(res.data);
@@ -487,6 +495,7 @@ export default function AdminUserProfile() {
       if (!preserveAuthEmailDraft) {
         void loadAuthEmail(userId);
       }
+      return true;
     },
     [loadAuthEmail, userId],
   );
@@ -522,18 +531,20 @@ export default function AdminUserProfile() {
     setComplimentarySaving(true);
     setComplimentaryError(null);
     setComplimentaryMessage(null);
-    const res = await adminGrantComplimentaryAccess(forUserId);
+    const res = await adminGrantComplimentaryAccess(forUserId, {
+      days: COMPLIMENTARY_GRANT_DAYS,
+    });
     if (mutationId !== complimentaryMutationId.current) {
       return;
     }
-    setComplimentarySaving(false);
-    setComplimentaryConfirmOpen(false);
     if (!res.ok || !res.data) {
+      setComplimentarySaving(false);
       setComplimentaryError(
         res.error ?? "Failed to grant complimentary access",
       );
       return;
     }
+    setComplimentaryConfirmOpen(false);
     const endLabel = res.data.currentPeriodEnd
       ? formatDateTime(res.data.currentPeriodEnd)
       : null;
@@ -546,8 +557,8 @@ export default function AdminUserProfile() {
     } else if (res.data.action === "created") {
       setComplimentaryMessage(
         endLabel
-          ? `Granted complimentary premium through ${endLabel}.`
-          : "Granted complimentary premium.",
+          ? `Granted complimentary premium for ${COMPLIMENTARY_GRANT_DAYS} days (through ${endLabel}).`
+          : `Granted complimentary premium for ${COMPLIMENTARY_GRANT_DAYS} days.`,
       );
     } else if (res.data.action === "extended") {
       setComplimentaryMessage(
@@ -556,13 +567,20 @@ export default function AdminUserProfile() {
           : "Extended complimentary premium.",
       );
     } else {
+      setComplimentarySaving(false);
       setComplimentaryError("Unexpected response from server");
       return;
     }
-    if (forUserId !== userId) {
+    if (forUserId === userId) {
+      await load({ preserveAuthEmailDraft: true, soft: true });
+    }
+    if (mutationId !== complimentaryMutationId.current) {
       return;
     }
-    void load({ preserveAuthEmailDraft: true, soft: true });
+    setComplimentarySaving(false);
+    queue.requestAnimationFrame(() => {
+      grantButtonRef.current?.focus();
+    });
   }
 
   async function handleAdminAuthEmailChange(event: React.FormEvent) {
@@ -722,6 +740,7 @@ export default function AdminUserProfile() {
             </div>
             {canGrantComplimentary && profileMatchesRoute && user ? (
               <Button
+                ref={grantButtonRef}
                 type="button"
                 variant="outline"
                 size="sm"
@@ -1019,8 +1038,12 @@ export default function AdminUserProfile() {
       <AlertDialog
         open={complimentaryConfirmOpen}
         onOpenChange={(open) => {
-          if (!open && !complimentarySaving) {
-            setComplimentaryConfirmOpen(false);
+          if (complimentarySaving) return;
+          setComplimentaryConfirmOpen(open);
+          if (!open) {
+            requestAnimationFrame(() => {
+              grantButtonRef.current?.focus();
+            });
           }
         }}
       >
@@ -1029,8 +1052,8 @@ export default function AdminUserProfile() {
             <AlertDialogTitle>Grant complimentary premium?</AlertDialogTitle>
             <AlertDialogDescription>
               {user
-                ? `This gives ${user.email} premium VPN access for 365 days without payment. If they already have paid or linked premium, nothing will change.`
-                : "This gives the user premium VPN access for 365 days without payment."}
+                ? `This gives ${user.email} premium VPN access for ${COMPLIMENTARY_GRANT_DAYS} days without payment. If they already have paid or linked premium, nothing will change. If they already have complimentary access, this extends it through at least that window.`
+                : `This gives the user premium VPN access for ${COMPLIMENTARY_GRANT_DAYS} days without payment.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
